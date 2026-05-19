@@ -77,10 +77,6 @@ struct AuthenticationStartScreen: View {
                         .font(.compound.headingLGBold)
                         .foregroundColor(.compound.textPrimary)
                         .multilineTextAlignment(.center)
-                    Text(UntranslatedL10n.screenOnboardingWelcomeMessageIos(InfoPlistReader.main.productionAppName))
-                        .font(.compound.bodyLG)
-                        .foregroundColor(.compound.textPrimary)
-                        .multilineTextAlignment(.center)
                 }
                 .padding()
                 .fixedSize(horizontal: false, vertical: true)

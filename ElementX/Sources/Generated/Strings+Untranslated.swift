@@ -18,6 +18,12 @@ internal enum UntranslatedL10n {
   internal static var cryptoHistorySharingConfirmStartChatDialogContent: String { return UntranslatedL10n.tr("Untranslated", "crypto_history_sharing_confirm_start_chat_dialog_content") }
   /// Start a chat with this new contact?
   internal static var cryptoHistorySharingConfirmStartChatDialogTitle: String { return UntranslatedL10n.tr("Untranslated", "crypto_history_sharing_confirm_start_chat_dialog_title") }
+  /// Email
+  internal static var screenLoginEmail: String { return UntranslatedL10n.tr("Untranslated", "screen_login_email") }
+  /// Incorrect email and/or password
+  internal static var screenLoginErrorInvalidCredentials: String { return UntranslatedL10n.tr("Untranslated", "screen_login_error_invalid_credentials") }
+  /// Welcome to Arcana
+  internal static var screenOnboardingWelcomeTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_onboarding_welcome_title_ios") }
   /// Clear all data currently stored on this device?
   /// Sign in again to access your account data and messages.
   internal static var softLogoutClearDataDialogContent: String { return UntranslatedL10n.tr("Untranslated", "soft_logout_clear_data_dialog_content") }
@@ -39,16 +45,6 @@ internal enum UntranslatedL10n {
   }
   /// Sign in
   internal static var softLogoutSigninTitle: String { return UntranslatedL10n.tr("Untranslated", "soft_logout_signin_title") }
-  /// Email
-  internal static var screenLoginEmail: String { return UntranslatedL10n.tr("Untranslated", "screen_login_email") }
-  /// Incorrect email and/or password
-  internal static var screenLoginErrorInvalidCredentials: String { return UntranslatedL10n.tr("Untranslated", "screen_login_error_invalid_credentials") }
-  /// Welcome to %1$@. Supercharged for speed and simplicity.
-  internal static func screenOnboardingWelcomeMessageIos(_ p1: Any) -> String {
-    return UntranslatedL10n.tr("Untranslated", "screen_onboarding_welcome_message_ios", p1)
-  }
-  /// Welcome to Arcana
-  internal static var screenOnboardingWelcomeTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_onboarding_welcome_title_ios") }
   /// Untranslated
   internal static var untranslated: String { return UntranslatedL10n.tr("Untranslated", "untranslated") }
   /// Plural format key: "%#@VARIABLE@"

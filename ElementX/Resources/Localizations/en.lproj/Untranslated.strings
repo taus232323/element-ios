@@ -12,6 +12,5 @@
 "soft_logout_signin_title" = "Sign in";
 "screen_login_email" = "Email";
 "screen_login_error_invalid_credentials" = "Incorrect email and/or password";
-"screen_onboarding_welcome_message_ios" = "Welcome to %1$@. Supercharged for speed and simplicity.";
 "screen_onboarding_welcome_title_ios" = "Welcome to Arcana";
 "untranslated" = "Untranslated";

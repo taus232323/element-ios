@@ -43,7 +43,7 @@ struct ReleaseToGitHub: AsyncParsableCommand {
         logger.info("Successfully created GitHub release \(currentVersion) and updated CHANGES.md.")
         
         let targetFilePath = "project.yml"
-        let xcodeProjPath = "ElementX.xcodeproj"
+        let xcodeProjPath = "Arcana.xcodeproj"
 
         guard let newVersion = bumpPatchVersion(currentVersion) else {
             throw ValidationError("Invalid version format: \(currentVersion)")

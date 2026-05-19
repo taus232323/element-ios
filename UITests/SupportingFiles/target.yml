@@ -26,7 +26,7 @@ targets:
     platform: iOS
 
     dependencies:
-    - target: ElementX
+    - target: Arcana
     - package: MatrixRustSDK
     - package: AnalyticsEvents
     - package: DeviceKit
@@ -61,8 +61,8 @@ targets:
       excludes:
         - "**/__Snapshots__/**"
     - path: ../SupportingFiles
-    - path: ../../ElementX/Sources/Other/AccessibilityIdentifiers.swift
-    - path: ../../ElementX/Sources/Other/Extensions/Bundle.swift
-    - path: ../../ElementX/Sources/Other/Extensions/XCUIElement.swift
-    - path: ../../ElementX/Sources/UITests/UITestsScreenIdentifier.swift
-    - path: ../../ElementX/Sources/UITests/UITestsSignalling.swift
+    - path: ../../Arcana/Sources/Other/AccessibilityIdentifiers.swift
+    - path: ../../Arcana/Sources/Other/Extensions/Bundle.swift
+    - path: ../../Arcana/Sources/Other/Extensions/XCUIElement.swift
+    - path: ../../Arcana/Sources/UITests/UITestsScreenIdentifier.swift
+    - path: ../../Arcana/Sources/UITests/UITestsSignalling.swift

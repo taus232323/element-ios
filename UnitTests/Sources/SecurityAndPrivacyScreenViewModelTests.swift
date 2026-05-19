@@ -6,8 +6,8 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+@testable import Arcana
 import Combine
-@testable import ElementX
 import MatrixRustSDK
 import Testing
 
@@ -443,7 +443,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
     
     private func setupViewModel(joinedParentSpaces: [SpaceServiceRoom],
                                 topLevelSpaces: [SpaceServiceRoom] = [],
-                                joinRule: ElementX.JoinRule) {
+                                joinRule: Arcana.JoinRule) {
         let appSettings = AppSettings()
         appSettings.knockingEnabled = true
         roomProxy = JoinedRoomProxyMock(.init(isEncrypted: false,

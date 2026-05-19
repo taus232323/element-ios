@@ -1,14 +1,14 @@
-name: ElementX
+name: Arcana
 
 schemes:
-  ElementX:
+  Arcana:
     analyze:
       config: Debug
     archive:
       config: Release
     build:
       targets:
-        ElementX:
+        Arcana:
           - running
           - testing
           - profiling
@@ -32,13 +32,13 @@ schemes:
       config: Debug
       gatherCoverageData: true
       coverageTargets:
-        - ElementX
+        - Arcana
       testPlans:
         - path: ../../UnitTests/SupportingFiles/UnitTests.xctestplan
           defaultPlan: true
 
 targets:
-  ElementX:
+  Arcana:
     type: application
     platform: iOS
 

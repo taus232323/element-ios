@@ -5,8 +5,8 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+@testable import Arcana
 import Clocks
-@testable import ElementX
 import PushKit
 import Testing
 

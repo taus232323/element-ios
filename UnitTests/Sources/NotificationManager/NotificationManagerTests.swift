@@ -6,8 +6,8 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+@testable import Arcana
 import Combine
-@testable import ElementX
 import NotificationCenter
 import Testing
 
@@ -260,7 +260,7 @@ extension NotificationManagerTests: @MainActor NotificationManagerDelegate {
         notificationTappedDelegateCalled = true
     }
     
-    func handleInlineReply(_ service: ElementX.NotificationManagerProtocol, content: UNNotificationContent, replyText: String) async {
+    func handleInlineReply(_ service: Arcana.NotificationManagerProtocol, content: UNNotificationContent, replyText: String) async {
         handleInlineReplyDelegateCalled = true
     }
 }

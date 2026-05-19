@@ -7,7 +7,7 @@
 //
 
 import AnalyticsEvents
-@testable import ElementX
+@testable import Arcana
 import PostHog
 import Testing
 

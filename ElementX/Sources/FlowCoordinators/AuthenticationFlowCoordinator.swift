@@ -34,8 +34,6 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
         /// The screen to continue authentication with the current server.
         case serverConfirmationScreen
-        /// The screen to choose a different server.
-        case serverSelectionScreen
         /// The screen to login with a password.
         case loginScreen
         
@@ -59,11 +57,6 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
         /// The user aborted manual login.
         case cancelledServerConfirmation
-        
-        /// The user would like to enter a different server.
-        case changeServer(AuthenticationFlow)
-        /// The user is no longer selecting a server.
-        case dismissedServerSelection
         
         /// Show the screen to login with password (with the optional login hint in the `userInfo`).
         case continueWithPassword
@@ -141,9 +134,6 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             break
         case .serverConfirmationScreen:
             navigationStackCoordinator.popToRoot(animated: animated)
-        case .serverSelectionScreen:
-            navigationStackCoordinator.setSheetCoordinator(nil)
-            navigationStackCoordinator.popToRoot(animated: animated)
         case .loginScreen:
             navigationStackCoordinator.popToRoot(animated: animated)
         case .bugReportFlow:
@@ -177,14 +167,6 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             self?.showServerConfirmationScreen(authenticationFlow: .register)
         }
         stateMachine.addRoutes(event: .cancelledServerConfirmation, transitions: [.serverConfirmationScreen => .startScreen])
-        
-        stateMachine.addRoutes(event: .changeServer(.login), transitions: [.serverConfirmationScreen => .serverSelectionScreen]) { [weak self] _ in
-            self?.showServerSelectionScreen(authenticationFlow: .login)
-        }
-        stateMachine.addRoutes(event: .changeServer(.register), transitions: [.serverConfirmationScreen => .serverSelectionScreen]) { [weak self] _ in
-            self?.showServerSelectionScreen(authenticationFlow: .register)
-        }
-        stateMachine.addRoutes(event: .dismissedServerSelection, transitions: [.serverSelectionScreen => .serverConfirmationScreen])
         
         stateMachine.addRoutes(event: .continueWithPassword, transitions: [.serverConfirmationScreen => .loginScreen,
                                                                            .startScreen => .loginScreen]) { [weak self] context in
@@ -295,42 +277,12 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             switch action {
             case .continueWithPassword:
                 stateMachine.tryEvent(.continueWithPassword)
-            case .changeServer:
-                stateMachine.tryEvent(.changeServer(authenticationFlow))
             }
         }
         .store(in: &cancellables)
         
         navigationStackCoordinator.push(coordinator) { [weak self] in
             self?.stateMachine.tryEvent(.cancelledServerConfirmation)
-        }
-    }
-    
-    private func showServerSelectionScreen(authenticationFlow: AuthenticationFlow) {
-        let navigationCoordinator = NavigationStackCoordinator()
-        
-        let parameters = ServerSelectionScreenCoordinatorParameters(authenticationService: authenticationService,
-                                                                    authenticationFlow: authenticationFlow,
-                                                                    appSettings: appSettings,
-                                                                    userIndicatorController: userIndicatorController)
-        let coordinator = ServerSelectionScreenCoordinator(parameters: parameters)
-        
-        coordinator.actions
-            .sink { [weak self] action in
-                guard let self else { return }
-                
-                switch action {
-                case .updated:
-                    navigationStackCoordinator.setSheetCoordinator(nil)
-                case .dismiss:
-                    navigationStackCoordinator.setSheetCoordinator(nil)
-                }
-            }
-            .store(in: &cancellables)
-        
-        navigationCoordinator.setRootCoordinator(coordinator)
-        navigationStackCoordinator.setSheetCoordinator(navigationCoordinator) { [weak self] in
-            self?.stateMachine.tryEvent(.dismissedServerSelection)
         }
     }
     

@@ -6,7 +6,7 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-@testable import ElementX
+@testable import Arcana
 import Testing
 
 @MainActor
@@ -24,10 +24,6 @@ struct ServerConfirmationScreenViewStateTests {
         let otherLogin = ServerConfirmationScreenViewState(mode: .confirmation(LoginHomeserver.mockOIDC.address),
                                                            authenticationFlow: .login)
         #expect(otherLogin.message == "", "Other servers should not show a message.")
-        
-        let pickerLogin = ServerConfirmationScreenViewState(mode: .picker(["element.io", "matrix.org"]),
-                                                            authenticationFlow: .login)
-        #expect(pickerLogin.message == nil, "The picker mode should not show a message.")
     }
     
     @Test

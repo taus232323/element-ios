@@ -53,7 +53,7 @@ struct CI: ParsableCommand {
     
     /// Collects coverage from an xcresult bundle using xcresultparser (cobertura format).
     /// Failures are non-fatal — the output file simply won't be created.
-    static func collectCoverage(resultBundle: String, target: String = "ElementX", outputName: String) async {
+    static func collectCoverage(resultBundle: String, target: String = "Arcana", outputName: String) async {
         let projectPath = URL.projectDirectory.path
         let resultBundlePath = "\(testOutputDirectory)/\(resultBundle)"
         let outputPath = "\(testOutputDirectory)/\(outputName)"

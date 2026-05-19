@@ -13,24 +13,15 @@ struct ServerConfirmationScreen: View {
     @Bindable var context: ServerConfirmationScreenViewModel.Context
     
     private var backgroundColor: Color {
-        switch context.viewState.mode {
-        case .confirmation: .compound.bgCanvasDefault
-        case .picker: .compound.bgSubtleSecondaryLevel0
-        }
+        .compound.bgCanvasDefault
     }
     
     private var headerIcon: KeyPath<CompoundIcons, Image> {
-        switch context.viewState.mode {
-        case .confirmation: \.userProfileSolid
-        case .picker: \.homeSolid
-        }
+        \.userProfileSolid
     }
     
     private var headerIconStyle: BigIcon.Style {
-        switch context.viewState.mode {
-        case .confirmation: .defaultSolid
-        case .picker: .default
-        }
+        .defaultSolid
     }
     
     var body: some View {
@@ -69,14 +60,8 @@ struct ServerConfirmationScreen: View {
         .padding(.horizontal, 16)
     }
     
-    @ViewBuilder
     var mainContent: some View {
-        if case .picker(let accountProviders) = context.viewState.mode {
-            FakeInlinePicker(items: accountProviders,
-                             icon: \.host,
-                             selection: $context.pickerSelection)
-                .accessibilityIdentifier(A11yIdentifiers.serverConfirmationScreen.serverPicker)
-        }
+        EmptyView()
     }
     
     /// The action buttons shown at the bottom of the view.
@@ -87,45 +72,7 @@ struct ServerConfirmationScreen: View {
             }
             .buttonStyle(.compound(.primary))
             .accessibilityIdentifier(A11yIdentifiers.serverConfirmationScreen.continue)
-            
-            if case .confirmation = context.viewState.mode {
-                Button { context.send(viewAction: .changeServer) } label: {
-                    Text(L10n.screenServerConfirmationChangeServer)
-                        .font(.compound.bodyLGSemibold)
-                        .padding(14)
-                }
-                .accessibilityIdentifier(A11yIdentifiers.serverConfirmationScreen.changeServer)
-            }
         }
-    }
-}
-
-/// This is such a hack. I hate it!
-/// But… We're not in a List/Form, the compound picker doesn't
-/// support icons and this screen's design might change so 🤷‍♂️.
-private struct FakeInlinePicker: View {
-    let items: [String]
-    let icon: KeyPath<CompoundIcons, Image>
-    @Binding var selection: String?
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(items, id: \.self) { item in
-                ListRow(label: .default(title: item, icon: icon),
-                        kind: .selection(isSelected: selection == item) {
-                            selection = item
-                        })
-                        .overlay(alignment: .bottom) {
-                            if item != items.last {
-                                Divider()
-                                    .hidden()
-                                    .overlay(Color.compound._borderInteractiveSecondaryAlpha)
-                                    .padding(.leading, 54)
-                            }
-                        }
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -134,8 +81,6 @@ private struct FakeInlinePicker: View {
 struct ServerConfirmationScreen_Previews: PreviewProvider, TestablePreview {
     static let loginViewModel = makeViewModel(mode: .confirmation("matrix.org"), flow: .login)
     static let registerViewModel = makeViewModel(mode: .confirmation("matrix.org"), flow: .register)
-    static let pickerViewModel = makeViewModel(mode: .picker(["dept1.company.com", "dept2.company.com", "dept3.company.com"]), flow: .login)
-    
     static var previews: some View {
         ElementNavigationStack {
             ServerConfirmationScreen(context: loginViewModel.context)
@@ -148,12 +93,6 @@ struct ServerConfirmationScreen_Previews: PreviewProvider, TestablePreview {
                 .toolbar(.visible, for: .navigationBar)
         }
         .previewDisplayName("Register")
-        
-        ElementNavigationStack {
-            ServerConfirmationScreen(context: pickerViewModel.context)
-                .toolbar(.visible, for: .navigationBar)
-        }
-        .previewDisplayName("Picker")
     }
     
     static func makeViewModel(mode: ServerConfirmationScreenMode, flow: AuthenticationFlow) -> ServerConfirmationScreenViewModel {

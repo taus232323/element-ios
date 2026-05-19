@@ -11,15 +11,11 @@ import SwiftUI
 enum ServerConfirmationScreenViewModelAction {
     /// Continue the flow using password authentication.
     case continueWithPassword
-    /// The user would like to change to a different homeserver.
-    case changeServer
 }
 
 enum ServerConfirmationScreenMode: Equatable {
     /// The user is confirming the displayed account provider (or can enter their own).
     case confirmation(String)
-    /// The user is only allowed to pick from a list of account providers.
-    case picker([String])
 }
 
 struct ServerConfirmationScreenViewState: BindableState {
@@ -40,8 +36,6 @@ struct ServerConfirmationScreenViewState: BindableState {
             case .register:
                 L10n.screenServerConfirmationTitleRegister(accountProvider)
             }
-        case .picker:
-            L10n.screenServerConfirmationTitlePickerMode
         }
     }
     
@@ -65,7 +59,7 @@ struct ServerConfirmationScreenViewState: BindableState {
 }
 
 struct ServerConfirmationScreenBindings {
-    /// The chosen server when in `.picker` mode, otherwise `nil`.
+    /// The chosen server, when relevant.
     var pickerSelection: String?
     /// Information describing the currently displayed alert.
     var alertInfo: AlertInfo<ServerConfirmationScreenAlert>?
@@ -74,8 +68,6 @@ struct ServerConfirmationScreenBindings {
 enum ServerConfirmationScreenViewAction {
     /// The user would like to continue with the current homeserver.
     case confirm
-    /// The user would like to change to a different homeserver.
-    case changeServer
 }
 
 enum ServerConfirmationScreenAlert: Hashable {

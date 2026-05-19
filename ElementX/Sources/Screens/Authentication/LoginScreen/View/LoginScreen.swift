@@ -22,7 +22,7 @@ struct LoginScreen: View {
             VStack(spacing: 0) {
                 header
                     .padding(.top, UIConstants.titleTopPaddingToNavigationBar)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 20)
                 
                 switch context.viewState.loginMode {
                 case .password:
@@ -46,14 +46,20 @@ struct LoginScreen: View {
     
     /// The header containing the title and icon.
     var header: some View {
-        VStack(spacing: 8) {
-            BigIcon(icon: \.userProfileSolid)
-                .padding(.bottom, 8)
+        VStack(spacing: 12) {
+            AuthenticationStartLogo(size: 122,
+                                    hideBrandChrome: false,
+                                    isOnGradient: false)
             
-            Text(L10n.screenLoginTitleWithHomeserver(context.viewState.homeserver.address))
+            Text(L10n.screenLoginTitle)
                 .font(.compound.headingMDBold)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.compound.textPrimary)
+
+            Text(L10n.screenLoginSubtitle)
+                .font(.compound.bodyMD)
+                .multilineTextAlignment(.center)
+                .foregroundColor(.compound.textSecondary)
         }
         .padding(.horizontal, 16)
     }
@@ -61,12 +67,6 @@ struct LoginScreen: View {
     /// The form with text fields for email and password, along with a submit button.
     var loginForm: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(L10n.screenLoginFormHeader)
-                .font(.compound.bodySM)
-                .foregroundColor(.compound.textPrimary)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-            
             TextField(text: $context.email) {
                 Text(UntranslatedL10n.screenLoginEmail).foregroundColor(.compound.textSecondary)
             }
@@ -89,7 +89,7 @@ struct LoginScreen: View {
             .submitLabel(.done)
             .onSubmit(submit)
             
-            Spacer().frame(height: 32)
+            Spacer().frame(height: 24)
 
             Button(action: submit) {
                 Text(L10n.actionContinue)

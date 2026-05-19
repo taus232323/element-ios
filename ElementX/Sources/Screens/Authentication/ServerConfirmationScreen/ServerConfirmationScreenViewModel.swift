@@ -33,14 +33,9 @@ class ServerConfirmationScreenViewModel: ServerConfirmationScreenViewModelType, 
         self.appSettings = appSettings
         self.userIndicatorController = userIndicatorController
         
-        let pickerSelection: String? = switch mode {
-        case .picker(let providers): providers[0]
-        case .confirmation: nil
-        }
-        
         super.init(initialViewState: ServerConfirmationScreenViewState(mode: mode,
                                                                        authenticationFlow: authenticationFlow,
-                                                                       bindings: .init(pickerSelection: pickerSelection)))
+                                                                       bindings: .init(pickerSelection: nil)))
         
         if case .confirmation = mode {
             authenticationService.homeserver
@@ -54,16 +49,8 @@ class ServerConfirmationScreenViewModel: ServerConfirmationScreenViewModelType, 
     override func process(viewAction: ServerConfirmationScreenViewAction) {
         switch viewAction {
         case .confirm:
-            switch state.mode {
-            case .confirmation:
-                startLoading()
-                Task { await confirmServer() }
-            case .picker:
-                startLoading()
-                Task { await pickServer() }
-            }
-        case .changeServer:
-            actionsSubject.send(.changeServer)
+            startLoading()
+            Task { await confirmServer() }
         }
     }
     
@@ -76,7 +63,7 @@ class ServerConfirmationScreenViewModel: ServerConfirmationScreenViewModelType, 
         let homeserver = authenticationService.homeserver.value
         
         // If the login mode is unknown, the service hasn't been configured and we need to do it now.
-        // Otherwise we can continue the flow as server selection has been performed and succeeded.
+        // Otherwise we can continue the flow as the server has already been configured.
         guard homeserver.loginMode == .unknown || authenticationService.flow != authenticationFlow else {
             await fetchLoginURLIfNeededAndContinue()
             return
@@ -102,30 +89,6 @@ class ServerConfirmationScreenViewModel: ServerConfirmationScreenViewModelType, 
             default:
                 displayError(.unknownError)
             }
-        }
-    }
-    
-    private func pickServer() async {
-        defer { stopLoading() }
-        startLoading()
-        
-        guard let accountProvider = state.bindings.pickerSelection else {
-            fatalError("It shouldn't be possible to confirm without a selection.")
-        }
-        
-        // Don't bother reconfiguring the service if it has already been done for the selected server.
-        let homeserver = authenticationService.homeserver.value
-        guard homeserver.loginMode == .unknown || homeserver.address != accountProvider else {
-            await fetchLoginURLIfNeededAndContinue()
-            return
-        }
-        
-        switch await authenticationService.configure(for: accountProvider, flow: authenticationFlow) {
-        case .success:
-            await fetchLoginURLIfNeededAndContinue()
-        case .failure:
-            // When the servers are hard-coded they should have a valid configuration, so show a generic error.
-            displayError(.unknownError)
         }
     }
     

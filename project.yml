@@ -1,7 +1,7 @@
 ---
-name: ElementX
+name: Arcana
 attributes:
-  ORGANIZATIONNAME: Element
+  ORGANIZATIONNAME: Arcana
   LastUpgradeCheck: "1620"
   
 fileGroups:
@@ -51,7 +51,7 @@ options:
 settings:
   CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: true
   ENABLE_BITCODE: false
-  APP_NAME: ElementX
+  APP_NAME: Arcana
   KEYCHAIN_ACCESS_GROUP_IDENTIFIER: "$(DEVELOPMENT_TEAM).$(BASE_BUNDLE_IDENTIFIER)"
   MARKETING_VERSION: 26.04.3
   CURRENT_PROJECT_VERSION: 1

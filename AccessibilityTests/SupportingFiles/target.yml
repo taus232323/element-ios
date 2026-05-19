@@ -26,7 +26,7 @@ targets:
     platform: iOS
 
     dependencies:
-    - target: ElementX
+    - target: Arcana
     - package: KZFileWatchers
 
     info:
@@ -47,9 +47,8 @@ targets:
     sources:
     - path: ../Sources
     - path: ../SupportingFiles
-    - path: ../../ElementX/Sources/UITests/UITestsSignalling.swift
-    - path: ../../ElementX/Sources/Other/AccessibilityIdentifiers.swift
-    - path: ../../ElementX/Sources/Other/MatrixEntityRegex.swift
-    - path: ../../ElementX/Sources/Other/Pills/PillUtilities.swift
-    - path: ../../ElementX/Sources/Other/Extensions/NSRegularExpresion.swift
-
+    - path: ../../Arcana/Sources/UITests/UITestsSignalling.swift
+    - path: ../../Arcana/Sources/Other/AccessibilityIdentifiers.swift
+    - path: ../../Arcana/Sources/Other/MatrixEntityRegex.swift
+    - path: ../../Arcana/Sources/Other/Pills/PillUtilities.swift
+    - path: ../../Arcana/Sources/Other/Extensions/NSRegularExpresion.swift

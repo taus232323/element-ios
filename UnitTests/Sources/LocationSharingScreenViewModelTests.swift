@@ -6,9 +6,9 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+@testable import Arcana
 import Combine
 import CoreLocation
-@testable import ElementX
 import Testing
 
 @MainActor

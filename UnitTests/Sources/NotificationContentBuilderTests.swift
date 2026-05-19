@@ -5,8 +5,8 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+@testable import Arcana
 import Dynamic
-@testable import ElementX
 import MatrixRustSDK
 import Testing
 import UserNotifications

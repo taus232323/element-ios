@@ -3,7 +3,7 @@ settings:
   BASE_BUNDLE_IDENTIFIER: io.element.elementx.nightly
 
 targets:
-  ElementX:
+  Arcana:
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: NightlyAppIcon

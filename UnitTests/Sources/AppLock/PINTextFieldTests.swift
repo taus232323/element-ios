@@ -6,7 +6,7 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-@testable import ElementX
+@testable import Arcana
 import Testing
 
 struct PINTextFieldTests {

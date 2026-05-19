@@ -11,7 +11,7 @@ import Foundation
 struct ArcanaAppSettingsHook: AppSettingsHookProtocol {
     func configure(_ appSettings: AppSettings) -> AppSettings {
         appSettings.override(accountProviders: ["celesteai.ru"],
-                             allowOtherAccountProviders: true,
+                             allowOtherAccountProviders: false,
                              hideBrandChrome: false,
                              pushGatewayBaseURL: appSettings.pushGatewayBaseURL,
                              oidcRedirectURL: appSettings.oidcRedirectURL,

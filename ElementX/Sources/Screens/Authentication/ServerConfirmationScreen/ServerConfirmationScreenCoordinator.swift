@@ -18,7 +18,6 @@ struct ServerConfirmationScreenCoordinatorParameters {
 
 enum ServerConfirmationScreenCoordinatorAction {
     case continueWithPassword
-    case changeServer
 }
 
 final class ServerConfirmationScreenCoordinator: CoordinatorProtocol {
@@ -31,14 +30,8 @@ final class ServerConfirmationScreenCoordinator: CoordinatorProtocol {
     }
     
     init(parameters: ServerConfirmationScreenCoordinatorParameters) {
-        let mode = if parameters.appSettings.allowOtherAccountProviders {
-            ServerConfirmationScreenMode.confirmation(parameters.authenticationService.homeserver.value.address)
-        } else {
-            ServerConfirmationScreenMode.picker(parameters.appSettings.accountProviders)
-        }
-        
         viewModel = ServerConfirmationScreenViewModel(authenticationService: parameters.authenticationService,
-                                                      mode: mode,
+                                                      mode: .confirmation(parameters.authenticationService.homeserver.value.address),
                                                       authenticationFlow: parameters.authenticationFlow,
                                                       appSettings: parameters.appSettings,
                                                       userIndicatorController: parameters.userIndicatorController)
@@ -51,8 +44,6 @@ final class ServerConfirmationScreenCoordinator: CoordinatorProtocol {
             switch action {
             case .continueWithPassword:
                 actionsSubject.send(.continueWithPassword)
-            case .changeServer:
-                actionsSubject.send(.changeServer)
             }
         }
         .store(in: &cancellables)

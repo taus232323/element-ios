@@ -6,9 +6,9 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+@testable import Arcana
 import AsyncAlgorithms
 import Combine
-@testable import ElementX
 import MatrixRustSDK
 import SwiftUI
 import Testing

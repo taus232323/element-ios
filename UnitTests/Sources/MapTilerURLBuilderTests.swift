@@ -6,8 +6,8 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+@testable import Arcana
 import CoreLocation
-@testable import ElementX
 import Testing
 
 struct MapTilerURLBuilderTests {
