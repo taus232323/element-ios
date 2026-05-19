@@ -404,6 +404,7 @@
 		446BCD2D0AE27E0CFD1BDC8F /* ImageMediaEventsTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF584D757E768EA7776A532 /* ImageMediaEventsTimelineView.swift */; };
 		44BDD670FF9095ACE240A3A2 /* VoiceMessageMediaManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC4F10BDD56FA77FEC742333 /* VoiceMessageMediaManagerTests.swift */; };
 		44F0E1B576C7599DF8022071 /* Emojibase in Frameworks */ = {isa = PBXBuildFile; productRef = C05729B1684C331F5FFE9232 /* Emojibase */; };
+		450068BE58D54155233266AF /* ArcanaAppSettingsHookTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1CB12A2C86D6731B12D27F4 /* ArcanaAppSettingsHookTests.swift */; };
 		454311EAC17D778E19F46592 /* NotificationPermissionsScreenCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91868EB98818044E6FEBE532 /* NotificationPermissionsScreenCoordinator.swift */; };
 		454F8DDC4442C0DE54094902 /* LABiometryType.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3F219838588C62198E726E3 /* LABiometryType.swift */; };
 		45D6DC594816288983627484 /* UITestsScreenIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CEBE5EA91E8691EDF364EC2 /* UITestsScreenIdentifier.swift */; };
@@ -1391,6 +1392,7 @@
 		EB5B79DD2BCAF8F3B8B01F2F /* LiveLocationSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C454F35D8884C0A952FF2F84 /* LiveLocationSheet.swift */; };
 		EB87DF90CF6F8D5D12404C6E /* SecureBackupLogoutConfirmationScreenViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 848F69921527D31CAACB93AF /* SecureBackupLogoutConfirmationScreenViewModelTests.swift */; };
 		EB88DBD77221E2CFE463018C /* NSE.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0D8F620C8B314840D8602E3F /* NSE.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		EB8F4AE58F84FC1D21DE01A2 /* ArcanaAppSettingsHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1170F8062017C03051BE49CF /* ArcanaAppSettingsHook.swift */; };
 		EB9F4688006B52E69DF5358F /* BlankFormCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C7F63EB1525E697CAEB002B /* BlankFormCoordinator.swift */; };
 		EBE13FAB4E29738AC41BD3E5 /* InfoPlistReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A580295A56B55A856CC4084 /* InfoPlistReader.swift */; };
 		EC09E502A21E4EAA8B367AB8 /* ReportContentScreenViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30EA681527A8FE65E4C8E9A9 /* ReportContentScreenViewModelTests.swift */; };
@@ -1716,6 +1718,7 @@
 		111B698739E3410E2CDB7144 /* MXLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MXLog.swift; sourceTree = "<group>"; };
 		113356152C099951A6D17D85 /* el */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = el; path = el.lproj/Localizable.strings; sourceTree = "<group>"; };
 		113873B97F27394ABE41BCFD /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		1170F8062017C03051BE49CF /* ArcanaAppSettingsHook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArcanaAppSettingsHook.swift; sourceTree = "<group>"; };
 		118892B93A8CFDD691D9B5E3 /* RoomLiveLocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomLiveLocationService.swift; sourceTree = "<group>"; };
 		11FCAE847556719BBE7A0882 /* ReportRoomScreenModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportRoomScreenModels.swift; sourceTree = "<group>"; };
 		1215A4FC53D2319E81AE8970 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -2981,6 +2984,7 @@
 		F174A5627CDB3CAF280D1880 /* EmojiPickerScreenModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiPickerScreenModels.swift; sourceTree = "<group>"; };
 		F17EFA1D3D09FC2F9C5E1CB2 /* MediaProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaProvider.swift; sourceTree = "<group>"; };
 		F1B8500C152BC59445647DA8 /* UnsupportedRoomTimelineItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsupportedRoomTimelineItem.swift; sourceTree = "<group>"; };
+		F1CB12A2C86D6731B12D27F4 /* ArcanaAppSettingsHookTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArcanaAppSettingsHookTests.swift; sourceTree = "<group>"; };
 		F229480685F30BCB96C439EC /* AdvancedSettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedSettingsScreen.swift; sourceTree = "<group>"; };
 		F276F31C1AEC19E52B951B62 /* SendInviteConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendInviteConfirmationView.swift; sourceTree = "<group>"; };
 		F2B94F1B0B5D9D42B15AA6E8 /* ChatsTabFlowCoordinatorStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsTabFlowCoordinatorStateMachine.swift; sourceTree = "<group>"; };
@@ -3702,6 +3706,7 @@
 			isa = PBXGroup;
 			children = (
 				13BE9781699FB510E9263192 /* AppSettingsHook.swift */,
+				1170F8062017C03051BE49CF /* ArcanaAppSettingsHook.swift */,
 				25586C0ADB814FEE9897DCAA /* BugReportHook.swift */,
 				3865AD7B7249C939D7C69C33 /* CertificateValidatorHook.swift */,
 				7AC0CD1CAFD3F8B057F9AEA5 /* ClientBuilderHook.swift */,
@@ -4889,6 +4894,7 @@
 				58C2527813FDAE23E72A9063 /* AnalyticsSettingsScreenViewModelTests.swift */,
 				C687844F60BFF532D49A994C /* AnalyticsTests.swift */,
 				E461B3C8BBBFCA400B268D14 /* AppRouteURLParserTests.swift */,
+				F1CB12A2C86D6731B12D27F4 /* ArcanaAppSettingsHookTests.swift */,
 				893777A4997BBDB68079D4F5 /* ArrayTests.swift */,
 				AF25E364AE85090A70AE4644 /* AttributedStringBuilderTests.swift */,
 				37CA26F55123E36B50DB0B3A /* AttributedStringTests.swift */,
@@ -7844,6 +7850,7 @@
 				25C4C1100B6EA79F5CC7CBB5 /* AppLockSetupPINScreenViewModelTests.swift in Sources */,
 				0EEC614342F823E5BF966C2C /* AppLockTimerTests.swift in Sources */,
 				EA78A7512AFB1E5451744EB1 /* AppRouteURLParserTests.swift in Sources */,
+				450068BE58D54155233266AF /* ArcanaAppSettingsHookTests.swift in Sources */,
 				3EC698F80DDEEFA273857841 /* ArrayTests.swift in Sources */,
 				90DF83A6A347F7EE7EDE89EE /* AttributedStringBuilderTests.swift in Sources */,
 				5100F53E6884A15F9BA07CC3 /* AttributedStringTests.swift in Sources */,
@@ -8122,6 +8129,7 @@
 				D304343515CE0464C5089537 /* AppSettings.swift in Sources */,
 				4EAC427267424192964B16B3 /* AppSettingsHook.swift in Sources */,
 				9462C62798F47E39DCC182D2 /* Application.swift in Sources */,
+				EB8F4AE58F84FC1D21DE01A2 /* ArcanaAppSettingsHook.swift in Sources */,
 				61A36B9BB2ADE36CEFF5E98C /* Array.swift in Sources */,
 				90EB25D13AE6EEF034BDE9D2 /* Assets.swift in Sources */,
 				273AB64B9A26B61C51858867 /* AsyncSequence.swift in Sources */,
@@ -9637,11 +9645,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				APP_DISPLAY_NAME = "Element X";
-				APP_GROUP_IDENTIFIER = group.io.element;
+				APP_DISPLAY_NAME = Arcana;
+				APP_GROUP_IDENTIFIER = group.io.arcana;
 				APP_NAME = ElementX;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "colors/accent-color";
-				BASE_BUNDLE_IDENTIFIER = io.element.elementx;
+				BASE_BUNDLE_IDENTIFIER = io.arcana.arcana;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -9697,7 +9705,7 @@
 				MARKETING_VERSION = 26.04.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				PRODUCTION_APP_NAME = Element;
+				PRODUCTION_APP_NAME = Arcana;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
@@ -9711,11 +9719,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				APP_DISPLAY_NAME = "Element X";
-				APP_GROUP_IDENTIFIER = group.io.element;
+				APP_DISPLAY_NAME = Arcana;
+				APP_GROUP_IDENTIFIER = group.io.arcana;
 				APP_NAME = ElementX;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "colors/accent-color";
-				BASE_BUNDLE_IDENTIFIER = io.element.elementx;
+				BASE_BUNDLE_IDENTIFIER = io.arcana.arcana;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
@@ -9778,7 +9786,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCTION_APP_NAME = Element;
+				PRODUCTION_APP_NAME = Arcana;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;

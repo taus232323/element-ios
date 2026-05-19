@@ -37,7 +37,9 @@ class UITestsAppCoordinator: AppCoordinatorProtocol, SecureWindowManagerDelegate
         
         AppSettings.configureWithSuiteName("io.element.elementx.uitests")
         AppSettings.resetAllSettings()
-        ServiceLocator.shared.register(appSettings: AppSettings())
+        let appHooks = AppHooks()
+        appHooks.setUp()
+        ServiceLocator.shared.register(appSettings: appHooks.appSettingsHook.configure(AppSettings()))
         
         let analyticsClient = AnalyticsClientMock()
         analyticsClient.isRunning = false
@@ -158,7 +160,6 @@ class MockScreen: Identifiable {
                                                                 appMediator: AppMediatorMock.default,
                                                                 appSettings: appSettings,
                                                                 appHooks: AppHooks(),
-                                                                analytics: ServiceLocator.shared.analytics,
                                                                 userIndicatorController: ServiceLocator.shared.userIndicatorController)
             flowCoordinator.start()
             retainedState.append(flowCoordinator)

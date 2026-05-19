@@ -44,8 +44,6 @@ final class SoftLogoutScreenCoordinator: CoordinatorProtocol {
     private var authenticationService: AuthenticationServiceProtocol {
         parameters.authenticationService
     }
-
-    private var oidcPresenter: OIDCAuthenticationPresenter?
     
     var actions: AnyPublisher<SoftLogoutScreenCoordinatorResult, Never> {
         actionsSubject.eraseToAnyPublisher()
@@ -75,8 +73,6 @@ final class SoftLogoutScreenCoordinator: CoordinatorProtocol {
                     showForgotPasswordScreen()
                 case .clearAllData:
                     actionsSubject.send(.clearAllData)
-                case .continueWithOIDC:
-                    continueWithOIDC(presentationAnchor: viewModel.context.viewState.window)
                 }
             }
             .store(in: &cancellables)
@@ -133,48 +129,13 @@ final class SoftLogoutScreenCoordinator: CoordinatorProtocol {
         }
     }
 
-    private func continueWithOIDC(presentationAnchor: UIWindow?) {
-        guard let presentationAnchor else { return }
-        
-        startLoading()
-        
-        Task {
-            switch await authenticationService.urlForOIDCLogin(loginHint: nil) {
-            case .failure(let error):
-                stopLoading()
-                handleError(error)
-            case .success(let oidcData):
-                stopLoading()
-                
-                let presenter = OIDCAuthenticationPresenter(authenticationService: parameters.authenticationService,
-                                                            oidcRedirectURL: parameters.appSettings.oidcRedirectURL,
-                                                            presentationAnchor: presentationAnchor,
-                                                            userIndicatorController: parameters.userIndicatorController)
-                self.oidcPresenter = presenter
-                switch await presenter.authenticate(using: oidcData) {
-                case .success(let userSession):
-                    actionsSubject.send(.signedIn(userSession))
-                case .failure(let error):
-                    handleError(error)
-                }
-                self.oidcPresenter = nil
-            }
-        }
-    }
-
     /// Processes an error to either update the flow or display it to the user.
     private func handleError(_ error: AuthenticationServiceError) {
         switch error {
         case .invalidCredentials:
-            viewModel.displayError(.alert(L10n.screenLoginErrorInvalidCredentials))
+            viewModel.displayError(.alert(UntranslatedL10n.screenLoginErrorInvalidCredentials))
         case .accountDeactivated:
             viewModel.displayError(.alert(L10n.screenLoginErrorDeactivatedAccount))
-        case .oidcError(.notSupported):
-            // Temporary alert hijacking the use of .notSupported, can be removed when OIDC support is in the SDK.
-            viewModel.displayError(.alert(L10n.commonServerNotSupported))
-        case .oidcError(.userCancellation):
-            // No need to show an error, the user cancelled authentication.
-            break
         case .sessionTokenRefreshNotSupported:
             viewModel.displayError(.refreshTokenAlert)
         default:

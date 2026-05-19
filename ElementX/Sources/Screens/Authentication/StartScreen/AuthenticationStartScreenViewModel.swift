@@ -41,30 +41,24 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
         self.userIndicatorController = userIndicatorController
         canReportProblem = isBugReportServiceEnabled
         
-        let isQRCodeScanningSupported = !ProcessInfo.processInfo.isiOSAppOnMac
         let classicAppAccountProvider = authenticationService.classicAppAccount?.serverName
         let isClassicAppAccountAllowed = classicAppAccountProvider.map { appSettings.accountProviders.contains($0) } ?? false
         
         let initialViewState = if !appSettings.allowOtherAccountProviders {
-            // We don't show the create account button when custom providers are disallowed.
-            // The assumption here being that if you're running a custom app, your users will already be created.
             AuthenticationStartScreenViewState(serverName: appSettings.accountProviders.count == 1 ? appSettings.accountProviders[0] : nil,
-                                               showCreateAccountButton: false,
-                                               showQRCodeLoginButton: isQRCodeScanningSupported,
+                                               showCreateAccountButton: appSettings.showCreateAccountButton,
                                                classicAppMode: isClassicAppAccountAllowed ? authenticationService.classicAppAccount.map { .welcomeBack($0) } : nil,
                                                hideBrandChrome: appSettings.hideBrandChrome)
         } else if let provisioningParameters {
             // We only show the "Sign in to …" button when using a provisioning link.
             AuthenticationStartScreenViewState(serverName: provisioningParameters.accountProvider,
                                                showCreateAccountButton: false,
-                                               showQRCodeLoginButton: false,
                                                classicAppMode: nil,
                                                hideBrandChrome: appSettings.hideBrandChrome)
         } else {
             // The default configuration.
-            AuthenticationStartScreenViewState(serverName: nil,
+            AuthenticationStartScreenViewState(serverName: appSettings.accountProviders.count == 1 ? appSettings.accountProviders[0] : nil,
                                                showCreateAccountButton: appSettings.showCreateAccountButton,
-                                               showQRCodeLoginButton: isQRCodeScanningSupported,
                                                classicAppMode: authenticationService.classicAppAccount.map { .welcomeBack($0) },
                                                hideBrandChrome: appSettings.hideBrandChrome)
         }
@@ -80,18 +74,12 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
     
     override func process(viewAction: AuthenticationStartScreenViewAction) {
         switch viewAction {
-        case .updateWindow(let window):
-            guard state.window != window else { return }
-            state.window = window
         case .reportProblem:
             if canReportProblem {
                 actionsSubject.send(.reportProblem)
             }
         case .developerOptions:
             actionsSubject.send(.developerOptions)
-        
-        case .loginWithQR:
-            actionsSubject.send(.loginWithQR)
         case .login:
             Task { await login() }
         case .register:
@@ -117,7 +105,7 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
                 state.bindings.showClassicAppBackupInstructions = true
             } else {
                 await configureAccountProvider(classicAppAccount.serverName,
-                                               loginHint: "mxid:\(classicAppAccount.userID)",
+                                               loginHint: nil,
                                                fallbackHomeserverURL: classicAppAccount.homeserverURL)
             }
         } else if let serverName = state.serverName {
@@ -143,23 +131,7 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
                 return
             }
         }
-        
-        guard authenticationService.homeserver.value.loginMode.supportsOIDCFlow else {
-            actionsSubject.send(.loginDirectlyWithPassword(loginHint: loginHint))
-            return
-        }
-        
-        guard let window = state.window else {
-            displayError()
-            return
-        }
-        
-        switch await authenticationService.urlForOIDCLogin(loginHint: loginHint) {
-        case .success(let oidcData):
-            actionsSubject.send(.loginDirectlyWithOIDC(data: oidcData, window: window))
-        case .failure:
-            displayError()
-        }
+        actionsSubject.send(.loginDirectlyWithPassword(loginHint: loginHint))
     }
     
     @CancellableTask private var reloadClassicAppSecretsTask: Task<Void, Never>?

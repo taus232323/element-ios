@@ -663,7 +663,6 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
                                                         appMediator: appMediator,
                                                         appSettings: appSettings,
                                                         appHooks: appHooks,
-                                                        analytics: ServiceLocator.shared.analytics,
                                                         userIndicatorController: ServiceLocator.shared.userIndicatorController)
         coordinator.delegate = self
         

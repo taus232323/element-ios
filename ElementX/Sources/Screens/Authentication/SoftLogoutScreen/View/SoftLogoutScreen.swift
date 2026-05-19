@@ -26,8 +26,6 @@ struct SoftLogoutScreen: View {
                 switch context.viewState.loginMode {
                 case .password:
                     loginForm
-                case .oidc:
-                    oidcButton
                 default:
                     loginUnavailableText
                 }
@@ -41,9 +39,6 @@ struct SoftLogoutScreen: View {
         }
         .background(Color.compound.bgCanvasDefault.ignoresSafeArea())
         .alert(item: $context.alertInfo)
-        .introspect(.window, on: .supportedVersions) { window in
-            context.send(viewAction: .updateWindow(window))
-        }
     }
 
     /// The title, message and icon at the top of the screen.
@@ -98,15 +93,7 @@ struct SoftLogoutScreen: View {
         }
     }
 
-    /// The OIDC button that can be used for login.
-    var oidcButton: some View {
-        Button { context.send(viewAction: .continueWithOIDC) } label: {
-            Text(L10n.actionContinue)
-        }
-        .buttonStyle(.compound(.primary))
-    }
-
-    /// Text shown if neither password or OIDC login is supported.
+    /// Text shown if neither password login is supported.
     var loginUnavailableText: some View {
         Text(L10n.screenLoginErrorUnsupportedAuthentication)
             .font(.body)

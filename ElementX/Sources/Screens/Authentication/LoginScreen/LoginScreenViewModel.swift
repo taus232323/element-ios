@@ -15,7 +15,6 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
     private let authenticationService: AuthenticationServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
     private let appSettings: AppSettings
-    private let analytics: AnalyticsService
     
     private var actionsSubject: PassthroughSubject<LoginScreenViewModelAction, Never> = .init()
     var actions: AnyPublisher<LoginScreenViewModelAction, Never> {
@@ -25,21 +24,15 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
     init(authenticationService: AuthenticationServiceProtocol,
          loginHint: String?,
          userIndicatorController: UserIndicatorControllerProtocol,
-         appSettings: AppSettings,
-         analytics: AnalyticsService) {
+         appSettings: AppSettings) {
         self.authenticationService = authenticationService
         self.userIndicatorController = userIndicatorController
         self.appSettings = appSettings
-        self.analytics = analytics
-        
-        let username = switch loginHint {
-        case .some(let hint) where hint.hasPrefix("mxid:"): String(hint.dropFirst(5)) // MSC4198
-        case .some(let hint): hint
-        case .none: ""
-        }
-        
+
+        let email = loginHint ?? ""
+
         let viewState = LoginScreenViewState(homeserver: authenticationService.homeserver.value,
-                                             bindings: LoginScreenBindings(username: username))
+                                             bindings: LoginScreenBindings(email: email))
         
         super.init(initialViewState: viewState)
         
@@ -51,8 +44,6 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
 
     override func process(viewAction: LoginScreenViewAction) {
         switch viewAction {
-        case .parseUsername:
-            parseUsername()
         case .next:
             login()
         }
@@ -65,37 +56,15 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
     
     // MARK: - Private
     
-    /// Parses the specified username and looks up the homeserver when a Matrix ID is entered.
-    private func parseUsername() {
-        let username = state.bindings.username
-        
-        guard MatrixEntityRegex.isMatrixUserIdentifier(username) else { return }
-        
-        let homeserverDomain = String(username.split(separator: ":")[1])
-        
-        startLoading(isInteractionBlocking: false)
-        
-        Task {
-            switch await authenticationService.configure(for: homeserverDomain, flow: .login) {
-            case .success:
-                if authenticationService.homeserver.value.loginMode.supportsOIDCFlow {
-                    actionsSubject.send(.configuredForOIDC)
-                }
-                stopLoading()
-            case .failure(let error):
-                stopLoading()
-                handleError(error)
-            }
-        }
-    }
-    
     /// Requests the authentication coordinator to log in using the specified credentials.
     private func login() {
-        MXLog.info("Starting login with password.")
-        startLoading(isInteractionBlocking: true)
-        
+        MXLog.info("Starting login with email and password.")
+        startLoading()
+
         Task {
-            switch await authenticationService.login(username: state.bindings.username,
+            let email = state.bindings.email.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            switch await authenticationService.login(username: email,
                                                      password: state.bindings.password,
                                                      initialDeviceName: UIDevice.current.initialDeviceName,
                                                      deviceID: nil) {
@@ -111,15 +80,12 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
     
     private static let loadingIndicatorIdentifier = "\(LoginScreenCoordinatorAction.self)-Loading"
     
-    private func startLoading(isInteractionBlocking: Bool) {
-        if isInteractionBlocking {
-            userIndicatorController.submitIndicator(UserIndicator(id: Self.loadingIndicatorIdentifier,
-                                                                  type: .modal,
-                                                                  title: L10n.commonLoading,
-                                                                  persistent: true))
-        } else {
-            state.isLoading = true
-        }
+    private func startLoading() {
+        state.isLoading = true
+        userIndicatorController.submitIndicator(UserIndicator(id: Self.loadingIndicatorIdentifier,
+                                                              type: .modal,
+                                                              title: L10n.commonLoading,
+                                                              persistent: true))
     }
     
     /// Processes an error to either update the flow or display it to the user.
@@ -130,7 +96,7 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
         case .invalidCredentials:
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
                                                  title: L10n.commonError,
-                                                 message: L10n.screenLoginErrorInvalidCredentials)
+                                                 message: UntranslatedL10n.screenLoginErrorInvalidCredentials)
         case .accountDeactivated:
             state.bindings.alertInfo = AlertInfo(id: .deactivatedAlert,
                                                  title: L10n.commonError,
@@ -145,8 +111,8 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
                                                  title: L10n.commonServerNotSupported,
                                                  message: L10n.screenChangeServerErrorNoSlidingSyncMessage(nonBreakingAppName))
             
-            // Clear out the invalid username to avoid an attempted login to matrix.org
-            state.bindings.username = ""
+            // Clear out the invalid email to avoid an attempted login to the default homeserver.
+            state.bindings.email = ""
         case .elementProRequired(let serverName):
             state.bindings.alertInfo = AlertInfo(id: .elementProAlert,
                                                  title: L10n.screenChangeServerErrorElementProRequiredTitle,
@@ -155,8 +121,8 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
                                                      UIApplication.shared.open(self.appSettings.elementProAppStoreURL)
                                                  },
                                                  secondaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil))
-            // Clear out the invalid username to avoid an attempted login to matrix.org
-            state.bindings.username = ""
+            // Clear out the invalid email to avoid an attempted login to the default homeserver.
+            state.bindings.email = ""
         case .sessionTokenRefreshNotSupported:
             state.bindings.alertInfo = AlertInfo(id: .refreshTokenAlert,
                                                  title: L10n.commonServerNotSupported,

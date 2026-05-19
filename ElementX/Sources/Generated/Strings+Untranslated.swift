@@ -39,6 +39,16 @@ internal enum UntranslatedL10n {
   }
   /// Sign in
   internal static var softLogoutSigninTitle: String { return UntranslatedL10n.tr("Untranslated", "soft_logout_signin_title") }
+  /// Email
+  internal static var screenLoginEmail: String { return UntranslatedL10n.tr("Untranslated", "screen_login_email") }
+  /// Incorrect email and/or password
+  internal static var screenLoginErrorInvalidCredentials: String { return UntranslatedL10n.tr("Untranslated", "screen_login_error_invalid_credentials") }
+  /// Welcome to %1$@. Supercharged for speed and simplicity.
+  internal static func screenOnboardingWelcomeMessageIos(_ p1: Any) -> String {
+    return UntranslatedL10n.tr("Untranslated", "screen_onboarding_welcome_message_ios", p1)
+  }
+  /// Welcome to Arcana
+  internal static var screenOnboardingWelcomeTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_onboarding_welcome_title_ios") }
   /// Untranslated
   internal static var untranslated: String { return UntranslatedL10n.tr("Untranslated", "untranslated") }
   /// Plural format key: "%#@VARIABLE@"

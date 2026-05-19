@@ -1,0 +1,35 @@
+//
+// Copyright 2025 Element Creations Ltd.
+// Copyright 2022-2025 New Vector Ltd.
+//
+// SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial.
+// Please see LICENSE files in the repository root for full details.
+//
+
+import Foundation
+
+struct ArcanaAppSettingsHook: AppSettingsHookProtocol {
+    func configure(_ appSettings: AppSettings) -> AppSettings {
+        appSettings.override(accountProviders: ["celesteai.ru"],
+                             allowOtherAccountProviders: true,
+                             hideBrandChrome: false,
+                             pushGatewayBaseURL: appSettings.pushGatewayBaseURL,
+                             oidcRedirectURL: appSettings.oidcRedirectURL,
+                             websiteURL: appSettings.websiteURL,
+                             logoURL: appSettings.logoURL,
+                             copyrightURL: appSettings.copyrightURL,
+                             acceptableUseURL: appSettings.acceptableUseURL,
+                             privacyURL: appSettings.privacyURL,
+                             encryptionURL: appSettings.encryptionURL,
+                             deviceVerificationURL: appSettings.deviceVerificationURL,
+                             chatBackupDetailsURL: appSettings.chatBackupDetailsURL,
+                             identityPinningViolationDetailsURL: appSettings.identityPinningViolationDetailsURL,
+                             historySharingDetailsURL: appSettings.historySharingDetailsURL,
+                             elementWebHosts: appSettings.elementWebHosts,
+                             accountProvisioningHost: appSettings.accountProvisioningHost,
+                             bugReportApplicationID: appSettings.bugReportApplicationID,
+                             analyticsTermsURL: appSettings.analyticsTermsURL,
+                             mapTilerConfiguration: appSettings.mapTilerConfiguration)
+        return appSettings
+    }
+}

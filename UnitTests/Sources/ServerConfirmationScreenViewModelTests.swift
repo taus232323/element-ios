@@ -46,7 +46,7 @@ final class ServerConfirmationScreenViewModelTests {
         #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When continuing from the confirmation screen.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithOIDC }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithPassword }
         context.send(viewAction: .confirm)
         try await deferred.fulfill()
         
@@ -71,7 +71,7 @@ final class ServerConfirmationScreenViewModelTests {
         #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When continuing from the confirmation screen.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithOIDC }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithPassword }
         context.send(viewAction: .confirm)
         try await deferred.fulfill()
         
@@ -91,7 +91,7 @@ final class ServerConfirmationScreenViewModelTests {
         #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When continuing from the confirmation screen.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithOIDC }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithPassword }
         context.send(viewAction: .confirm)
         try await deferred.fulfill()
         
@@ -117,7 +117,7 @@ final class ServerConfirmationScreenViewModelTests {
         #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When continuing from the confirmation screen.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithOIDC }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithPassword }
         context.send(viewAction: .confirm)
         try await deferred.fulfill()
         
@@ -238,7 +238,7 @@ final class ServerConfirmationScreenViewModelTests {
         #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When continuing from the confirmation screen.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithOIDC }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithPassword }
         context.send(viewAction: .confirm)
         try await deferred.fulfill()
         
@@ -263,7 +263,7 @@ final class ServerConfirmationScreenViewModelTests {
         #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When continuing from the confirmation screen.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithOIDC }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isContinueWithPassword }
         context.send(viewAction: .confirm)
         try await deferred.fulfill()
         
@@ -369,9 +369,6 @@ final class ServerConfirmationScreenViewModelTests {
                                                       authenticationFlow: authenticationFlow,
                                                       appSettings: ServiceLocator.shared.settings,
                                                       userIndicatorController: UserIndicatorControllerMock())
-        
-        // Add a fake window in order for the OIDC flow to continue
-        viewModel.context.send(viewAction: .updateWindow(UIWindow()))
     }
 }
 
@@ -387,13 +384,6 @@ private extension ServerConfirmationScreenViewState {
 }
 
 private extension ServerConfirmationScreenViewModelAction {
-    var isContinueWithOIDC: Bool {
-        switch self {
-        case .continueWithOIDC: true
-        default: false
-        }
-    }
-    
     var isContinueWithPassword: Bool {
         switch self {
         case .continueWithPassword: true

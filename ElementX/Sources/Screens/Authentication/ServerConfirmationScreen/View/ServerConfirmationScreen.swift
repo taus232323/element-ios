@@ -45,9 +45,6 @@ struct ServerConfirmationScreen: View {
         .background()
         .backgroundStyle(backgroundColor)
         .alert(item: $context.alertInfo)
-        .introspect(.window, on: .supportedVersions) { window in
-            context.send(viewAction: .updateWindow(window))
-        }
     }
     
     /// The main content of the view to be shown in a scroll view.

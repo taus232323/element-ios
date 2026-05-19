@@ -37,16 +37,13 @@ struct AuthenticationClassicAppAccountView: View {
                 context.send(viewAction: .openClassicApp)
             }
         }
-        .introspect(.window, on: .supportedVersions) { window in
-            context.send(viewAction: .updateWindow(window))
-        }
     }
     
     var header: some View {
         VStack(spacing: 8) {
             AuthenticationStartLogo(size: 54, hideBrandChrome: false, isOnGradient: false)
             
-            Text(L10n.screenOnboardingWelcomeTitle)
+            Text(UntranslatedL10n.screenOnboardingWelcomeTitleIos)
                 .font(.compound.headingMDBold)
                 .foregroundStyle(.compound.textPrimary)
                 .multilineTextAlignment(.center)

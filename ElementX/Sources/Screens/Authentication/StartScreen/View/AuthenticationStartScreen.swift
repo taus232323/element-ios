@@ -56,9 +56,6 @@ struct AuthenticationStartScreen: View {
         .navigationBarHidden(context.viewState.classicAppMode == nil)
         .toolbar { toolbar }
         .alert(item: $context.alertInfo)
-        .introspect(.window, on: .supportedVersions) { window in
-            context.send(viewAction: .updateWindow(window))
-        }
     }
     
     var content: some View {
@@ -76,11 +73,11 @@ struct AuthenticationStartScreen: View {
             
             if !context.viewState.hideBrandChrome {
                 VStack(spacing: 8) {
-                    Text(L10n.screenOnboardingWelcomeTitle)
+                    Text(UntranslatedL10n.screenOnboardingWelcomeTitleIos)
                         .font(.compound.headingLGBold)
                         .foregroundColor(.compound.textPrimary)
                         .multilineTextAlignment(.center)
-                    Text(L10n.screenOnboardingWelcomeMessage(InfoPlistReader.main.productionAppName))
+                    Text(UntranslatedL10n.screenOnboardingWelcomeMessageIos(InfoPlistReader.main.productionAppName))
                         .font(.compound.bodyLG)
                         .foregroundColor(.compound.textPrimary)
                         .multilineTextAlignment(.center)
@@ -99,14 +96,6 @@ struct AuthenticationStartScreen: View {
     /// The main action buttons.
     var buttons: some View {
         VStack(spacing: 16) {
-            if context.viewState.showQRCodeLoginButton {
-                Button { context.send(viewAction: .loginWithQR) } label: {
-                    Label(L10n.screenOnboardingSignInWithQrCode, icon: \.qrCode)
-                }
-                .buttonStyle(.compound(.primary))
-                .accessibilityIdentifier(A11yIdentifiers.authenticationStartScreen.signInWithQr)
-            }
-            
             Button { context.send(viewAction: .login) } label: {
                 Text(context.viewState.loginButtonTitle)
             }

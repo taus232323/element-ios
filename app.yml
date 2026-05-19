@@ -1,8 +1,8 @@
 settings:
-  APP_DISPLAY_NAME: Element X
-  PRODUCTION_APP_NAME: Element
-  APP_GROUP_IDENTIFIER: group.io.element
-  BASE_BUNDLE_IDENTIFIER: io.element.elementx
+  APP_DISPLAY_NAME: Arcana
+  PRODUCTION_APP_NAME: Arcana
+  APP_GROUP_IDENTIFIER: group.io.arcana
+  BASE_BUNDLE_IDENTIFIER: io.arcana.arcana
   ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: "colors/accent-color"
   DEVELOPMENT_TEAM: 7J4U792NQT
 

@@ -10,8 +10,8 @@ import Compound
 import SwiftUI
 
 struct LoginScreen: View {
-    /// The focus state of the username text field.
-    @FocusState private var isUsernameFocused: Bool
+    /// The focus state of the email text field.
+    @FocusState private var isEmailFocused: Bool
     /// The focus state of the password text field.
     @FocusState private var isPasswordFocused: Bool
     
@@ -47,7 +47,7 @@ struct LoginScreen: View {
     /// The header containing the title and icon.
     var header: some View {
         VStack(spacing: 8) {
-            BigIcon(icon: \.lockSolid)
+            BigIcon(icon: \.userProfileSolid)
                 .padding(.bottom, 8)
             
             Text(L10n.screenLoginTitleWithHomeserver(context.viewState.homeserver.address))
@@ -58,7 +58,7 @@ struct LoginScreen: View {
         .padding(.horizontal, 16)
     }
     
-    /// The form with text fields for username and password, along with a submit button.
+    /// The form with text fields for email and password, along with a submit button.
     var loginForm: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(L10n.screenLoginFormHeader)
@@ -67,18 +67,16 @@ struct LoginScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
             
-            TextField(text: $context.username) {
-                Text(L10n.commonUsername).foregroundColor(.compound.textSecondary)
+            TextField(text: $context.email) {
+                Text(UntranslatedL10n.screenLoginEmail).foregroundColor(.compound.textSecondary)
             }
-            .focused($isUsernameFocused)
+            .focused($isEmailFocused)
             .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.emailUsername))
             .disableAutocorrection(true)
-            .textContentType(.username)
+            .textContentType(.emailAddress)
             .autocapitalization(.none)
+            .keyboardType(.emailAddress)
             .submitLabel(.next)
-            .onChange(of: isUsernameFocused) { _, newValue in
-                usernameFocusChanged(isFocussed: newValue)
-            }
             .onSubmit { isPasswordFocused = true }
             .padding(.bottom, 20)
             
@@ -112,17 +110,11 @@ struct LoginScreen: View {
             .accessibilityIdentifier(A11yIdentifiers.loginScreen.unsupportedServer)
     }
     
-    /// Parses the username for a homeserver.
-    private func usernameFocusChanged(isFocussed: Bool) {
-        guard !isFocussed, !context.username.isEmpty else { return }
-        context.send(viewAction: .parseUsername)
-    }
-    
     /// Sends the `next` view action so long as valid credentials have been input.
     private func submit() {
         guard context.viewState.canSubmit else { return }
         context.send(viewAction: .next)
-        isUsernameFocused = false
+        isEmailFocused = false
         isPasswordFocused = false
     }
 }
@@ -161,11 +153,10 @@ struct LoginScreen_Previews: PreviewProvider, TestablePreview {
         let viewModel = LoginScreenViewModel(authenticationService: authenticationService,
                                              loginHint: nil,
                                              userIndicatorController: UserIndicatorControllerMock(),
-                                             appSettings: ServiceLocator.shared.settings,
-                                             analytics: ServiceLocator.shared.analytics)
+                                             appSettings: ServiceLocator.shared.settings)
         
         if withCredentials {
-            viewModel.context.username = "alice"
+            viewModel.context.email = "alice@example.com"
             viewModel.context.password = "password"
         }
         

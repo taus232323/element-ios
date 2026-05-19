@@ -20,11 +20,9 @@ struct AuthenticationStartScreenParameters {
 }
 
 enum AuthenticationStartScreenCoordinatorAction {
-    case loginWithQR
     case login
     case register
-    
-    case loginDirectlyWithOIDC(data: OIDCAuthorizationDataProxy, window: UIWindow)
+
     case loginDirectlyWithPassword(loginHint: String?)
     
     case reportProblem
@@ -58,15 +56,11 @@ final class AuthenticationStartScreenCoordinator: CoordinatorProtocol {
                 guard let self else { return }
                 
                 switch action {
-                case .loginWithQR:
-                    actionsSubject.send(.loginWithQR)
                 case .login:
                     actionsSubject.send(.login)
                 case .register:
                     actionsSubject.send(.register)
-                
-                case .loginDirectlyWithOIDC(let data, let window):
-                    actionsSubject.send(.loginDirectlyWithOIDC(data: data, window: window))
+
                 case .loginDirectlyWithPassword(let loginHint):
                     actionsSubject.send(.loginDirectlyWithPassword(loginHint: loginHint))
                 

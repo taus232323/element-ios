@@ -13,6 +13,10 @@ class AppHooks: AppHooksProtocol {
     func configure(with userSession: UserSessionProtocol?) async {
         await roomScreenHook.configure(with: userSession)
     }
+
+    func setUp() {
+        registerAppSettingsHook(ArcanaAppSettingsHook())
+    }
     
     private(set) var appSettingsHook: AppSettingsHookProtocol = DefaultAppSettingsHook()
     func registerAppSettingsHook(_ hook: AppSettingsHookProtocol) {

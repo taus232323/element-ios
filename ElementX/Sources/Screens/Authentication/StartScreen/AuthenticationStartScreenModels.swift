@@ -9,11 +9,9 @@
 import SwiftUI
 
 enum AuthenticationStartScreenViewModelAction: Equatable {
-    case loginWithQR
     case login
     case register
-    
-    case loginDirectlyWithOIDC(data: OIDCAuthorizationDataProxy, window: UIWindow)
+
     case loginDirectlyWithPassword(loginHint: String?)
     
     case reportProblem
@@ -21,12 +19,8 @@ enum AuthenticationStartScreenViewModelAction: Equatable {
 }
 
 struct AuthenticationStartScreenViewState: BindableState {
-    /// The presentation anchor used for OIDC authentication.
-    var window: UIWindow?
-    
     let serverName: String?
     let showCreateAccountButton: Bool
-    let showQRCodeLoginButton: Bool
     
     enum ClassicAppMode { case welcomeBack(ClassicAppAccount), otherOptions(ClassicAppAccount) }
     var classicAppMode: ClassicAppMode?
@@ -38,8 +32,6 @@ struct AuthenticationStartScreenViewState: BindableState {
     var loginButtonTitle: String {
         if let serverName {
             L10n.screenOnboardingSignInTo(serverName)
-        } else if showQRCodeLoginButton {
-            L10n.screenOnboardingSignInManually
         } else {
             L10n.actionContinue
         }
@@ -56,12 +48,9 @@ enum AuthenticationStartScreenAlertType {
 }
 
 enum AuthenticationStartScreenViewAction {
-    /// Updates the window used as the OIDC presentation anchor.
-    case updateWindow(UIWindow)
     case developerOptions
     case reportProblem
     
-    case loginWithQR
     case login
     case register
     

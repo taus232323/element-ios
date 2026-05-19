@@ -9,17 +9,8 @@
 import Foundation
 
 enum LoginScreenViewModelAction {
-    /// The homeserver was updated to one that supports OIDC.
-    case configuredForOIDC
     /// Login was successful.
     case signedIn(UserSessionProtocol)
-    
-    var isConfiguredForOIDC: Bool {
-        switch self {
-        case .configuredForOIDC: true
-        default: false
-        }
-    }
 }
 
 struct LoginScreenViewState: BindableState {
@@ -35,9 +26,9 @@ struct LoginScreenViewState: BindableState {
         homeserver.loginMode
     }
     
-    /// `true` if the username and password are ready to be submitted.
+    /// `true` if the email and password are ready to be submitted.
     var hasValidCredentials: Bool {
-        !bindings.username.isEmpty && !bindings.password.isEmpty
+        !bindings.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !bindings.password.isEmpty
     }
     
     /// `true` when valid credentials have been entered and a homeserver has been loaded.
@@ -47,8 +38,8 @@ struct LoginScreenViewState: BindableState {
 }
 
 struct LoginScreenBindings {
-    /// The username input by the user.
-    var username = ""
+    /// The email input by the user.
+    var email = ""
     /// The password input by the user.
     var password = ""
     /// Information describing the currently displayed alert.
@@ -56,16 +47,14 @@ struct LoginScreenBindings {
 }
 
 enum LoginScreenViewAction {
-    /// Parse the username to detect if a homeserver is included.
-    case parseUsername
-    /// Continue using the input username and password.
+    /// Continue using the input email and password.
     case next
 }
 
 enum LoginScreenErrorType: Hashable {
     /// A specific error message shown in an alert.
     case alert(String)
-    /// An alert that informs the user to check their username/password.
+    /// An alert that informs the user to check their email/password.
     case credentialsAlert
     /// An alert that informs the user that their account has been deactivated.
     case deactivatedAlert

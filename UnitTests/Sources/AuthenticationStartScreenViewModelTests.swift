@@ -40,12 +40,11 @@ final class AuthenticationStartScreenViewModelTests {
     func initialState() async throws {
         // Given a view model that has no provisioning parameters.
         await setupViewModel()
+        #expect(context.viewState.showCreateAccountButton)
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When tapping any of the buttons on the screen
         let actions: [(AuthenticationStartScreenViewAction, AuthenticationStartScreenViewModelAction)] = [
-            (.loginWithQR, .loginWithQR),
             (.login, .login),
             (.register, .register),
             (.reportProblem, .reportProblem)
@@ -58,37 +57,15 @@ final class AuthenticationStartScreenViewModelTests {
             
             // Then the authentication service should not be used yet.
             #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 0)
-            #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
             #expect(authenticationService.homeserver.value.loginMode == .unknown)
         }
     }
     
     @Test
-    func provisionedOIDCState() async throws {
-        // Given a view model that has been provisioned with a server that supports OIDC.
+    func provisionedPasswordState() async throws {
+        // Given a view model that has been provisioned with a server.
         await setupViewModel(provisioningParameters: .init(accountProvider: "company.com", loginHint: "user@company.com"))
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
-        
-        // When tapping the login button the authentication service should be used and the screen
-        // should request to continue the flow without any server selection needed.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithOIDC }
-        context.send(viewAction: .login)
-        try await deferred.fulfill()
-        
-        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 1)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesReceivedArguments?.prompt == .consent)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesReceivedArguments?.loginHint == "user@company.com")
-        #expect(authenticationService.homeserver.value.loginMode == .oidc(supportsCreatePrompt: false))
-    }
-    
-    @Test
-    func provisionedPasswordState() async throws {
-        // Given a view model that has been provisioned with a server that does not support OIDC.
-        await setupViewModel(provisioningParameters: .init(accountProvider: "company.com", loginHint: "user@company.com"), supportsOIDC: false)
-        #expect(authenticationService.homeserver.value.loginMode == .unknown)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When tapping the login button the authentication service should be used and the screen
         // should request to continue the flow without any server selection needed.
@@ -96,39 +73,16 @@ final class AuthenticationStartScreenViewModelTests {
         context.send(viewAction: .login)
         try await deferred.fulfill()
         
-        // Then a call to configure service should be made.
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
         #expect(authenticationService.homeserver.value.loginMode == .password)
     }
     
     @Test
-    func singleProviderOIDCState() async throws {
-        // Given a view model that for an app that only allows the use of a single provider that supports OIDC.
+    func singleProviderPasswordState() async throws {
+        // Given a view model that for an app that only allows the use of a single provider.
         setAllowedAccountProviders(["company.com"])
         await setupViewModel()
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
-        
-        // When tapping the login button the authentication service should be used and the screen
-        // should request to continue the flow without any server selection needed.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithOIDC }
-        context.send(viewAction: .login)
-        try await deferred.fulfill()
-        
-        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 1)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesReceivedArguments?.prompt == .consent)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesReceivedArguments?.loginHint == nil)
-        #expect(authenticationService.homeserver.value.loginMode == .oidc(supportsCreatePrompt: false))
-    }
-    
-    @Test
-    func singleProviderPasswordState() async throws {
-        // Given a view model that for an app that only allows the use of a single provider that does not support OIDC.
-        setAllowedAccountProviders(["company.com"])
-        await setupViewModel(supportsOIDC: false)
-        #expect(authenticationService.homeserver.value.loginMode == .unknown)
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesCallsCount == 0)
         
         // When tapping the login button the authentication service should be used and the screen
         // should request to continue the flow without any server selection needed.
@@ -136,7 +90,6 @@ final class AuthenticationStartScreenViewModelTests {
         context.send(viewAction: .login)
         try await deferred.fulfill()
         
-        // Then a call to configure service should be made.
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
         #expect(authenticationService.homeserver.value.loginMode == .password)
     }
@@ -156,14 +109,13 @@ final class AuthenticationStartScreenViewModelTests {
         
         // When continuing with the Classic app account the authentication service should be used and the screen
         // should request to continue the flow without any server selection needed.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithOIDC }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithPassword }
         context.send(viewAction: .continueWithClassic(classicAppAccount))
         try await deferred.fulfill()
         
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksReceivedArguments?.homeserverAddress == "company.com")
-        #expect(authenticationService.homeserver.value.loginMode == .oidc(supportsCreatePrompt: false))
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesReceivedArguments?.loginHint == "mxid:\(classicAppAccount.userID)")
+        #expect(authenticationService.homeserver.value.loginMode == .password)
     }
     
     @Test
@@ -180,14 +132,13 @@ final class AuthenticationStartScreenViewModelTests {
         
         // When continuing with the Classic app account the authentication service should be used with the direct homeserver URL
         // and the screen should request to continue the flow without any server selection needed.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithOIDC }
+        let deferred = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithPassword }
         context.send(viewAction: .continueWithClassic(classicAppAccount))
         try await deferred.fulfill()
         
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 2)
         #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksReceivedArguments?.homeserverAddress == "https://matrix.company.com")
-        #expect(authenticationService.homeserver.value.loginMode == .oidc(supportsCreatePrompt: false))
-        #expect(client.urlForOidcOidcConfigurationPromptLoginHintDeviceIdAdditionalScopesReceivedArguments?.loginHint == "mxid:\(classicAppAccount.userID)")
+        #expect(authenticationService.homeserver.value.loginMode == .password)
     }
     
     @Test
@@ -271,7 +222,7 @@ final class AuthenticationStartScreenViewModelTests {
         try await deferred.fulfill()
         
         // When the user continues with the Classic account again.
-        let deferredAction = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithOIDC }
+        let deferredAction = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithPassword }
         context.send(viewAction: .continueWithClassic(classicAppAccount))
         
         // Then the flow should continue the login process.
@@ -320,9 +271,6 @@ final class AuthenticationStartScreenViewModelTests {
                                                        mediaProvider: MediaProviderMock(configuration: .init()),
                                                        notificationCenter: notificationCenter,
                                                        userIndicatorController: UserIndicatorControllerMock())
-        
-        // Add a fake window in order for the OIDC flow to continue
-        viewModel.context.send(viewAction: .updateWindow(UIWindow()))
     }
     
     private func makeClassicAppAccount(serverName: String = "company.com",
@@ -362,13 +310,6 @@ final class AuthenticationStartScreenViewModelTests {
 }
 
 extension AuthenticationStartScreenViewModelAction {
-    var isLoginDirectlyWithOIDC: Bool {
-        switch self {
-        case .loginDirectlyWithOIDC: true
-        default: false
-        }
-    }
-    
     var isLoginDirectlyWithPassword: Bool {
         switch self {
         case .loginDirectlyWithPassword: true
