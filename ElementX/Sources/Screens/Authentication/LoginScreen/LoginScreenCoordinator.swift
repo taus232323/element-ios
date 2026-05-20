@@ -21,6 +21,8 @@ struct LoginScreenCoordinatorParameters {
 enum LoginScreenCoordinatorAction {
     /// Login was successful.
     case signedIn(UserSessionProtocol)
+    /// Login was cancelled.
+    case cancel
 }
 
 /// Note: This code was brought over from Riot, we should move the authentication service logic into the view model.
@@ -53,6 +55,8 @@ final class LoginScreenCoordinator: CoordinatorProtocol {
                 switch action {
                 case .signedIn(let userSession):
                     actionsSubject.send(.signedIn(userSession))
+                case .cancel:
+                    actionsSubject.send(.cancel)
                 }
             }
             .store(in: &cancellables)

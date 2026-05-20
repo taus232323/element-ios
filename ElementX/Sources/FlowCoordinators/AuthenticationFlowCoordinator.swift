@@ -36,6 +36,8 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         case serverConfirmationScreen
         /// The screen to login with a password.
         case loginScreen
+        /// The screen to register a new account.
+        case nativeRegistrationScreen
         
         /// The screen to report an error.
         case bugReportFlow
@@ -60,8 +62,12 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
         /// Show the screen to login with password (with the optional login hint in the `userInfo`).
         case continueWithPassword
+        /// Show the screen to register a new account.
+        case continueWithNativeRegistration
         /// The password login was aborted.
         case cancelledPasswordLogin(previousState: State)
+        /// The native registration flow was aborted.
+        case cancelledNativeRegistration(previousState: State)
         
         /// The user encountered a problem.
         case reportProblem
@@ -136,6 +142,8 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             navigationStackCoordinator.popToRoot(animated: animated)
         case .loginScreen:
             navigationStackCoordinator.popToRoot(animated: animated)
+        case .nativeRegistrationScreen:
+            navigationStackCoordinator.popToRoot(animated: animated)
         case .bugReportFlow:
             navigationStackCoordinator.setSheetCoordinator(nil)
         case .developerOptions:
@@ -160,22 +168,16 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
         // Manual Authentication
         
-        stateMachine.addRoutes(event: .confirmServer(.login), transitions: [.startScreen => .serverConfirmationScreen]) { [weak self] _ in
-            self?.showServerConfirmationScreen(authenticationFlow: .login)
-        }
-        stateMachine.addRoutes(event: .confirmServer(.register), transitions: [.startScreen => .serverConfirmationScreen]) { [weak self] _ in
-            self?.showServerConfirmationScreen(authenticationFlow: .register)
-        }
-        stateMachine.addRoutes(event: .cancelledServerConfirmation, transitions: [.serverConfirmationScreen => .startScreen])
-        
-        stateMachine.addRoutes(event: .continueWithPassword, transitions: [.serverConfirmationScreen => .loginScreen,
-                                                                           .startScreen => .loginScreen]) { [weak self] context in
+        stateMachine.addRoutes(event: .continueWithPassword, transitions: [.startScreen => .loginScreen]) { [weak self] context in
             let loginHint = context.userInfo as? String
-            self?.showLoginScreen(loginHint: loginHint, fromState: context.fromState)
+            self?.showLoginScreen(loginHint: loginHint, fromState: .startScreen)
         }
-        stateMachine.addRoutes(event: .cancelledPasswordLogin(previousState: .serverConfirmationScreen), transitions: [.loginScreen => .serverConfirmationScreen])
         stateMachine.addRoutes(event: .cancelledPasswordLogin(previousState: .startScreen), transitions: [.loginScreen => .startScreen])
-        
+        stateMachine.addRoutes(event: .continueWithNativeRegistration, transitions: [.startScreen => .nativeRegistrationScreen]) { [weak self] _ in
+            self?.showNativeRegistrationScreen(fromState: .startScreen)
+        }
+        stateMachine.addRoutes(event: .cancelledNativeRegistration(previousState: .startScreen), transitions: [.nativeRegistrationScreen => .startScreen])
+
         // Bug Report
         
         stateMachine.addRoutes(event: .reportProblem, transitions: [.startScreen => .bugReportFlow]) { [weak self] _ in
@@ -193,6 +195,10 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         // Completion
         
         stateMachine.addRoutes(event: .signedIn, transitions: [.loginScreen => .complete]) { [weak self] context in
+            guard let userSession = context.userInfo as? UserSessionProtocol else { fatalError("The user session wasn't included in the context") }
+            self?.userHasSignedIn(userSession: userSession)
+        }
+        stateMachine.addRoutes(event: .signedIn, transitions: [.nativeRegistrationScreen => .complete]) { [weak self] context in
             guard let userSession = context.userInfo as? UserSessionProtocol else { fatalError("The user session wasn't included in the context") }
             self?.userHasSignedIn(userSession: userSession)
         }
@@ -237,9 +243,9 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                 
                 switch action {
                 case .login:
-                    stateMachine.tryEvent(.confirmServer(.login))
+                    stateMachine.tryEvent(.continueWithPassword)
                 case .register:
-                    stateMachine.tryEvent(.confirmServer(.register))
+                    stateMachine.tryEvent(.continueWithNativeRegistration)
                 case .loginDirectlyWithPassword(let loginHint):
                     stateMachine.tryEvent(.continueWithPassword, userInfo: loginHint)
                 
@@ -300,12 +306,37 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                 switch action {
                 case .signedIn(let userSession):
                     stateMachine.tryEvent(.signedIn, userInfo: userSession)
+                case .cancel:
+                    stateMachine.tryEvent(.cancelledPasswordLogin(previousState: fromState))
                 }
             }
             .store(in: &cancellables)
         
         navigationStackCoordinator.push(coordinator) { [weak self] in
             self?.stateMachine.tryEvent(.cancelledPasswordLogin(previousState: fromState))
+        }
+    }
+
+    private func showNativeRegistrationScreen(fromState: State) {
+        let parameters = NativeRegistrationScreenCoordinatorParameters(authenticationService: authenticationService,
+                                                                       userIndicatorController: userIndicatorController)
+        let coordinator = NativeRegistrationScreenCoordinator(parameters: parameters)
+
+        coordinator.actions
+            .sink { [weak self] action in
+                guard let self else { return }
+
+                switch action {
+                case .signedIn(let userSession):
+                    stateMachine.tryEvent(.signedIn, userInfo: userSession)
+                case .cancel:
+                    stateMachine.tryEvent(.cancelledNativeRegistration(previousState: fromState))
+                }
+            }
+            .store(in: &cancellables)
+
+        navigationStackCoordinator.push(coordinator) { [weak self] in
+            self?.stateMachine.tryEvent(.cancelledNativeRegistration(previousState: fromState))
         }
     }
     

@@ -14,85 +14,135 @@ struct LoginScreen: View {
     @FocusState private var isEmailFocused: Bool
     /// The focus state of the password text field.
     @FocusState private var isPasswordFocused: Bool
-    
+    /// The focus state of the verification code text field.
+    @FocusState private var isVerificationCodeFocused: Bool
+
     @Bindable var context: LoginScreenViewModel.Context
-    
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                header
-                    .padding(.top, UIConstants.titleTopPaddingToNavigationBar)
-                    .padding(.bottom, 20)
-                
-                switch context.viewState.loginMode {
-                case .password:
-                    loginForm
-                case .oidc:
-                    // This should never be shown.
-                    ProgressView()
-                default:
-                    // This should never be shown either.
-                    loginUnavailableText
+        VStack(spacing: 0) {
+            header
+                .padding(.top, UIConstants.titleTopPaddingToNavigationBar)
+                .padding(.bottom, 32)
+
+            switch context.viewState.loginMode {
+            case .password:
+                loginContent
+            case .oidc:
+                // This should never be shown.
+                ProgressView()
+            default:
+                // This should never be shown either.
+                loginUnavailableText
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .readableFrame()
+        .padding(.horizontal, 20)
+        .padding(.bottom, 20)
+        .background {
+            AuthenticationStartScreenBackgroundImage()
+        }
+        .preferredColorScheme(.dark)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    context.send(viewAction: .back)
+                } label: {
+                    Image(systemName: "chevron.left")
                 }
             }
-            .readableFrame()
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
         }
-        .background(Color.compound.bgCanvasDefault.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
         .alert(item: $context.alertInfo)
     }
-    
+
     /// The header containing the title and icon.
     var header: some View {
-        VStack(spacing: 12) {
-            AuthenticationStartLogo(size: 122,
-                                    hideBrandChrome: false,
-                                    isOnGradient: false)
+        VStack(spacing: 8) {
+            ArcanaMark(size: 164)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
             
-            Text(L10n.screenLoginTitle)
+            Text(title)
                 .font(.compound.headingMDBold)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.compound.textPrimary)
 
-            Text(L10n.screenLoginSubtitle)
+            Text(subtitle)
                 .font(.compound.bodyMD)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.compound.textSecondary)
         }
         .padding(.horizontal, 16)
     }
+
+    var title: String {
+        switch context.viewState.step {
+        case .credentials:
+            UntranslatedL10n.screenLoginCredentialsTitleIos
+        case .verificationCode:
+            UntranslatedL10n.screenLoginEmailVerificationTitleIos
+        }
+    }
     
-    /// The form with text fields for email and password, along with a submit button.
-    var loginForm: some View {
+    var subtitle: String {
+        switch context.viewState.step {
+        case .credentials:
+            UntranslatedL10n.screenLoginCredentialsSubtitleIos
+        case .verificationCode:
+            UntranslatedL10n.screenLoginEmailVerificationSubtitleIos(context.viewState.bindings.email)
+        }
+    }
+
+    /// The form with text fields for the current step, along with a submit button.
+    var loginContent: some View {
         VStack(alignment: .leading, spacing: 0) {
-            TextField(text: $context.email) {
-                Text(UntranslatedL10n.screenLoginEmail).foregroundColor(.compound.textSecondary)
+            if context.viewState.step == .credentials {
+                TextField(text: $context.email) {
+                    Text(UntranslatedL10n.screenLoginEmail).foregroundColor(.compound.textSecondary)
+                }
+                .focused($isEmailFocused)
+                .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.emailUsername))
+                .disableAutocorrection(true)
+                .textContentType(.emailAddress)
+                .autocapitalization(.none)
+                .keyboardType(.emailAddress)
+                .submitLabel(.next)
+                .onSubmit { isPasswordFocused = true }
+                .padding(.bottom, 20)
+
+                SecureField(text: $context.password) {
+                    Text(L10n.commonPassword).foregroundColor(.compound.textSecondary)
+                }
+                .focused($isPasswordFocused)
+                .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
+                .textContentType(.password)
+                .submitLabel(.done)
+                .onSubmit(submit)
+            } else {
+                TextField(text: $context.verificationCode) {
+                    Text(UntranslatedL10n.screenLoginVerificationCodeLabelIos).foregroundColor(.compound.textSecondary)
+                }
+                .focused($isVerificationCodeFocused)
+                .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
+                .keyboardType(.numberPad)
+                .submitLabel(.done)
+                .onSubmit(submit)
+                .padding(.bottom, 20)
+
+                Button(action: { context.send(viewAction: .resendVerificationCode) }) {
+                    Text(UntranslatedL10n.actionResendCodeIos)
+                }
+                .buttonStyle(.compound(.textLink))
+                .disabled(!context.viewState.canResendVerificationCode)
             }
-            .focused($isEmailFocused)
-            .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.emailUsername))
-            .disableAutocorrection(true)
-            .textContentType(.emailAddress)
-            .autocapitalization(.none)
-            .keyboardType(.emailAddress)
-            .submitLabel(.next)
-            .onSubmit { isPasswordFocused = true }
-            .padding(.bottom, 20)
-            
-            SecureField(text: $context.password) {
-                Text(L10n.commonPassword).foregroundColor(.compound.textSecondary)
-            }
-            .focused($isPasswordFocused)
-            .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
-            .textContentType(.password)
-            .submitLabel(.done)
-            .onSubmit(submit)
             
             Spacer().frame(height: 24)
 
             Button(action: submit) {
-                Text(L10n.actionContinue)
+                Text(context.viewState.step == .credentials ? L10n.actionContinue : L10n.actionConfirm)
             }
             .buttonStyle(.compound(.primary))
             .disabled(!context.viewState.canSubmit)
@@ -116,6 +166,7 @@ struct LoginScreen: View {
         context.send(viewAction: .next)
         isEmailFocused = false
         isPasswordFocused = false
+        isVerificationCodeFocused = false
     }
 }
 

@@ -7,109 +7,191 @@
 //
 
 @testable import Arcana
+import Combine
+import Foundation
 import MatrixRustSDKMocks
 import Testing
+import UIKit
 
 @MainActor
-struct LoginScreenViewModelTests {
+final class LoginScreenViewModelTests {
     var viewModel: LoginScreenViewModelProtocol!
     var context: LoginScreenViewModelType.Context {
         viewModel.context
     }
-    
-    var clientFactory: AuthenticationClientFactoryMock!
-    var service: AuthenticationServiceProtocol!
-    
+
+    var service: LoginScreenAuthenticationServiceStub!
+
     @Test
-    mutating func basicServer() async {
+    func basicServer() async {
         await setupViewModel()
-        
+
         #expect(context.viewState.homeserver == .mockBasicServer)
         #expect(context.viewState.loginMode == .password)
         #expect(context.email.isEmpty)
         #expect(context.password.isEmpty)
+        #expect(context.viewState.step == .credentials)
     }
-    
+
     @Test
-    mutating func validCredentials() async {
+    func validCredentials() async {
         await setupViewModel()
-        
+
         context.email = "alice@example.com"
         context.password = "12345678"
-        
+
         #expect(context.viewState.hasValidCredentials)
         #expect(context.viewState.canSubmit)
     }
-    
+
     @Test
-    mutating func missingEmailOrPassword() async {
+    func missingEmailOrPassword() async {
         await setupViewModel()
-        
+
         context.email = ""
         context.password = "12345678"
         #expect(!context.viewState.hasValidCredentials)
         #expect(!context.viewState.canSubmit)
-        
+
         context.email = "alice@example.com"
         context.password = ""
         #expect(!context.viewState.hasValidCredentials)
         #expect(!context.viewState.canSubmit)
     }
-    
+
     @Test
-    mutating func loginHint() async {
+    func loginHint() async {
         await setupViewModel(loginHint: "")
         #expect(context.email == "")
 
         await setupViewModel(loginHint: "alice@example.com")
         #expect(context.email == "alice@example.com")
     }
-    
+
     @Test
-    mutating func login() async throws {
+    func login() async throws {
         await setupViewModel()
         context.email = "alice@example.com"
         context.password = "12345678"
-        
+
+        let reachedCodeStep = deferFulfillment(context.observe(\.viewState.step)) { $0 == .verificationCode }
+        context.send(viewAction: .next)
+        try await reachedCodeStep.fulfill()
+
         let deferred = deferFulfillment(viewModel.actions) {
             if case .signedIn = $0 { true } else { false }
         }
+        context.verificationCode = "123456"
         context.send(viewAction: .next)
         try await deferred.fulfill()
-        
-        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
-        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksReceivedArguments?.homeserverAddress == "example.com")
     }
-    
-    // MARK: - Helpers
-    
-    private mutating func setupViewModel(homeserverAddress: String = "example.com", loginHint: String? = nil) async {
-        var configuration = AuthenticationClientFactoryMock.Configuration()
-        configuration.homeserverClients["example.com"] = ClientSDKMock(configuration: .init(serverAddress: "example.com",
-                                                                                            homeserverURL: "https://matrix.example.com",
-                                                                                            slidingSyncVersion: .native,
-                                                                                            oidcLoginURL: nil,
-                                                                                            supportsOIDCCreatePrompt: false,
-                                                                                            supportsPasswordLogin: true,
-                                                                                            validCredentials: (username: "alice@example.com", password: "12345678")))
 
-        clientFactory = AuthenticationClientFactoryMock(configuration: configuration)
-        service = AuthenticationService(userSessionStore: UserSessionStoreMock(configuration: .init()),
-                                        encryptionKeyProvider: EncryptionKeyProvider(),
-                                        classicAppManager: nil,
-                                        clientFactory: clientFactory,
-                                        appSettings: ServiceLocator.shared.settings,
-                                        appHooks: AppHooks())
-        
-        guard case .success = await service
-            .configure(for: homeserverAddress, flow: .login) else {
+    @Test
+    func goBackFromVerificationCode() async throws {
+        await setupViewModel()
+        context.email = "alice@example.com"
+        context.password = "12345678"
+        let reachedCodeStep = deferFulfillment(context.observe(\.viewState.step)) { $0 == .verificationCode }
+        context.send(viewAction: .next)
+        try await reachedCodeStep.fulfill()
+
+        let returnedToCredentials = deferFulfillment(context.observe(\.viewState.step)) { $0 == .credentials }
+        context.send(viewAction: .back)
+        try await returnedToCredentials.fulfill()
+    }
+
+    // MARK: - Helpers
+
+    private func setupViewModel(homeserverAddress: String = "example.com", loginHint: String? = nil) async {
+        service = LoginScreenAuthenticationServiceStub()
+        guard case .success = await service.configure(for: homeserverAddress, flow: .login) else {
             Issue.record("A valid server should be configured for the test.")
             return
         }
-        
+
         viewModel = LoginScreenViewModel(authenticationService: service,
                                          loginHint: loginHint,
                                          userIndicatorController: UserIndicatorControllerMock(),
                                          appSettings: ServiceLocator.shared.settings)
     }
+}
+
+@MainActor
+final class LoginScreenAuthenticationServiceStub: AuthenticationServiceProtocol {
+    let homeserverSubject = CurrentValueSubject<LoginHomeserver, Never>(.init(address: "example.com", loginMode: .password))
+    var homeserver: CurrentValuePublisher<LoginHomeserver, Never> {
+        homeserverSubject.asCurrentValuePublisher()
+    }
+
+    var flow: AuthenticationFlow = .login
+    var classicAppAccount: ClassicAppAccount?
+
+    private let successSession = UserSessionMock(.init())
+
+    func configure(for homeserverAddress: String, flow: AuthenticationFlow) async -> Result<Void, AuthenticationServiceError> {
+        self.flow = flow
+        homeserverSubject.send(LoginHomeserver(address: homeserverAddress, loginMode: .password))
+        return .success(())
+    }
+
+    func urlForOIDCLogin(loginHint: String?) async -> Result<OIDCAuthorizationDataProxy, AuthenticationServiceError> {
+        .failure(.oidcError(.notSupported))
+    }
+
+    func abortOIDCLogin(data: OIDCAuthorizationDataProxy) async { }
+
+    func loginWithOIDCCallback(_ callbackURL: URL) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
+        .failure(.failedLoggingIn)
+    }
+
+    func login(username: String, password: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
+        .failure(.failedLoggingIn)
+    }
+
+    func startNativeLogin(login: String, password: String) async -> Result<PendingNativeLogin, AuthenticationServiceError> {
+        .success(.init(homeserverUrl: "https://matrix.example.com",
+                       login: login,
+                       password: password,
+                       clientSecret: "secret",
+                       sendAttempt: 1,
+                       sid: "sid",
+                       email: login))
+    }
+
+    func continueNativeLogin(_ pendingLogin: PendingNativeLogin, verificationCode: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
+        .success(successSession)
+    }
+
+    func resendNativeLoginCode(_ pendingLogin: PendingNativeLogin) async -> Result<PendingNativeLogin, AuthenticationServiceError> {
+        .success(pendingLogin)
+    }
+
+    func startNativeRegistration(email: String) async -> Result<PendingNativeRegistration, AuthenticationServiceError> {
+        .failure(.failedLoggingIn)
+    }
+
+    func continueNativeRegistrationEmailCode(_ pendingRegistration: PendingNativeRegistration, verificationCode: String) async -> Result<PendingNativeRegistration, AuthenticationServiceError> {
+        .failure(.failedLoggingIn)
+    }
+
+    func finishNativeRegistration(_ pendingRegistration: PendingNativeRegistration, username: String?, password: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
+        .failure(.failedLoggingIn)
+    }
+
+    func resendNativeRegistrationEmail(_ pendingRegistration: PendingNativeRegistration) async -> Result<PendingNativeRegistration, AuthenticationServiceError> {
+        .failure(.failedLoggingIn)
+    }
+
+    func loginWithQRCode(data: Data) -> QRLoginProgressPublisher {
+        CurrentValueSubject<QRLoginProgress, AuthenticationServiceError>(.starting).asCurrentValuePublisher()
+    }
+
+    func reset() {
+        homeserverSubject.send(.init(address: "example.com", loginMode: .unknown))
+        flow = .login
+    }
+
+    func setupClassicAppAccountState() async { }
+
+    func refreshClassicAppAccountState() async { }
 }

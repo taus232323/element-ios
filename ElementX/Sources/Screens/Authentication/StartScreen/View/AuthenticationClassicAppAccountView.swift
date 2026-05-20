@@ -31,6 +31,7 @@ struct AuthenticationClassicAppAccountView: View {
             // Buttons are intentionally shown inline on this screen.
         }
         .navigationBarTitleDisplayMode(.inline)
+        .preferredColorScheme(.dark)
         .alert(item: $context.alertInfo)
         .sheet(isPresented: $context.showClassicAppBackupInstructions) {
             AuthenticationClassicAppBackupInstructionsView(classicAppAccount: classicAppAccount) {
@@ -41,7 +42,7 @@ struct AuthenticationClassicAppAccountView: View {
     
     var header: some View {
         VStack(spacing: 8) {
-            AuthenticationStartLogo(size: 54, hideBrandChrome: false, isOnGradient: false)
+            ArcanaMark(size: 54)
             
             Text(UntranslatedL10n.screenOnboardingWelcomeTitleIos)
                 .font(.compound.headingMDBold)

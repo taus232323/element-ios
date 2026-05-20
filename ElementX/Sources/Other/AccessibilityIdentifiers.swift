@@ -133,6 +133,7 @@ enum A11yIdentifiers {
     
     struct AuthenticationStartScreen {
         let signIn = "authentication_start-sign_in"
+        let reportProblem = "authentication_start-report_problem"
         let signInWithQr = "authentication_start-sign_in_with_qr"
         let appVersion = "authentication_start-app_version"
         let hidden = "authentication_start-hidden"

@@ -11,7 +11,7 @@ import Foundation
 import MatrixRustSDK
 
 class AuthenticationService: AuthenticationServiceProtocol {
-    private var client: ClientProtocol?
+    var client: ClientProtocol?
     private var sessionDirectories: SessionDirectories
     private let passphrase: String
     
@@ -70,22 +70,7 @@ class AuthenticationService: AuthenticationServiceProtocol {
             var homeserver = LoginHomeserver(address: homeserverAddress, loginMode: .unknown)
             
             let client = try await makeClient(homeserverAddress: homeserverAddress)
-            let loginDetails = await client.homeserverLoginDetails()
-            
-            homeserver.loginMode = if loginDetails.supportsOidcLogin() {
-                .oidc(supportsCreatePrompt: loginDetails.supportedOidcPrompts().contains(.create))
-            } else if loginDetails.supportsPasswordLogin() {
-                .password
-            } else {
-                .unsupported
-            }
-            
-            if flow == .login, homeserver.loginMode == .unsupported {
-                return .failure(.loginNotSupported)
-            }
-            if flow == .register, !homeserver.loginMode.supportsOIDCFlow {
-                return .failure(.registrationNotSupported)
-            }
+            homeserver.loginMode = .password
             
             self.client = client
             self.flow = flow
@@ -261,7 +246,7 @@ class AuthenticationService: AuthenticationServiceProtocol {
         sessionDirectories = .init()
     }
     
-    private func userSession(for client: ClientProtocol) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
+    func userSession(for client: ClientProtocol) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
         switch await userSessionStore.userSession(for: client, sessionDirectories: sessionDirectories, passphrase: passphrase) {
         case .success(let clientProxy):
             return .success(clientProxy)
@@ -322,7 +307,7 @@ class AuthenticationService: AuthenticationServiceProtocol {
     /// Imports the Classic app's encryption secrets into the signed-in client, automatically verifying the session. This will no-op if
     /// the user signed in with a different account or when the Classic app doesn't have a complete set of secrets (meaning either
     /// key backup is disabled or the session hasn't been verified).
-    private func verifyClientIfPossible(client: ClientProtocol) async {
+    func verifyClientIfPossible(client: ClientProtocol) async {
         guard let classicAppManager, let classicAppAccount else { return }
         
         // Technically the SDK makes sure the secrets are for the correct account, but as

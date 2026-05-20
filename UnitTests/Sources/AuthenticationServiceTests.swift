@@ -51,7 +51,7 @@ struct AuthenticationServiceTests {
         try await service.configure(for: "matrix.org", flow: .login).get()
         
         #expect(service.flow == .login)
-        #expect(service.homeserver.value == .mockMatrixDotOrg)
+        #expect(service.homeserver.value == .init(address: "matrix.org", loginMode: .password))
     }
     
     @Test
@@ -61,21 +61,7 @@ struct AuthenticationServiceTests {
         try await service.configure(for: "matrix.org", flow: .register).get()
         
         #expect(service.flow == .register)
-        #expect(service.homeserver.value == .mockMatrixDotOrg)
-    }
-    
-    @Test
-    @MainActor
-    mutating func configureRegisterNoSupport() async throws {
-        let homeserverAddress = "example.com"
-        try await setup(serverAddress: homeserverAddress)
-        
-        try await #require(throws: AuthenticationServiceError.registrationNotSupported) {
-            try await service.configure(for: homeserverAddress, flow: .register).get()
-        }
-        
-        #expect(service.flow == .login)
-        #expect(service.homeserver.value == .init(address: "matrix.org", loginMode: .unknown))
+        #expect(service.homeserver.value == .init(address: "matrix.org", loginMode: .password))
     }
     
     @Test

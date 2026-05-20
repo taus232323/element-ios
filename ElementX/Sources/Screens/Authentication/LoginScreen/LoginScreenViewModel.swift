@@ -8,6 +8,7 @@
 
 import Combine
 import SwiftUI
+import UIKit
 
 typealias LoginScreenViewModelType = StateStoreViewModelV2<LoginScreenViewState, LoginScreenViewAction>
 
@@ -46,6 +47,10 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
         switch viewAction {
         case .next:
             login()
+        case .back:
+            goBack()
+        case .resendVerificationCode:
+            resendVerificationCode()
         }
     }
     
@@ -63,18 +68,62 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
 
         Task {
             let email = state.bindings.email.trimmingCharacters(in: .whitespacesAndNewlines)
+            switch state.step {
+            case .credentials:
+                switch await authenticationService.startNativeLogin(login: email,
+                                                                    password: state.bindings.password) {
+                case .success(let pendingLogin):
+                    state.pendingLogin = pendingLogin
+                    state.step = .verificationCode
+                    state.bindings.password = ""
+                    state.bindings.verificationCode = ""
+                case .failure(let error):
+                    handleError(error)
+                }
+                stopLoading()
+            case .verificationCode:
+                guard let pendingLogin = state.pendingLogin else {
+                    stopLoading()
+                    state.step = .credentials
+                    return
+                }
+                switch await authenticationService.continueNativeLogin(pendingLogin,
+                                                                       verificationCode: state.bindings.verificationCode.trimmingCharacters(in: .whitespacesAndNewlines),
+                                                                       initialDeviceName: UIDevice.current.initialDeviceName,
+                                                                       deviceID: nil) {
+                case .success(let userSession):
+                    actionsSubject.send(.signedIn(userSession))
+                case .failure(let error):
+                    handleError(error)
+                }
+                stopLoading()
+            }
+        }
+    }
 
-            switch await authenticationService.login(username: email,
-                                                     password: state.bindings.password,
-                                                     initialDeviceName: UIDevice.current.initialDeviceName,
-                                                     deviceID: nil) {
-            case .success(let userSession):
-                actionsSubject.send(.signedIn(userSession))
+    private func resendVerificationCode() {
+        guard let pendingLogin = state.pendingLogin else { return }
+        startLoading()
+
+        Task {
+            switch await authenticationService.resendNativeLoginCode(pendingLogin) {
+            case .success(let updatedPendingLogin):
+                state.pendingLogin = updatedPendingLogin
                 stopLoading()
             case .failure(let error):
                 stopLoading()
                 handleError(error)
             }
+        }
+    }
+
+    private func goBack() {
+        switch state.step {
+        case .credentials:
+            actionsSubject.send(.cancel)
+        case .verificationCode:
+            state.step = .credentials
+            state.bindings.verificationCode = ""
         }
     }
     
@@ -97,6 +146,15 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
                                                  title: L10n.commonError,
                                                  message: UntranslatedL10n.screenLoginErrorInvalidCredentials)
+        case .invalidVerificationCode:
+            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+                                                 title: L10n.commonError,
+                                                 message: UntranslatedL10n.screenLoginErrorInvalidVerificationCodeIos)
+        case .rateLimited(let retryAfterMs):
+            let retryMessage = retryAfterMs.map { Int($0 / 1000) } ?? 0
+            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+                                                 title: L10n.commonError,
+                                                 message: UntranslatedL10n.screenLoginErrorRateLimitedIos(retryMessage))
         case .accountDeactivated:
             state.bindings.alertInfo = AlertInfo(id: .deactivatedAlert,
                                                  title: L10n.commonError,
@@ -127,6 +185,30 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
             state.bindings.alertInfo = AlertInfo(id: .refreshTokenAlert,
                                                  title: L10n.commonServerNotSupported,
                                                  message: L10n.screenLoginErrorRefreshTokens)
+        case .emailVerificationUnavailable:
+            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+                                                 title: L10n.commonError,
+                                                 message: UntranslatedL10n.screenLoginErrorEmailVerificationUnavailableIos)
+        case .invalidEmail:
+            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+                                                 title: L10n.commonError,
+                                                 message: UntranslatedL10n.screenLoginErrorInvalidEmailIos)
+        case .emailAlreadyInUse:
+            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+                                                 title: L10n.commonError,
+                                                 message: UntranslatedL10n.screenLoginErrorEmailAlreadyInUseIos)
+        case .invalidUsername:
+            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+                                                 title: L10n.commonError,
+                                                 message: UntranslatedL10n.screenLoginErrorInvalidUsernameIos)
+        case .usernameInUse:
+            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+                                                 title: L10n.commonError,
+                                                 message: UntranslatedL10n.screenLoginErrorUsernameInUseIos)
+        case .invalidRegistrationToken:
+            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+                                                 title: L10n.commonError,
+                                                 message: UntranslatedL10n.screenLoginErrorInvalidRegistrationTokenIos)
         default:
             state.bindings.alertInfo = AlertInfo(id: .unknown)
         }

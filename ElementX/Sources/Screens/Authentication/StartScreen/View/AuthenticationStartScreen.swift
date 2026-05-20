@@ -25,34 +25,32 @@ struct AuthenticationStartScreen: View {
     }
     
     var standardContent: some View {
-        // This view uses a GeometryReader instead of FullscreenDialog so its content takes the full
-        // height available (after taking the buttons out of the equation) in order for the logo
-        // and title to appear vertically centred and equally spaced within this content area.
         GeometryReader { geometry in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    Spacer()
-                        .frame(height: UIConstants.spacerHeight(in: geometry))
-                    
-                    content
-                        .frame(width: geometry.size.width)
-                        .accessibilityIdentifier(A11yIdentifiers.authenticationStartScreen.hidden)
-                    
-                    buttons
-                        .frame(width: geometry.size.width)
-                        .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 16)
-                        .padding(.top, 8)
-                    
-                    Spacer()
-                        .frame(height: UIConstants.spacerHeight(in: geometry))
-                }
-                .frame(minHeight: geometry.size.height)
+            VStack(spacing: 0) {
+                Spacer()
+                    .frame(height: UIConstants.spacerHeight(in: geometry))
+
+                content
+                    .frame(width: geometry.size.width)
+                    .accessibilityIdentifier(A11yIdentifiers.authenticationStartScreen.hidden)
+
+                Spacer()
+                    .frame(height: 24)
+
+                buttons
+                    .frame(width: geometry.size.width)
+                    .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 0 : 16)
+                    .padding(.top, 8)
+
+                Spacer()
+                    .frame(height: UIConstants.spacerHeight(in: geometry))
             }
-            .scrollBounceBehavior(.basedOnSize)
+            .frame(minHeight: geometry.size.height)
         }
         .background {
             AuthenticationStartScreenBackgroundImage()
         }
+        .preferredColorScheme(.dark)
         .navigationBarHidden(context.viewState.classicAppMode == nil)
         .toolbar { toolbar }
         .alert(item: $context.alertInfo)
@@ -65,8 +63,8 @@ struct AuthenticationStartScreen: View {
             if verticalSizeClass == .regular {
                 Spacer()
                 
-                AuthenticationStartLogo(hideBrandChrome: context.viewState.hideBrandChrome,
-                                        isOnGradient: !context.viewState.hideBrandChrome)
+                ArcanaMark(size: 164)
+                    .padding(.top, 8)
             }
             
             Spacer()
@@ -104,18 +102,17 @@ struct AuthenticationStartScreen: View {
                 }
                 .buttonStyle(.compound(.tertiary))
             }
+
+            Button { context.send(viewAction: .reportProblem) } label: {
+                Text(L10n.commonReportAProblem)
+            }
+            .buttonStyle(.compound(.textLink))
+            .accessibilityIdentifier(A11yIdentifiers.authenticationStartScreen.reportProblem)
             
             versionText
                 .font(.compound.bodySM)
                 .foregroundColor(.compound.textSecondary)
-                .onTapGesture(count: 7) {
-                    context.send(viewAction: .reportProblem)
-                }
                 .accessibilityIdentifier(A11yIdentifiers.authenticationStartScreen.appVersion)
-                .overlay(alignment: .trailing) {
-                    developerOptionsButton
-                        .scaledOffset(x: 32, y: -0.5, relativeTo: .compound.bodySM)
-                }
                 .padding(.top, 16)
         }
         .padding(.horizontal, verticalSizeClass == .compact ? 128 : 24)
@@ -126,17 +123,6 @@ struct AuthenticationStartScreen: View {
         // Let's not deal with snapshotting a changing version string.
         let shortVersionString = ProcessInfo.isRunningTests ? "0.0.0" : InfoPlistReader.main.bundleShortVersionString
         return Text(L10n.screenOnboardingAppVersion(shortVersionString))
-    }
-    
-    @ViewBuilder
-    var developerOptionsButton: some View {
-        if AppSettings.appBuildType != .release, !ProcessInfo.isRunningTests {
-            Button { context.send(viewAction: .developerOptions) } label: {
-                CompoundIcon(\.code)
-                    .foregroundStyle(.compound.iconSecondary)
-            }
-            .accessibilityLabel(L10n.commonDeveloperOptions)
-        }
     }
     
     @ToolbarContentBuilder

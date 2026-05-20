@@ -142,10 +142,6 @@ class AuthenticationFlowCoordinatorUITests: XCTestCase {
         // Splash Screen: Tap get started button
         app.buttons[A11yIdentifiers.authenticationStartScreen.signIn].tap()
         
-        // Server Confirmation: Tap the picker and confirm
-        app.switches.matching(identifier: A11yIdentifiers.serverConfirmationScreen.serverPicker).element(boundBy: 1).tap()
-        app.buttons[A11yIdentifiers.serverConfirmationScreen.continue].tap()
-        
         // Login Screen: Wait for continue button to appear
         let continueButton = app.buttons[A11yIdentifiers.loginScreen.continue]
         XCTAssertTrue(continueButton.waitForExistence(timeout: 2.0))
@@ -159,9 +155,9 @@ class AuthenticationFlowCoordinatorUITests: XCTestCase {
     }
     
     func verifyReportBugButton(_ app: XCUIApplication) async throws {
-        // Splash Screen: Tap the version 7 times to report a problem
-        app.staticTexts[A11yIdentifiers.authenticationStartScreen.appVersion].tap(withNumberOfTaps: 7, numberOfTouches: 1)
-        
+        // Splash Screen: Open the report problem flow.
+        app.buttons[A11yIdentifiers.authenticationStartScreen.reportProblem].tap()
+
         // Bug report: Make sure it exists then cancel.
         XCTAssert(app.textFields[A11yIdentifiers.bugReportScreen.report].exists)
         app.buttons[A11yIdentifiers.bugReportScreen.cancel].tap()

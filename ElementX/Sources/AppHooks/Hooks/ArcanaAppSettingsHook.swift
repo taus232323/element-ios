@@ -15,7 +15,7 @@ struct ArcanaAppSettingsHook: AppSettingsHookProtocol {
                              hideBrandChrome: false,
                              pushGatewayBaseURL: appSettings.pushGatewayBaseURL,
                              oidcRedirectURL: appSettings.oidcRedirectURL,
-                             websiteURL: appSettings.websiteURL,
+                             websiteURL: URL(string: "https://celesteai.ru")!,
                              logoURL: appSettings.logoURL,
                              copyrightURL: appSettings.copyrightURL,
                              acceptableUseURL: appSettings.acceptableUseURL,

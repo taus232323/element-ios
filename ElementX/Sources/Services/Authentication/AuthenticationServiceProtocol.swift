@@ -26,6 +26,8 @@ enum AuthenticationServiceError: Error, Equatable {
     
     case invalidServer
     case invalidCredentials
+    case invalidVerificationCode
+    case rateLimited(retryAfterMs: Int?)
     case invalidHomeserverAddress
     case invalidWellKnown(String)
     case slidingSyncNotAvailable
@@ -36,6 +38,30 @@ enum AuthenticationServiceError: Error, Equatable {
     case failedLoggingIn
     case sessionTokenRefreshNotSupported
     case failedUsingWebCredentials
+    case invalidEmail
+    case emailAlreadyInUse
+    case invalidUsername
+    case usernameInUse
+    case emailVerificationUnavailable
+    case invalidRegistrationToken
+}
+
+struct PendingNativeLogin: Equatable {
+    let homeserverUrl: String
+    let login: String
+    let password: String
+    let clientSecret: String
+    let sendAttempt: Int
+    let sid: String?
+    let email: String?
+}
+
+struct PendingNativeRegistration: Equatable {
+    let homeserverUrl: String
+    let email: String
+    let clientSecret: String
+    let sendAttempt: Int
+    let sid: String?
 }
 
 protocol AuthenticationServiceProtocol: QRCodeLoginServiceProtocol {
@@ -54,6 +80,27 @@ protocol AuthenticationServiceProtocol: QRCodeLoginServiceProtocol {
     func loginWithOIDCCallback(_ callbackURL: URL) async -> Result<UserSessionProtocol, AuthenticationServiceError>
     /// Performs a password login using the current homeserver.
     func login(username: String, password: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError>
+
+    /// Starts the native email-first login flow.
+    func startNativeLogin(login: String, password: String) async -> Result<PendingNativeLogin, AuthenticationServiceError>
+
+    /// Completes the native email-first login flow after the verification code has been entered.
+    func continueNativeLogin(_ pendingLogin: PendingNativeLogin, verificationCode: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError>
+
+    /// Resends the native login verification code.
+    func resendNativeLoginCode(_ pendingLogin: PendingNativeLogin) async -> Result<PendingNativeLogin, AuthenticationServiceError>
+
+    /// Starts the native email-first registration flow.
+    func startNativeRegistration(email: String) async -> Result<PendingNativeRegistration, AuthenticationServiceError>
+
+    /// Confirms the registration email verification code.
+    func continueNativeRegistrationEmailCode(_ pendingRegistration: PendingNativeRegistration, verificationCode: String) async -> Result<PendingNativeRegistration, AuthenticationServiceError>
+
+    /// Completes the native registration flow once the username and password have been entered.
+    func finishNativeRegistration(_ pendingRegistration: PendingNativeRegistration, username: String?, password: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError>
+
+    /// Resends the native registration verification code.
+    func resendNativeRegistrationEmail(_ pendingRegistration: PendingNativeRegistration) async -> Result<PendingNativeRegistration, AuthenticationServiceError>
     
     /// Resets the current configuration requiring `configure(for:flow:)` to be called again.
     func reset()

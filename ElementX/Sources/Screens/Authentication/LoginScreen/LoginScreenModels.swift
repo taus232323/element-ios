@@ -11,6 +11,13 @@ import Foundation
 enum LoginScreenViewModelAction {
     /// Login was successful.
     case signedIn(UserSessionProtocol)
+    /// The login screen should be dismissed.
+    case cancel
+}
+
+enum LoginScreenStep: Equatable {
+    case credentials
+    case verificationCode
 }
 
 struct LoginScreenViewState: BindableState {
@@ -18,6 +25,10 @@ struct LoginScreenViewState: BindableState {
     var homeserver: LoginHomeserver
     /// Whether a new homeserver is currently being loaded.
     var isLoading = false
+    /// The current step in the native login flow.
+    var step: LoginScreenStep = .credentials
+    /// The pending login challenge, if one is awaiting a verification code.
+    var pendingLogin: PendingNativeLogin?
     /// View state that can be bound to from SwiftUI.
     var bindings = LoginScreenBindings()
     
@@ -28,12 +39,21 @@ struct LoginScreenViewState: BindableState {
     
     /// `true` if the email and password are ready to be submitted.
     var hasValidCredentials: Bool {
-        !bindings.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !bindings.password.isEmpty
+        switch step {
+        case .credentials:
+            !bindings.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !bindings.password.isEmpty
+        case .verificationCode:
+            !bindings.verificationCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
     
     /// `true` when valid credentials have been entered and a homeserver has been loaded.
     var canSubmit: Bool {
         hasValidCredentials && !isLoading
+    }
+
+    var canResendVerificationCode: Bool {
+        pendingLogin != nil && !isLoading
     }
 }
 
@@ -42,6 +62,8 @@ struct LoginScreenBindings {
     var email = ""
     /// The password input by the user.
     var password = ""
+    /// The email verification code.
+    var verificationCode = ""
     /// Information describing the currently displayed alert.
     var alertInfo: AlertInfo<LoginScreenErrorType>?
 }
@@ -49,6 +71,10 @@ struct LoginScreenBindings {
 enum LoginScreenViewAction {
     /// Continue using the input email and password.
     case next
+    /// Navigate back within the flow or dismiss the screen.
+    case back
+    /// Resend the verification code.
+    case resendVerificationCode
 }
 
 enum LoginScreenErrorType: Hashable {
@@ -66,6 +92,12 @@ enum LoginScreenErrorType: Hashable {
     case elementProAlert
     /// An alert that informs the user that login failed due to a refresh token being returned.
     case refreshTokenAlert
+    /// An alert that informs the user that the verification code was incorrect.
+    case invalidVerificationCodeAlert
+    /// An alert that informs the user that a resend is rate-limited.
+    case rateLimitedAlert(String)
+    /// An alert that informs the user that the email verification flow is unavailable.
+    case emailVerificationUnavailableAlert
     /// The response from the homeserver was unexpected.
     case unknown
 }
