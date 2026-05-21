@@ -15,7 +15,6 @@ typealias LoginScreenViewModelType = StateStoreViewModelV2<LoginScreenViewState,
 class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtocol {
     private let authenticationService: AuthenticationServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
-    private let appSettings: AppSettings
     
     private var actionsSubject: PassthroughSubject<LoginScreenViewModelAction, Never> = .init()
     var actions: AnyPublisher<LoginScreenViewModelAction, Never> {
@@ -24,11 +23,9 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
 
     init(authenticationService: AuthenticationServiceProtocol,
          loginHint: String?,
-         userIndicatorController: UserIndicatorControllerProtocol,
-         appSettings: AppSettings) {
+         userIndicatorController: UserIndicatorControllerProtocol) {
         self.authenticationService = authenticationService
         self.userIndicatorController = userIndicatorController
-        self.appSettings = appSettings
 
         let email = loginHint ?? ""
 
@@ -159,32 +156,25 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
             state.bindings.alertInfo = AlertInfo(id: .deactivatedAlert,
                                                  title: ArcanaLocalization.errorTitle,
                                                  message: L10n.screenLoginErrorDeactivatedAccount)
-        case .invalidWellKnown(let error):
+        case .invalidWellKnown:
             state.bindings.alertInfo = AlertInfo(id: .slidingSyncAlert,
                                                  title: ArcanaLocalization.serverNotSupported,
-                                                 message: L10n.screenChangeServerErrorInvalidWellKnown(error))
+                                                 message: ArcanaLocalization.unsupportedAuthentication)
         case .slidingSyncNotAvailable:
-            let nonBreakingAppName = InfoPlistReader.main.bundleDisplayName.replacingOccurrences(of: " ", with: "\u{00A0}")
             state.bindings.alertInfo = AlertInfo(id: .slidingSyncAlert,
                                                  title: ArcanaLocalization.serverNotSupported,
-                                                 message: L10n.screenChangeServerErrorNoSlidingSyncMessage(nonBreakingAppName))
+                                                 message: ArcanaLocalization.unsupportedAuthentication)
             
-            // Clear out the invalid email to avoid an attempted login to the default homeserver.
             state.bindings.email = ""
-        case .elementProRequired(let serverName):
+        case .elementProRequired:
             state.bindings.alertInfo = AlertInfo(id: .elementProAlert,
-                                                 title: L10n.screenChangeServerErrorElementProRequiredTitle,
-                                                 message: L10n.screenChangeServerErrorElementProRequiredMessage(serverName),
-                                                 primaryButton: .init(title: L10n.screenChangeServerErrorElementProRequiredActionIos) {
-                                                     UIApplication.shared.open(self.appSettings.elementProAppStoreURL)
-                                                 },
-                                                 secondaryButton: .init(title: ArcanaLocalization.cancelAction, role: .cancel, action: nil))
-            // Clear out the invalid email to avoid an attempted login to the default homeserver.
+                                                 title: ArcanaLocalization.serverNotSupported,
+                                                 message: ArcanaLocalization.unsupportedAuthentication)
             state.bindings.email = ""
         case .sessionTokenRefreshNotSupported:
             state.bindings.alertInfo = AlertInfo(id: .refreshTokenAlert,
                                                  title: ArcanaLocalization.serverNotSupported,
-                                                 message: L10n.screenLoginErrorRefreshTokens)
+                                                 message: ArcanaLocalization.unsupportedAuthentication)
         case .emailVerificationUnavailable:
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
                                                  title: ArcanaLocalization.errorTitle,

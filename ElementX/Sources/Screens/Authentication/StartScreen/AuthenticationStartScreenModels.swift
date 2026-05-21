@@ -19,7 +19,6 @@ enum AuthenticationStartScreenViewModelAction: Equatable {
 }
 
 struct AuthenticationStartScreenViewState: BindableState {
-    let serverName: String?
     let showCreateAccountButton: Bool
     
     enum ClassicAppMode { case welcomeBack(ClassicAppAccount), otherOptions(ClassicAppAccount) }

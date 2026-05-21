@@ -131,7 +131,7 @@ struct LoginScreen: View {
                 .keyboardType(.numberPad)
                 .submitLabel(.done)
                 .onSubmit(submit)
-                .onChange(of: context.verificationCode) { newValue in
+                .onChange(of: context.verificationCode) { _, newValue in
                     let digitsOnly = newValue.filter(\.isNumber)
                     if digitsOnly != newValue {
                         context.verificationCode = digitsOnly
@@ -210,8 +210,7 @@ struct LoginScreen_Previews: PreviewProvider, TestablePreview {
         
         let viewModel = LoginScreenViewModel(authenticationService: authenticationService,
                                              loginHint: nil,
-                                             userIndicatorController: UserIndicatorControllerMock(),
-                                             appSettings: ServiceLocator.shared.settings)
+                                             userIndicatorController: UserIndicatorControllerMock())
         
         if withCredentials {
             viewModel.context.email = "alice@example.com"

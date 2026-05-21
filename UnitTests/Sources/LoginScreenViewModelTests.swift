@@ -111,8 +111,7 @@ final class LoginScreenViewModelTests {
 
         viewModel = LoginScreenViewModel(authenticationService: service,
                                          loginHint: loginHint,
-                                         userIndicatorController: UserIndicatorControllerMock(),
-                                         appSettings: ServiceLocator.shared.settings)
+                                         userIndicatorController: UserIndicatorControllerMock())
     }
 }
 

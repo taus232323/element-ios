@@ -15,7 +15,6 @@ struct LoginScreenCoordinatorParameters {
     /// An optional hint that can be used to pre-fill the form.
     let loginHint: String?
     let userIndicatorController: UserIndicatorControllerProtocol
-    let appSettings: AppSettings
 }
 
 enum LoginScreenCoordinatorAction {
@@ -41,8 +40,7 @@ final class LoginScreenCoordinator: CoordinatorProtocol {
     init(parameters: LoginScreenCoordinatorParameters) {
         viewModel = LoginScreenViewModel(authenticationService: parameters.authenticationService,
                                          loginHint: parameters.loginHint,
-                                         userIndicatorController: parameters.userIndicatorController,
-                                         appSettings: parameters.appSettings)
+                                         userIndicatorController: parameters.userIndicatorController)
     }
     
     // MARK: - Public

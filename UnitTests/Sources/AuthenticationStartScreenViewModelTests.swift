@@ -63,18 +63,17 @@ final class AuthenticationStartScreenViewModelTests {
     
     @Test
     func provisionedPasswordState() async throws {
-        // Given a view model that has been provisioned with a server.
+        // Given a view model that has been provisioned.
         await setupViewModel(provisioningParameters: .init(accountProvider: "company.com", loginHint: "user@company.com"))
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
         
-        // When tapping the login button the authentication service should be used and the screen
-        // should request to continue the flow without any server selection needed.
+        // When tapping the login button the flow should continue directly.
         let deferred = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithPassword }
         context.send(viewAction: .login)
         try await deferred.fulfill()
         
-        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
-        #expect(authenticationService.homeserver.value.loginMode == .password)
+        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 0)
+        #expect(authenticationService.homeserver.value.loginMode == .unknown)
     }
     
     @Test
@@ -84,14 +83,13 @@ final class AuthenticationStartScreenViewModelTests {
         await setupViewModel()
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
         
-        // When tapping the login button the authentication service should be used and the screen
-        // should request to continue the flow without any server selection needed.
+        // When tapping the login button the flow should continue directly.
         let deferred = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithPassword }
         context.send(viewAction: .login)
         try await deferred.fulfill()
         
-        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
-        #expect(authenticationService.homeserver.value.loginMode == .password)
+        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 0)
+        #expect(authenticationService.homeserver.value.loginMode == .unknown)
     }
     
     // MARK: - Classic App Account

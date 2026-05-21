@@ -201,72 +201,44 @@ final class HomeScreenViewModelTests {
     }
     
     @Test
-    func setUpRecoveryBannerState() async throws {
+    func setUpRecoveryBannerState() {
         // Given a view model without a visible security banner.
         let securityStateStateSubject = CurrentValueSubject<SessionSecurityState, Never>(.init(verificationState: .verified, recoveryState: .unknown))
         setupViewModel(securityStatePublisher: securityStateStateSubject.asCurrentValuePublisher())
         #expect(context.viewState.securityBannerMode == .none)
         
         // When the recovery state comes through as disabled.
-        var deferred = deferFulfillment(context.$viewState) { $0.requiresExtraAccountSetup == true }
         securityStateStateSubject.send(.init(verificationState: .verified, recoveryState: .disabled))
-        try await deferred.fulfill()
-        
-        // Then the banner should be shown to set up recovery.
-        #expect(context.viewState.securityBannerMode == .show(.setUpRecovery))
-        
-        // When the recovery is enabled.
-        deferred = deferFulfillment(context.$viewState) { $0.requiresExtraAccountSetup == false }
-        securityStateStateSubject.send(.init(verificationState: .verified, recoveryState: .enabled))
-        try await deferred.fulfill()
-        
-        // Then the banner should no longer be shown.
+        #expect(context.viewState.securityBannerMode == .none)
+        #expect(context.viewState.requiresExtraAccountSetup == false)
+    }
+    
+    @Test
+    func dismissSetUpRecoveryBannerState() {
+        // Given a view model with the setup recovery banner disabled in Arcana.
+        let securityStateStateSubject = CurrentValueSubject<SessionSecurityState, Never>(.init(verificationState: .verified, recoveryState: .unknown))
+        setupViewModel(securityStatePublisher: securityStateStateSubject.asCurrentValuePublisher())
+        #expect(context.viewState.securityBannerMode == .none)
+
+        // When the dismiss action is sent, nothing should change.
+        context.send(viewAction: .skipRecoveryKeyConfirmation)
+        #expect(context.viewState.securityBannerMode == .none)
+        securityStateStateSubject.send(.init(verificationState: .verified, recoveryState: .disabled))
         #expect(context.viewState.securityBannerMode == .none)
     }
     
     @Test
-    func dismissSetUpRecoveryBannerState() async throws {
-        // Given a view model with the setup recovery banner shown.
-        let securityStateStateSubject = CurrentValueSubject<SessionSecurityState, Never>(.init(verificationState: .verified, recoveryState: .unknown))
-        setupViewModel(securityStatePublisher: securityStateStateSubject.asCurrentValuePublisher())
-        var deferred = deferFulfillment(context.$viewState) { $0.securityBannerMode == .show(.setUpRecovery) }
-        securityStateStateSubject.send(.init(verificationState: .verified, recoveryState: .disabled))
-        try await deferred.fulfill()
-        
-        // When the banner is dismissed.
-        deferred = deferFulfillment(context.$viewState) { $0.securityBannerMode == .dismissed }
-        context.send(viewAction: .skipRecoveryKeyConfirmation)
-        
-        // Then the banner should no longer be shown.
-        try await deferred.fulfill()
-        
-        // And when the recovery state comes through a second time the banner should still not be shown.
-        let failure = deferFailure(context.$viewState, timeout: .seconds(1)) { $0.securityBannerMode != .dismissed }
-        securityStateStateSubject.send(.init(verificationState: .verified, recoveryState: .disabled))
-        try await failure.fulfill()
-    }
-    
-    @Test
-    func outOfSyncRecoveryBannerState() async throws {
+    func outOfSyncRecoveryBannerState() {
         // Given a view model without a visible security banner.
         let securityStateStateSubject = CurrentValueSubject<SessionSecurityState, Never>(.init(verificationState: .verified, recoveryState: .unknown))
         setupViewModel(securityStatePublisher: securityStateStateSubject.asCurrentValuePublisher())
         #expect(context.viewState.securityBannerMode == .none)
         
-        // When the recovery state comes through as incomplete.
-        var deferred = deferFulfillment(context.$viewState) { $0.requiresExtraAccountSetup == true }
+        // When the recovery state changes, Arcana still keeps the banner hidden.
         securityStateStateSubject.send(.init(verificationState: .verified, recoveryState: .incomplete))
-        try await deferred.fulfill()
-        
-        // Then the banner should be shown for out of sync recovery.
-        #expect(context.viewState.securityBannerMode == .show(.recoveryOutOfSync))
-        
-        // When the recovery is enabled.
-        deferred = deferFulfillment(context.$viewState) { $0.requiresExtraAccountSetup == false }
+        #expect(context.viewState.securityBannerMode == .none)
+        #expect(context.viewState.requiresExtraAccountSetup == false)
         securityStateStateSubject.send(.init(verificationState: .verified, recoveryState: .enabled))
-        try await deferred.fulfill()
-        
-        // Then the banner should no longer be shown.
         #expect(context.viewState.securityBannerMode == .none)
     }
     

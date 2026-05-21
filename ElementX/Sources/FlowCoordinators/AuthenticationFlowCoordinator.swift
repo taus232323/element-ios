@@ -31,9 +31,6 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
         /// The initial screen shown when you first launch the app.
         case startScreen
-        
-        /// The screen to continue authentication with the current server.
-        case serverConfirmationScreen
         /// The screen to login with a password.
         case loginScreen
         /// The screen to register a new account.
@@ -54,12 +51,6 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
         /// Modify the flow using the provisioning parameters in the `userInfo`.
         case applyProvisioningParameters
-        /// Show the server confirmation screen.
-        case confirmServer(AuthenticationFlow)
-        
-        /// The user aborted manual login.
-        case cancelledServerConfirmation
-        
         /// Show the screen to login with password (with the optional login hint in the `userInfo`).
         case continueWithPassword
         /// Show the screen to register a new account.
@@ -138,8 +129,6 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         switch stateMachine.state {
         case .initial, .startScreen:
             break
-        case .serverConfirmationScreen:
-            navigationStackCoordinator.popToRoot(animated: animated)
         case .loginScreen:
             navigationStackCoordinator.popToRoot(animated: animated)
         case .nativeRegistrationScreen:
@@ -267,38 +256,11 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     }
     
     // MARK: - Manual Authentication
-    
-    private func showServerConfirmationScreen(authenticationFlow: AuthenticationFlow) {
-        // Reset the service back to the default homeserver before continuing. This ensures
-        // we check that registration is supported if it was previously configured for login.
-        authenticationService.reset()
-        
-        let parameters = ServerConfirmationScreenCoordinatorParameters(authenticationService: authenticationService,
-                                                                       authenticationFlow: authenticationFlow,
-                                                                       appSettings: appSettings,
-                                                                       userIndicatorController: userIndicatorController)
-        let coordinator = ServerConfirmationScreenCoordinator(parameters: parameters)
-        
-        coordinator.actions.sink { [weak self] action in
-            guard let self else { return }
-            
-            switch action {
-            case .continueWithPassword:
-                stateMachine.tryEvent(.continueWithPassword)
-            }
-        }
-        .store(in: &cancellables)
-        
-        navigationStackCoordinator.push(coordinator) { [weak self] in
-            self?.handleServerConfirmationDismissal()
-        }
-    }
-    
+
     private func showLoginScreen(loginHint: String?, fromState: State) {
         let parameters = LoginScreenCoordinatorParameters(authenticationService: authenticationService,
                                                           loginHint: loginHint,
-                                                          userIndicatorController: userIndicatorController,
-                                                          appSettings: appSettings)
+                                                          userIndicatorController: userIndicatorController)
         let coordinator = LoginScreenCoordinator(parameters: parameters)
         
         coordinator.actions
@@ -390,10 +352,6 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     }
 
     // MARK: - Dismissal Handling
-
-    private func handleServerConfirmationDismissal() {
-        stateMachine.tryEvent(.cancelledServerConfirmation)
-    }
 
     private func handlePasswordLoginDismissal(previousState: State) {
         guard stateMachine.state == .loginScreen else { return }

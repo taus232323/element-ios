@@ -40,28 +40,17 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
         self.appSettings = appSettings
         self.userIndicatorController = userIndicatorController
         canReportProblem = isBugReportServiceEnabled
-        
+
         let classicAppAccountProvider = authenticationService.classicAppAccount?.serverName
         let isClassicAppAccountAllowed = classicAppAccountProvider.map { appSettings.accountProviders.contains($0) } ?? false
         
-        let initialViewState = if !appSettings.allowOtherAccountProviders {
-            AuthenticationStartScreenViewState(serverName: appSettings.accountProviders.count == 1 ? appSettings.accountProviders[0] : nil,
-                                               showCreateAccountButton: appSettings.showCreateAccountButton,
-                                               classicAppMode: isClassicAppAccountAllowed ? authenticationService.classicAppAccount.map { .welcomeBack($0) } : nil,
-                                               hideBrandChrome: appSettings.hideBrandChrome)
-        } else if let provisioningParameters {
-            // We only show the "Sign in to …" button when using a provisioning link.
-            AuthenticationStartScreenViewState(serverName: provisioningParameters.accountProvider,
-                                               showCreateAccountButton: false,
-                                               classicAppMode: nil,
-                                               hideBrandChrome: appSettings.hideBrandChrome)
-        } else {
-            // The default configuration.
-            AuthenticationStartScreenViewState(serverName: appSettings.accountProviders.count == 1 ? appSettings.accountProviders[0] : nil,
-                                               showCreateAccountButton: appSettings.showCreateAccountButton,
-                                               classicAppMode: authenticationService.classicAppAccount.map { .welcomeBack($0) },
-                                               hideBrandChrome: appSettings.hideBrandChrome)
+        let classicAppMode: AuthenticationStartScreenViewState.ClassicAppMode? = authenticationService.classicAppAccount.flatMap {
+            isClassicAppAccountAllowed ? .welcomeBack($0) : nil
         }
+
+        let initialViewState = AuthenticationStartScreenViewState(showCreateAccountButton: appSettings.showCreateAccountButton,
+                                                                  classicAppMode: classicAppMode,
+                                                                  hideBrandChrome: appSettings.hideBrandChrome)
         
         super.init(initialViewState: initialViewState, mediaProvider: mediaProvider)
         
@@ -108,25 +97,19 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
                                                loginHint: nil,
                                                fallbackHomeserverURL: classicAppAccount.homeserverURL)
             }
-        } else if let serverName = state.serverName {
-            await configureAccountProvider(serverName, loginHint: provisioningParameters?.loginHint)
         } else {
-            actionsSubject.send(.login) // No need to configure anything here, continue the flow.
+            actionsSubject.send(.loginDirectlyWithPassword(loginHint: provisioningParameters?.loginHint))
         }
     }
-    
+
     private func configureAccountProvider(_ accountProvider: String, loginHint: String? = nil, fallbackHomeserverURL: URL? = nil) async {
         startLoading()
         defer { stopLoading() }
         
         if case .failure = await authenticationService.configure(for: accountProvider, flow: .login) {
-            // Try the fallback URL before showing an error.
             if let fallbackHomeserverURL,
                case .success = await authenticationService.configure(for: fallbackHomeserverURL.absoluteString, flow: .login) {
-                // Fallback succeeded, continue with the flow.
             } else {
-                // As the server was provisioned, we don't worry about the specifics and show a generic error to the user.
-                // Element Classic accounts aren't shown for unsupported servers either, so nothing to do here.
                 displayError()
                 return
             }

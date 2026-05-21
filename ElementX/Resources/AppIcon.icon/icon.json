@@ -8,7 +8,7 @@
             "image-name" : "AppIcon.png",
             "name" : "AppIcon",
             "position" : {
-              "scale" : 0.93,
+              "scale" : 1,
               "translation-in-points" : [
                 0,
                 0

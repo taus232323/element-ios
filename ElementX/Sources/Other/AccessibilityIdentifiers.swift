@@ -31,7 +31,6 @@ enum A11yIdentifiers {
     static let secureBackupScreen = SecureBackupScreen()
     static let secureBackupKeyBackupScreen = SecureBackupKeyBackupScreen()
     static let secureBackupRecoveryKeyScreen = SecureBackupRecoveryKeyScreen()
-    static let serverConfirmationScreen = ServerConfirmationScreen()
     static let sessionVerificationScreen = SessionVerificationScreen()
     static let settingsScreen = SettingsScreen()
     static let softLogoutScreen = SoftLogoutScreen()
@@ -224,12 +223,6 @@ enum A11yIdentifiers {
         let done = "secure_backup_recovery_key-done"
         let recoveryKeyField = "secure_backup_recovery_key-recovery_key_field"
         let confirm = "secure_backup_recovery_key-confirm"
-    }
-    
-    struct ServerConfirmationScreen {
-        let `continue` = "server_confirmation-continue"
-        let changeServer = "server_confirmation-change_server"
-        let serverPicker = "server_confirmation-server_picker"
     }
     
     struct SessionVerificationScreen {

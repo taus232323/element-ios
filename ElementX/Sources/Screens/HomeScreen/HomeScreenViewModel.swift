@@ -61,22 +61,12 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
         
         userSession.sessionSecurityStatePublisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] securityState in
+            .sink { [weak self] _ in
                 guard let self else { return }
                 
-                switch securityState.recoveryState {
-                case .disabled:
-                    state.requiresExtraAccountSetup = true
-                    if !state.securityBannerMode.isDismissed {
-                        state.securityBannerMode = .show(.setUpRecovery)
-                    }
-                case .incomplete:
-                    state.requiresExtraAccountSetup = true
-                    state.securityBannerMode = .show(.recoveryOutOfSync)
-                default:
-                    state.securityBannerMode = .none
-                    state.requiresExtraAccountSetup = false
-                }
+                // Arcana uses email-based verification, so we do not prompt for a recovery key setup banner.
+                state.requiresExtraAccountSetup = false
+                state.securityBannerMode = .none
             }
             .store(in: &cancellables)
         

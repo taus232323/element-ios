@@ -419,7 +419,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
                 case .presentSecureBackupSettings:
                     actionsSubject.send(.showChatBackupSettings)
                 case .presentRecoveryKeyScreen:
-                    stateMachine.processEvent(.showRecoveryKeyScreen)
+                    MXLog.info("Ignoring recovery key screen request in Arcana")
                 case .presentEncryptionResetScreen:
                     stateMachine.processEvent(.startEncryptionResetFlow)
                 case .presentStartChatScreen:
