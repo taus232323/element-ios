@@ -5,13 +5,13 @@
       "layers" : [
         {
           "glass" : false,
-          "image-name" : "AppIcon.png",
-          "name" : "AppIcon",
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              -5,
-              63.8203125
+            "image-name" : "AppIcon.png",
+            "name" : "AppIcon",
+            "position" : {
+              "scale" : 0.93,
+              "translation-in-points" : [
+                0,
+                0
             ]
           }
         }

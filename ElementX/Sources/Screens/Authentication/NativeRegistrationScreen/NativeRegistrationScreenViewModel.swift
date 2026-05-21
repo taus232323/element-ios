@@ -129,7 +129,7 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
         state.isLoading = true
         userIndicatorController.submitIndicator(UserIndicator(id: Self.loadingIndicatorIdentifier,
                                                               type: .modal,
-                                                              title: L10n.commonLoading,
+                                                              title: ArcanaLocalization.loading,
                                                               persistent: true))
     }
 
@@ -139,33 +139,33 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
         switch error {
         case .invalidVerificationCode:
             state.bindings.alertInfo = AlertInfo(id: .invalidVerificationCodeAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenNativeRegistrationErrorInvalidCodeIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.nativeRegistrationInvalidCode)
         case .rateLimited(let retryAfterMs):
             let seconds = retryAfterMs.map { max(1, $0 / 1000) } ?? 0
             state.bindings.alertInfo = AlertInfo(id: .rateLimitedAlert("\(seconds)"),
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenNativeRegistrationErrorRateLimitedIos(seconds))
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.nativeRegistrationRateLimited(seconds: seconds))
         case .invalidEmail:
             state.bindings.alertInfo = AlertInfo(id: .invalidEmailAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenNativeRegistrationErrorInvalidEmailIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.nativeRegistrationInvalidEmail)
         case .emailAlreadyInUse:
             state.bindings.alertInfo = AlertInfo(id: .emailAlreadyInUseAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenNativeRegistrationErrorEmailInUseIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.nativeRegistrationEmailInUse)
         case .invalidUsername:
             state.bindings.alertInfo = AlertInfo(id: .invalidUsernameAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenNativeRegistrationErrorInvalidUsernameIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.nativeRegistrationInvalidUsername)
         case .usernameInUse:
             state.bindings.alertInfo = AlertInfo(id: .usernameInUseAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenNativeRegistrationErrorUsernameInUseIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.nativeRegistrationUsernameInUse)
         case .invalidRegistrationToken:
             state.bindings.alertInfo = AlertInfo(id: .invalidRegistrationTokenAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenNativeRegistrationErrorInvalidRegistrationTokenIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.nativeRegistrationInvalidRegistrationToken)
         default:
             state.bindings.alertInfo = AlertInfo(id: .unknown)
         }

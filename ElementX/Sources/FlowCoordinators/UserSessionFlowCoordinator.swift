@@ -206,7 +206,7 @@ class UserSessionFlowCoordinator: FlowCoordinatorProtocol {
                 case .showChatBackupSettings:
                     handleAppRoute(.chatBackupSettings, animated: true)
                 case .sessionVerification(let flow):
-                    presentSessionVerificationScreen(flow: flow)
+                    MXLog.info("Ignoring session verification request in Arcana: \(flow)")
                 case .showCallScreen(let roomProxy, let isVoiceCall):
                     presentCallScreen(roomProxy: roomProxy, voiceOnly: isVoiceCall)
                 case .hideCallScreenOverlay:
@@ -224,7 +224,7 @@ class UserSessionFlowCoordinator: FlowCoordinatorProtocol {
                 case .presentCallScreen(let roomProxy, let isVoiceCall):
                     presentCallScreen(roomProxy: roomProxy, voiceOnly: isVoiceCall)
                 case .verifyUser(let userID):
-                    presentSessionVerificationScreen(flow: .userInitiator(userID: userID))
+                    MXLog.info("Ignoring user verification request in Arcana for user: \(userID)")
                 case .showSettings:
                     stateMachine.tryEvent(.showSettingsScreen)
                 }
@@ -353,22 +353,7 @@ class UserSessionFlowCoordinator: FlowCoordinatorProtocol {
     // MARK: - Session Verification
     
     private func setupSessionVerificationRequestsObserver() {
-        userSession.clientProxy.sessionVerificationController?.actions
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] action in
-                guard let self, case .receivedVerificationRequest(let details) = action else {
-                    return
-                }
-                
-                MXLog.info("Received session verification request")
-                
-                if details.senderProfile.userID == userSession.clientProxy.userID {
-                    presentSessionVerificationScreen(flow: .deviceResponder(requestDetails: details))
-                } else {
-                    presentSessionVerificationScreen(flow: .userResponder(requestDetails: details))
-                }
-            }
-            .store(in: &cancellables)
+        MXLog.info("Session verification prompts are disabled in Arcana")
     }
     
     private func presentSessionVerificationScreen(flow: SessionVerificationScreenFlow) {

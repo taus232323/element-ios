@@ -68,7 +68,7 @@ struct ServerConfirmationScreen: View {
     var buttons: some View {
         VStack(spacing: 16) {
             Button { context.send(viewAction: .confirm) } label: {
-                Text(L10n.actionContinue)
+                Text(ArcanaLocalization.continueAction)
             }
             .buttonStyle(.compound(.primary))
             .accessibilityIdentifier(A11yIdentifiers.serverConfirmationScreen.continue)

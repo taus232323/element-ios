@@ -44,7 +44,7 @@ struct AuthenticationClassicAppAccountView: View {
         VStack(spacing: 8) {
             ArcanaMark(size: 54)
             
-            Text(UntranslatedL10n.screenOnboardingWelcomeTitleIos)
+            Text(ArcanaLocalization.onboardingWelcomeTitle)
                 .font(.compound.headingMDBold)
                 .foregroundStyle(.compound.textPrimary)
                 .multilineTextAlignment(.center)
@@ -60,7 +60,7 @@ struct AuthenticationClassicAppAccountView: View {
                                 mediaProvider: context.mediaProvider)
             
             VStack(spacing: 0) {
-                Text(L10n.screenOnboardingWelcomeBack)
+                Text(ArcanaLocalization.welcomeBack)
                     .font(.compound.bodyMD)
                     .foregroundStyle(.compound.textSecondary)
                     .multilineTextAlignment(.center)
@@ -85,7 +85,7 @@ struct AuthenticationClassicAppAccountView: View {
                     context.send(viewAction: .continueWithClassic(classicAppAccount))
                 } label: {
                     Label {
-                        Text(L10n.screenOnboardingCheckingAccount)
+                        Text(ArcanaLocalization.checkingAccount)
                     } icon: {
                         ProgressView()
                             .tint(.compound.iconOnSolidPrimary)
@@ -94,12 +94,12 @@ struct AuthenticationClassicAppAccountView: View {
                 .buttonStyle(.compound(.primary))
                 .disabled(true)
             } else {
-                Button(L10n.actionContinue) {
+                Button(ArcanaLocalization.continueAction) {
                     context.send(viewAction: .continueWithClassic(classicAppAccount))
                 }
                 .buttonStyle(.compound(.primary))
                 
-                Button(L10n.commonOtherOptions) {
+                Button(ArcanaLocalization.otherOptions) {
                     context.send(viewAction: .otherOptions(classicAppAccount))
                 }
                 .buttonStyle(.compound(.secondary))

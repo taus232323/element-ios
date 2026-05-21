@@ -133,7 +133,7 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
         state.isLoading = true
         userIndicatorController.submitIndicator(UserIndicator(id: Self.loadingIndicatorIdentifier,
                                                               type: .modal,
-                                                              title: L10n.commonLoading,
+                                                              title: ArcanaLocalization.loading,
                                                               persistent: true))
     }
     
@@ -144,29 +144,29 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
         switch error {
         case .invalidCredentials:
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenLoginErrorInvalidCredentials)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginInvalidCredentials)
         case .invalidVerificationCode:
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenLoginErrorInvalidVerificationCodeIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginInvalidVerificationCode)
         case .rateLimited(let retryAfterMs):
             let retryMessage = retryAfterMs.map { Int($0 / 1000) } ?? 0
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenLoginErrorRateLimitedIos(retryMessage))
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginRateLimited(seconds: retryMessage))
         case .accountDeactivated:
             state.bindings.alertInfo = AlertInfo(id: .deactivatedAlert,
-                                                 title: L10n.commonError,
+                                                 title: ArcanaLocalization.errorTitle,
                                                  message: L10n.screenLoginErrorDeactivatedAccount)
         case .invalidWellKnown(let error):
             state.bindings.alertInfo = AlertInfo(id: .slidingSyncAlert,
-                                                 title: L10n.commonServerNotSupported,
+                                                 title: ArcanaLocalization.serverNotSupported,
                                                  message: L10n.screenChangeServerErrorInvalidWellKnown(error))
         case .slidingSyncNotAvailable:
             let nonBreakingAppName = InfoPlistReader.main.bundleDisplayName.replacingOccurrences(of: " ", with: "\u{00A0}")
             state.bindings.alertInfo = AlertInfo(id: .slidingSyncAlert,
-                                                 title: L10n.commonServerNotSupported,
+                                                 title: ArcanaLocalization.serverNotSupported,
                                                  message: L10n.screenChangeServerErrorNoSlidingSyncMessage(nonBreakingAppName))
             
             // Clear out the invalid email to avoid an attempted login to the default homeserver.
@@ -178,37 +178,37 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
                                                  primaryButton: .init(title: L10n.screenChangeServerErrorElementProRequiredActionIos) {
                                                      UIApplication.shared.open(self.appSettings.elementProAppStoreURL)
                                                  },
-                                                 secondaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil))
+                                                 secondaryButton: .init(title: ArcanaLocalization.cancelAction, role: .cancel, action: nil))
             // Clear out the invalid email to avoid an attempted login to the default homeserver.
             state.bindings.email = ""
         case .sessionTokenRefreshNotSupported:
             state.bindings.alertInfo = AlertInfo(id: .refreshTokenAlert,
-                                                 title: L10n.commonServerNotSupported,
+                                                 title: ArcanaLocalization.serverNotSupported,
                                                  message: L10n.screenLoginErrorRefreshTokens)
         case .emailVerificationUnavailable:
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenLoginErrorEmailVerificationUnavailableIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginEmailVerificationUnavailable)
         case .invalidEmail:
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenLoginErrorInvalidEmailIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginInvalidEmail)
         case .emailAlreadyInUse:
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenLoginErrorEmailAlreadyInUseIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginEmailAlreadyInUse)
         case .invalidUsername:
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenLoginErrorInvalidUsernameIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginInvalidUsername)
         case .usernameInUse:
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenLoginErrorUsernameInUseIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginUsernameInUse)
         case .invalidRegistrationToken:
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
-                                                 title: L10n.commonError,
-                                                 message: UntranslatedL10n.screenLoginErrorInvalidRegistrationTokenIos)
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginInvalidRegistrationToken)
         default:
             state.bindings.alertInfo = AlertInfo(id: .unknown)
         }

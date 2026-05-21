@@ -198,6 +198,7 @@
 		1B9DC4E35599339865C1FA33 /* RoomSelectionScreenModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FF41294ECDD5D8CE2568B1 /* RoomSelectionScreenModels.swift */; };
 		1BB77F86F730848F420A666F /* Signposter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8E403095359706C30A4771C /* Signposter.swift */; };
 		1BCF076C867C5F4FBAAFEF4D /* test_pdf.pdf in Resources */ = {isa = PBXBuildFile; fileRef = 003721AA954C7F172597B961 /* test_pdf.pdf */; };
+		1BDC2E0D582BE7F545494027 /* ArcanaLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE35FB2D612781257356F4A /* ArcanaLocalization.swift */; };
 		1C130B2E98D8DAF6FB0575F5 /* Clocks in Frameworks */ = {isa = PBXBuildFile; productRef = 9BB0EA693E9307BA974A95D1 /* Clocks */; };
 		1C1AE7B4B4F661ED67B15C12 /* ShareExtensionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE923CEA28BC14BFDEAF4A9E /* ShareExtensionViewController.swift */; };
 		1C491FE5DF3B88AE59D5638D /* AppLockSetupSettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FDC8AEA3AB57FED931AD76 /* AppLockSetupSettingsScreen.swift */; };
@@ -3133,6 +3134,7 @@
 		FD16757D680AF77C1728846D /* RoomScreenViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomScreenViewModelTests.swift; sourceTree = "<group>"; };
 		FD7D6DAAB060038FB8E3A5FD /* String.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = String.swift; sourceTree = "<group>"; };
 		FDA15B97A16DC131B79BA4D2 /* ReportRoomScreenViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportRoomScreenViewModelTests.swift; sourceTree = "<group>"; };
+		FDE35FB2D612781257356F4A /* ArcanaLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArcanaLocalization.swift; sourceTree = "<group>"; };
 		FE5376B984AE41F239E90C77 /* LoginScreenViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginScreenViewModel.swift; sourceTree = "<group>"; };
 		FE8CE6082AF424D25439E26F /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
 		FE938675F41B4618AE59F29C /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-BR"; path = "pt-BR.lproj/SAS.strings"; sourceTree = "<group>"; };
@@ -7053,6 +7055,7 @@
 			isa = PBXGroup;
 			children = (
 				6373C6F81D11EC0A55F84326 /* AccessibilityIdentifiers.swift */,
+				FDE35FB2D612781257356F4A /* ArcanaLocalization.swift */,
 				FC2AE5E2CFF8D089E8EA3ADA /* Avatars.swift */,
 				BAF28489BC115ACD58DA2BBF /* BlurHashDecode.swift */,
 				FC21A4F0A208FC022724DBBE /* BlurHashEncode.swift */,
@@ -8325,6 +8328,7 @@
 				0D5BD075582F22C41205F64E /* AppSettingsHook.swift in Sources */,
 				65BECAF7B49D348C8647ED2F /* Application.swift in Sources */,
 				C1D388AD815E2C1EE3CA083E /* ArcanaAppSettingsHook.swift in Sources */,
+				1BDC2E0D582BE7F545494027 /* ArcanaLocalization.swift in Sources */,
 				9852971BD7408AC944170D49 /* Array.swift in Sources */,
 				E40427AA59DE321EAC5F0909 /* Assets.swift in Sources */,
 				ECF16CBA4FA06F82206D1827 /* AsyncSequence.swift in Sources */,

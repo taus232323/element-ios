@@ -175,6 +175,7 @@ extension AuthenticationService {
 
             try await restoreNativeSession(response: response, client: client, fallbackHomeserverURL: pendingLogin.homeserverUrl)
             await verifyClientIfPossible(client: client)
+            appSettings.hasRunIdentityConfirmationOnboarding = true
             return await userSession(for: client)
         } catch let error as NativeAuthFailure {
             return .failure(error.loginVerificationServiceError)
@@ -264,6 +265,7 @@ extension AuthenticationService {
 
             try await restoreNativeSession(response: response, client: client, fallbackHomeserverURL: pendingRegistration.homeserverUrl)
             await verifyClientIfPossible(client: client)
+            appSettings.hasRunIdentityConfirmationOnboarding = true
             return await userSession(for: client)
         } catch let error as NativeAuthFailure {
             return .failure(error.serviceError)

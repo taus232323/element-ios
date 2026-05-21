@@ -18,7 +18,7 @@ class AuthenticationService: AuthenticationServiceProtocol {
     private let userSessionStore: UserSessionStoreProtocol
     private let classicAppManager: ClassicAppManagerProtocol?
     private let clientFactory: AuthenticationClientFactoryProtocol
-    private let appSettings: AppSettings
+    let appSettings: AppSettings
     private let appHooks: AppHooks
     
     private let homeserverSubject: CurrentValueSubject<LoginHomeserver, Never>

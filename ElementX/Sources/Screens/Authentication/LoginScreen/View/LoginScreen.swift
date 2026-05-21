@@ -61,7 +61,7 @@ struct LoginScreen: View {
     /// The header containing the title and icon.
     var header: some View {
         VStack(spacing: 8) {
-            ArcanaMark(size: 164)
+            ArcanaMark(size: 240)
                 .padding(.top, 8)
                 .padding(.bottom, 8)
             
@@ -81,18 +81,18 @@ struct LoginScreen: View {
     var title: String {
         switch context.viewState.step {
         case .credentials:
-            UntranslatedL10n.screenLoginCredentialsTitleIos
+            ArcanaLocalization.loginCredentialsTitle
         case .verificationCode:
-            UntranslatedL10n.screenLoginEmailVerificationTitleIos
+            ArcanaLocalization.loginEmailVerificationTitle
         }
     }
     
     var subtitle: String {
         switch context.viewState.step {
         case .credentials:
-            UntranslatedL10n.screenLoginCredentialsSubtitleIos
+            ArcanaLocalization.loginCredentialsSubtitle
         case .verificationCode:
-            UntranslatedL10n.screenLoginEmailVerificationSubtitleIos(context.viewState.bindings.email)
+            ArcanaLocalization.loginEmailVerificationSubtitle(email: context.viewState.bindings.email)
         }
     }
 
@@ -101,7 +101,7 @@ struct LoginScreen: View {
         VStack(alignment: .leading, spacing: 0) {
             if context.viewState.step == .credentials {
                 TextField(text: $context.email) {
-                    Text(UntranslatedL10n.screenLoginEmail).foregroundColor(.compound.textSecondary)
+                    Text(ArcanaLocalization.loginEmailLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isEmailFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.emailUsername))
@@ -114,7 +114,7 @@ struct LoginScreen: View {
                 .padding(.bottom, 20)
 
                 SecureField(text: $context.password) {
-                    Text(L10n.commonPassword).foregroundColor(.compound.textSecondary)
+                    Text(ArcanaLocalization.passwordLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isPasswordFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
@@ -123,7 +123,7 @@ struct LoginScreen: View {
                 .onSubmit(submit)
             } else {
                 TextField(text: $context.verificationCode) {
-                    Text(UntranslatedL10n.screenLoginVerificationCodeLabelIos).foregroundColor(.compound.textSecondary)
+                    Text(ArcanaLocalization.loginVerificationCodeLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isVerificationCodeFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
@@ -133,7 +133,7 @@ struct LoginScreen: View {
                 .padding(.bottom, 20)
 
                 Button(action: { context.send(viewAction: .resendVerificationCode) }) {
-                    Text(UntranslatedL10n.actionResendCodeIos)
+                    Text(ArcanaLocalization.resendCode)
                 }
                 .buttonStyle(.compound(.textLink))
                 .disabled(!context.viewState.canResendVerificationCode)
@@ -142,7 +142,7 @@ struct LoginScreen: View {
             Spacer().frame(height: 24)
 
             Button(action: submit) {
-                Text(context.viewState.step == .credentials ? L10n.actionContinue : L10n.actionConfirm)
+                Text(context.viewState.step == .credentials ? ArcanaLocalization.continueAction : ArcanaLocalization.confirmAction)
             }
             .buttonStyle(.compound(.primary))
             .disabled(!context.viewState.canSubmit)
@@ -152,7 +152,7 @@ struct LoginScreen: View {
     
     /// Text shown if neither password or OIDC login is supported.
     var loginUnavailableText: some View {
-        Text(L10n.screenLoginErrorUnsupportedAuthentication)
+        Text(ArcanaLocalization.unsupportedAuthentication)
             .font(.body)
             .multilineTextAlignment(.center)
             .foregroundColor(.compound.textPrimary)

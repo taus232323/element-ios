@@ -63,7 +63,7 @@ struct AuthenticationStartScreen: View {
             if verticalSizeClass == .regular {
                 Spacer()
                 
-                ArcanaMark(size: 164)
+                ArcanaMark(size: 224)
                     .padding(.top, 8)
             }
             
@@ -71,7 +71,7 @@ struct AuthenticationStartScreen: View {
             
             if !context.viewState.hideBrandChrome {
                 VStack(spacing: 8) {
-                    Text(UntranslatedL10n.screenOnboardingWelcomeTitleIos)
+                    Text(ArcanaLocalization.onboardingWelcomeTitle)
                         .font(.compound.headingLGBold)
                         .foregroundColor(.compound.textPrimary)
                         .multilineTextAlignment(.center)
@@ -98,13 +98,13 @@ struct AuthenticationStartScreen: View {
             
             if context.viewState.showCreateAccountButton {
                 Button { context.send(viewAction: .register) } label: {
-                    Text(L10n.screenCreateAccountTitle)
+                    Text(ArcanaLocalization.createAccount)
                 }
                 .buttonStyle(.compound(.tertiary))
             }
 
             Button { context.send(viewAction: .reportProblem) } label: {
-                Text(L10n.commonReportAProblem)
+                Text(ArcanaLocalization.reportProblem)
             }
             .buttonStyle(.compound(.textLink))
             .accessibilityIdentifier(A11yIdentifiers.authenticationStartScreen.reportProblem)
@@ -122,7 +122,7 @@ struct AuthenticationStartScreen: View {
     var versionText: Text {
         // Let's not deal with snapshotting a changing version string.
         let shortVersionString = ProcessInfo.isRunningTests ? "0.0.0" : InfoPlistReader.main.bundleShortVersionString
-        return Text(L10n.screenOnboardingAppVersion(shortVersionString))
+        return Text(ArcanaLocalization.onboardingAppVersion(shortVersionString))
     }
     
     @ToolbarContentBuilder

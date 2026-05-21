@@ -172,10 +172,12 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             let loginHint = context.userInfo as? String
             self?.showLoginScreen(loginHint: loginHint, fromState: .startScreen)
         }
+        stateMachine.addRoutes(event: .cancelledPasswordLogin(previousState: .startScreen), transitions: [.startScreen => .startScreen])
         stateMachine.addRoutes(event: .cancelledPasswordLogin(previousState: .startScreen), transitions: [.loginScreen => .startScreen])
         stateMachine.addRoutes(event: .continueWithNativeRegistration, transitions: [.startScreen => .nativeRegistrationScreen]) { [weak self] _ in
             self?.showNativeRegistrationScreen(fromState: .startScreen)
         }
+        stateMachine.addRoutes(event: .cancelledNativeRegistration(previousState: .startScreen), transitions: [.startScreen => .startScreen])
         stateMachine.addRoutes(event: .cancelledNativeRegistration(previousState: .startScreen), transitions: [.nativeRegistrationScreen => .startScreen])
 
         // Bug Report

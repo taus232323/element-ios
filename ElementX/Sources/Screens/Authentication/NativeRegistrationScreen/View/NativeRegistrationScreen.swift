@@ -48,7 +48,7 @@ struct NativeRegistrationScreen: View {
 
     var header: some View {
         VStack(spacing: 8) {
-            ArcanaMark(size: 164)
+            ArcanaMark(size: 208)
                 .padding(.top, 8)
                 .padding(.bottom, 8)
 
@@ -68,22 +68,22 @@ struct NativeRegistrationScreen: View {
     var title: String {
         switch context.viewState.step {
         case .email:
-            UntranslatedL10n.screenNativeRegistrationEmailStepTitleIos
+            ArcanaLocalization.nativeRegistrationEmailStepTitle
         case .verificationCode:
-            UntranslatedL10n.screenNativeRegistrationCodeStepTitleIos
+            ArcanaLocalization.nativeRegistrationCodeStepTitle
         case .credentials:
-            UntranslatedL10n.screenNativeRegistrationCredentialsStepTitleIos
+            ArcanaLocalization.nativeRegistrationCredentialsStepTitle
         }
     }
 
     var subtitle: String {
         switch context.viewState.step {
         case .email:
-            UntranslatedL10n.screenNativeRegistrationEmailStepSubtitleIos
+            ArcanaLocalization.nativeRegistrationEmailStepSubtitle
         case .verificationCode:
-            UntranslatedL10n.screenNativeRegistrationCodeStepSubtitleIos(context.viewState.bindings.email)
+            ArcanaLocalization.nativeRegistrationCodeStepSubtitle(email: context.viewState.bindings.email)
         case .credentials:
-            UntranslatedL10n.screenNativeRegistrationCredentialsStepSubtitleIos
+            ArcanaLocalization.nativeRegistrationCredentialsStepSubtitle
         }
     }
 
@@ -92,7 +92,7 @@ struct NativeRegistrationScreen: View {
             switch context.viewState.step {
             case .email:
                 TextField(text: $context.email) {
-                    Text(UntranslatedL10n.screenNativeRegistrationEmailLabelIos).foregroundColor(.compound.textSecondary)
+                    Text(ArcanaLocalization.nativeRegistrationEmailLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isEmailFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: "nativeRegistrationEmail"))
@@ -104,7 +104,7 @@ struct NativeRegistrationScreen: View {
                 .onSubmit(submit)
             case .verificationCode:
                 TextField(text: $context.verificationCode) {
-                    Text(UntranslatedL10n.screenLoginVerificationCodeLabelIos).foregroundColor(.compound.textSecondary)
+                    Text(ArcanaLocalization.loginVerificationCodeLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isVerificationCodeFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: "nativeRegistrationCode"))
@@ -114,13 +114,13 @@ struct NativeRegistrationScreen: View {
                 .padding(.bottom, 20)
 
                 Button(action: { context.send(viewAction: .resendVerificationCode) }) {
-                    Text(UntranslatedL10n.screenNativeRegistrationActionResendEmailIos)
+                    Text(ArcanaLocalization.nativeRegistrationResendEmail)
                 }
                 .buttonStyle(.compound(.textLink))
                 .disabled(!context.viewState.canResendVerificationCode)
             case .credentials:
                 TextField(text: $context.username) {
-                    Text(UntranslatedL10n.screenNativeRegistrationUsernameLabelIos).foregroundColor(.compound.textSecondary)
+                    Text(ArcanaLocalization.nativeRegistrationUsernameLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isUsernameFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: "nativeRegistrationUsername"))
@@ -131,7 +131,7 @@ struct NativeRegistrationScreen: View {
                 .padding(.bottom, 20)
 
                 SecureField(text: $context.password) {
-                    Text(L10n.commonPassword).foregroundColor(.compound.textSecondary)
+                    Text(ArcanaLocalization.passwordLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isPasswordFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: "nativeRegistrationPassword"))
@@ -143,7 +143,7 @@ struct NativeRegistrationScreen: View {
             Spacer().frame(height: 24)
 
             Button(action: submit) {
-                Text(context.viewState.step == .credentials ? UntranslatedL10n.screenNativeRegistrationActionCreateAccountIos : L10n.actionContinue)
+                Text(context.viewState.step == .credentials ? ArcanaLocalization.nativeRegistrationCreateAccount : ArcanaLocalization.continueAction)
             }
             .buttonStyle(.compound(.primary))
             .disabled(!context.viewState.canSubmit)

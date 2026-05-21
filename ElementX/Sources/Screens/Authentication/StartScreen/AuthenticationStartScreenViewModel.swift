@@ -156,7 +156,7 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
     private func startLoading() {
         userIndicatorController.submitIndicator(UserIndicator(id: loadingIndicatorID,
                                                               type: .modal,
-                                                              title: L10n.commonLoading,
+                                                              title: ArcanaLocalization.loading,
                                                               persistent: true))
     }
     

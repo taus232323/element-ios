@@ -30,7 +30,7 @@ struct AuthenticationStartScreenViewState: BindableState {
     var bindings = AuthenticationStartScreenViewStateBindings()
     
     var loginButtonTitle: String {
-        UntranslatedL10n.actionSignInIos
+        ArcanaLocalization.signIn
     }
 }
 
