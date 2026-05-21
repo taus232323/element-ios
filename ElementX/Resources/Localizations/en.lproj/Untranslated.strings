@@ -10,11 +10,11 @@
 "soft_logout_signin_e2e_warning_notice" = "Sign in to recover encryption keys stored exclusively on this device. You need them to read all of your secure messages on any device.";
 "soft_logout_signin_notice" = "Your homeserver (%1$s) admin has signed you out of your account %2$s (%3$s).";
 "soft_logout_signin_title" = "Sign in";
-"screen_login_email" = "Email";
+"screen_login_email" = "Login or email";
 "action_resend_code_ios" = "Resend code";
 "action_sign_in_ios" = "Sign in";
 "screen_login_credentials_title_ios" = "Sign in";
-"screen_login_credentials_subtitle_ios" = "Enter your email address and password.";
+"screen_login_credentials_subtitle_ios" = "Enter your login or email and password.";
 "screen_login_email_verification_title_ios" = "Verify your email";
 "screen_login_email_verification_subtitle_ios" = "We sent a code to %1$@. Enter it below to continue.";
 "screen_login_verification_code_label_ios" = "Verification code";

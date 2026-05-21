@@ -290,7 +290,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         .store(in: &cancellables)
         
         navigationStackCoordinator.push(coordinator) { [weak self] in
-            self?.stateMachine.tryEvent(.cancelledServerConfirmation)
+            self?.handleServerConfirmationDismissal()
         }
     }
     
@@ -315,7 +315,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             .store(in: &cancellables)
         
         navigationStackCoordinator.push(coordinator) { [weak self] in
-            self?.stateMachine.tryEvent(.cancelledPasswordLogin(previousState: fromState))
+            self?.handlePasswordLoginDismissal(previousState: fromState)
         }
     }
 
@@ -338,7 +338,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             .store(in: &cancellables)
 
         navigationStackCoordinator.push(coordinator) { [weak self] in
-            self?.stateMachine.tryEvent(.cancelledNativeRegistration(previousState: fromState))
+            self?.handleNativeRegistrationDismissal(previousState: fromState)
         }
     }
     
@@ -387,5 +387,21 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
     private func userHasSignedIn(userSession: UserSessionProtocol) {
         delegate?.authenticationFlowCoordinator(didLoginWithSession: userSession)
+    }
+
+    // MARK: - Dismissal Handling
+
+    private func handleServerConfirmationDismissal() {
+        stateMachine.tryEvent(.cancelledServerConfirmation)
+    }
+
+    private func handlePasswordLoginDismissal(previousState: State) {
+        guard stateMachine.state == .loginScreen else { return }
+        stateMachine.tryEvent(.cancelledPasswordLogin(previousState: previousState))
+    }
+
+    private func handleNativeRegistrationDismissal(previousState: State) {
+        guard stateMachine.state == .nativeRegistrationScreen else { return }
+        stateMachine.tryEvent(.cancelledNativeRegistration(previousState: previousState))
     }
 }

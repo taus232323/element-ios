@@ -22,11 +22,11 @@ internal enum UntranslatedL10n {
   internal static var cryptoHistorySharingConfirmStartChatDialogContent: String { return UntranslatedL10n.tr("Untranslated", "crypto_history_sharing_confirm_start_chat_dialog_content") }
   /// Start a chat with this new contact?
   internal static var cryptoHistorySharingConfirmStartChatDialogTitle: String { return UntranslatedL10n.tr("Untranslated", "crypto_history_sharing_confirm_start_chat_dialog_title") }
-  /// Enter your email address and password.
+  /// Enter your login or email and password.
   internal static var screenLoginCredentialsSubtitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_credentials_subtitle_ios") }
   /// Sign in
   internal static var screenLoginCredentialsTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_credentials_title_ios") }
-  /// Email
+  /// Login or email
   internal static var screenLoginEmail: String { return UntranslatedL10n.tr("Untranslated", "screen_login_email") }
   /// We sent a code to %1$@. Enter it below to continue.
   internal static func screenLoginEmailVerificationSubtitleIos(_ p1: Any) -> String {

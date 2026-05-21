@@ -108,9 +108,16 @@ struct NativeRegistrationScreen: View {
                 }
                 .focused($isVerificationCodeFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: "nativeRegistrationCode"))
+                .textContentType(.oneTimeCode)
                 .keyboardType(.numberPad)
                 .submitLabel(.done)
                 .onSubmit(submit)
+                .onChange(of: context.verificationCode) { newValue in
+                    let digitsOnly = newValue.filter(\.isNumber)
+                    if digitsOnly != newValue {
+                        context.verificationCode = digitsOnly
+                    }
+                }
                 .padding(.bottom, 20)
 
                 Button(action: { context.send(viewAction: .resendVerificationCode) }) {

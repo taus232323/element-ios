@@ -21,11 +21,11 @@ enum ArcanaLocalization {
     }
 
     static var loginCredentialsSubtitle: String {
-        isRussian ? "Введите email и пароль." : UntranslatedL10n.screenLoginCredentialsSubtitleIos
+        isRussian ? "Введите логин или электронную почту и пароль." : UntranslatedL10n.screenLoginCredentialsSubtitleIos
     }
 
     static var loginEmailLabel: String {
-        isRussian ? "Email" : UntranslatedL10n.screenLoginEmail
+        isRussian ? "Логин или электронная почта" : UntranslatedL10n.screenLoginEmail
     }
 
     static var loginEmailVerificationTitle: String {

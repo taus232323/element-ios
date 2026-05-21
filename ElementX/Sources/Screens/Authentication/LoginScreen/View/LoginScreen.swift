@@ -106,7 +106,7 @@ struct LoginScreen: View {
                 .focused($isEmailFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.emailUsername))
                 .disableAutocorrection(true)
-                .textContentType(.emailAddress)
+                .textContentType(.username)
                 .autocapitalization(.none)
                 .keyboardType(.emailAddress)
                 .submitLabel(.next)
@@ -127,9 +127,16 @@ struct LoginScreen: View {
                 }
                 .focused($isVerificationCodeFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
+                .textContentType(.oneTimeCode)
                 .keyboardType(.numberPad)
                 .submitLabel(.done)
                 .onSubmit(submit)
+                .onChange(of: context.verificationCode) { newValue in
+                    let digitsOnly = newValue.filter(\.isNumber)
+                    if digitsOnly != newValue {
+                        context.verificationCode = digitsOnly
+                    }
+                }
                 .padding(.bottom, 20)
 
                 Button(action: { context.send(viewAction: .resendVerificationCode) }) {
