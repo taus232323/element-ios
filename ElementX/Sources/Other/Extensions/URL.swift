@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import UIKit
 
 // MARK: - Custom URLs
 
@@ -201,6 +202,27 @@ extension URL {
             return nil
         }
         return ConfirmURLParameters(queryItems: queryItems)
+    }
+
+    /// Opens the URL in the system browser, adding the app's universal-link bypass flag when possible.
+    func openInSystemBrowser() {
+        UIApplication.shared.open(browserSafeURL)
+    }
+
+    /// A browser-safe URL that avoids universal-link loops across app variants when possible.
+    var browserSafeURL: URL {
+        guard var urlComponents = URLComponents(url: self, resolvingAgainstBaseURL: true) else {
+            return self
+        }
+
+        var queryItems = urlComponents.queryItems ?? []
+        if queryItems.contains(where: { $0.name == "no_universal_links" && $0.value == "true" }) == false {
+            queryItems.append(.init(name: "no_universal_links", value: "true"))
+        }
+
+        urlComponents.queryItems = queryItems
+
+        return urlComponents.url ?? self
     }
 }
 

@@ -96,4 +96,38 @@ struct AppRouteURLParserTests {
         
         #expect(route == .userProfile(userID: id))
     }
+
+    @Test
+    func arcanaInviteCustomSchemeURL() throws {
+        let webURL = try #require(URL(string: "https://arcana.celesteai.ru/invite/token-123"))
+        let url = try #require(URL(string: "arcana://invite/token-123?web=\(webURL.absoluteString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? webURL.absoluteString)"))
+
+        let route = appRouteURLParser.route(from: url)
+
+        #expect(route == .invite(token: "token-123", webURL: webURL))
+    }
+
+    @Test
+    func arcanaInviteUniversalLinkURL() throws {
+        let webURL = try #require(URL(string: "https://arcana.celesteai.ru/invite/token-456"))
+        let url = webURL
+
+        let route = appRouteURLParser.route(from: url)
+
+        #expect(route == .invite(token: "token-456", webURL: webURL))
+    }
+
+    @Test
+    func arcanaInviteCustomSchemeWithExtraPathIsIgnored() throws {
+        let url = try #require(URL(string: "arcana://invite/token-123/extra"))
+
+        #expect(appRouteURLParser.route(from: url) == nil)
+    }
+
+    @Test
+    func arcanaInviteUniversalLinkWithExtraPathIsIgnored() throws {
+        let url = try #require(URL(string: "https://arcana.celesteai.ru/invite/token-456/extra"))
+
+        #expect(appRouteURLParser.route(from: url) == nil)
+    }
 }

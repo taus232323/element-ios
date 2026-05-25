@@ -12,6 +12,8 @@ import Foundation
 internal enum UntranslatedL10n {
   /// Resend code
   internal static var actionResendCodeIos: String { return UntranslatedL10n.tr("Untranslated", "action_resend_code_ios") }
+  /// Open browser page
+  internal static var actionOpenBrowserPageIos: String { return UntranslatedL10n.tr("Untranslated", "action_open_browser_page_ios") }
   /// Sign in
   internal static var actionSignInIos: String { return UntranslatedL10n.tr("Untranslated", "action_sign_in_ios") }
   /// You currently don’t have any chats with these contacts. Confirm inviting them to this room before continuing.
@@ -98,6 +100,14 @@ internal enum UntranslatedL10n {
   internal static var screenNativeRegistrationErrorUsernameInUseIos: String { return UntranslatedL10n.tr("Untranslated", "screen_native_registration_error_username_in_use_ios") }
   /// Create account
   internal static var screenNativeRegistrationTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_native_registration_title_ios") }
+  /// Browser page
+  internal static var screenArcanaInviteBrowserPageIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_browser_page_ios") }
+  /// This invite can open in Arcana if it is installed. If not, use the browser page below.
+  internal static var screenArcanaInviteDescriptionIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_description_ios") }
+  /// Arcana invite
+  internal static var screenArcanaInviteTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_title_ios") }
+  /// Token
+  internal static var screenArcanaInviteTokenIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_token_ios") }
   /// Username
   internal static var screenNativeRegistrationUsernameLabelIos: String { return UntranslatedL10n.tr("Untranslated", "screen_native_registration_username_label_ios") }
   /// Welcome to Arcana

@@ -241,6 +241,22 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
     }
     
     func handleAppRoute(_ appRoute: AppRoute, windowType: SecondaryWindowType?) {
+        switch appRoute {
+        case .invite(let token, let webURL):
+            if let windowType {
+                windowManager.handleRoute(appRoute, windowType: windowType)
+            }
+
+            if let userSession {
+                presentInviteScreen(token: token, webURL: webURL)
+            } else {
+                storedAppRoute = appRoute
+            }
+            return
+        default:
+            break
+        }
+
         if let windowType {
             windowManager.handleRoute(appRoute, windowType: windowType)
             return
@@ -268,6 +284,11 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
 
     func handleDeepLink(_ url: URL, isExternalURL: Bool, windowType: SecondaryWindowType?) -> Bool {
         // Parse into an AppRoute to redirect these in a type safe way.
+        if URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .contains(where: { $0.name == "no_universal_links" && $0.value == "true" }) == true {
+            return false
+        }
         
         if let route = appRouteURLParser.route(from: url) {
             switch route {
@@ -280,6 +301,8 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
                 } else {
                     presentCallScreen(genericCallLink: url)
                 }
+            case .invite:
+                handleAppRoute(route, windowType: windowType)
             case .userProfile(let userID):
                 if isExternalURL {
                     handleAppRoute(route,
@@ -354,6 +377,20 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
         
         MXLog.info("Starting call in room: \(roomIdentifier)")
         handleAppRoute(AppRoute.call(roomID: roomIdentifier, isVoiceCall: false), windowType: nil)
+    }
+
+    func presentInviteScreen(token: String, webURL: URL) {
+        let coordinator = InviteScreenCoordinator(parameters: .init(token: token,
+                                                                    webURL: webURL,
+                                                                    clientProxy: userSession?.clientProxy,
+                                                                    onOpenRoom: { [weak self] roomID in
+                                                                        guard let self else { return }
+                                                                        if let userSession {
+                                                                            userSession.clientProxy.roomsToAwait.insert(roomID)
+                                                                        }
+                                                                        self.handleAppRoute(.room(roomID: roomID, via: []), windowType: nil)
+                                                                    }))
+        navigationRootCoordinator.setSheetCoordinator(coordinator, animated: true)
     }
     
     // MARK: - AuthenticationFlowCoordinatorDelegate
@@ -683,10 +720,16 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
         if let storedRoomsToAwait {
             userSession.clientProxy.roomsToAwait = storedRoomsToAwait
         }
-        
-        if storedAppRoute?.isAuthenticationRoute == false,
-           let storedAppRoute = storedAppRoute.take() {
-            userSessionFlowCoordinator.handleAppRoute(storedAppRoute, animated: false)
+
+        if let storedAppRoute = storedAppRoute.take() {
+            switch storedAppRoute {
+            case .invite(let token, let webURL):
+                presentInviteScreen(token: token, webURL: webURL)
+            case _ where storedAppRoute.isAuthenticationRoute == false:
+                userSessionFlowCoordinator.handleAppRoute(storedAppRoute, animated: false)
+            default:
+                break
+            }
         }
         
         if let storedInlineReply {

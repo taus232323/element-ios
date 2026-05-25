@@ -119,7 +119,7 @@ class UserSessionFlowCoordinator: FlowCoordinatorProtocol {
     
     func handleAppRoute(_ appRoute: AppRoute, animated: Bool) {
         switch appRoute {
-        case .accountProvisioningLink:
+        case .accountProvisioningLink, .invite:
             break // We always ignore this flow when logged in.
         case .settings, .chatBackupSettings:
             if ProcessInfo.processInfo.isiOSAppOnMac {

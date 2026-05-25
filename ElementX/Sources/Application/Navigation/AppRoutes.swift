@@ -33,6 +33,8 @@ enum AppRoute: Hashable {
     case event(eventID: String, roomID: String, via: [String])
     /// The same as ``event`` but using a room alias.
     case eventOnRoomAlias(eventID: String, alias: String)
+    /// An Arcana invite link.
+    case invite(token: String, webURL: URL?)
     /// An event within a room, either within the last child on the stack or pushing a new child if needed.
     case childEvent(eventID: String, roomID: String, via: [String])
     /// The same as ``childEvent`` but using a room alias.
@@ -82,6 +84,7 @@ struct AppRouteURLParser {
     init(appSettings: AppSettings) {
         urlParsers = [
             AppGroupURLParser(),
+            ArcanaInviteURLParser(),
             MatrixPermalinkParser(),
             ElementWebURLParser(domains: appSettings.elementWebHosts),
             AccountProvisioningURLParser(domain: appSettings.accountProvisioningHost),
@@ -171,6 +174,56 @@ private struct ElementCallURLParser: URLParser {
         }
         
         return .genericCallLink(url: url)
+    }
+}
+
+private struct ArcanaInviteURLParser: URLParser {
+    private let pathComponent = "invite"
+    private let webQueryItemName = "web"
+
+    func route(from url: URL) -> AppRoute? {
+        if let scheme = url.scheme,
+           scheme == InfoPlistReader.app.arcanaInviteDeepLinkURL?.scheme {
+            return parseInviteURL(url, expectHostAsToken: true)
+        }
+
+        guard url.host == InfoPlistReader.app.arcanaInviteWebHost else {
+            return nil
+        }
+
+        return parseInviteURL(url, expectHostAsToken: false)
+    }
+
+    private func parseInviteURL(_ url: URL, expectHostAsToken: Bool) -> AppRoute? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+
+        let token: String?
+        if expectHostAsToken {
+            guard url.host == pathComponent else {
+                return nil
+            }
+            guard url.pathComponents.count == 2 else {
+                return nil
+            }
+            token = url.pathComponents.dropFirst().first
+        } else {
+            guard url.pathComponents.count == 3,
+                  url.pathComponents[1] == pathComponent else {
+                return nil
+            }
+            token = url.pathComponents[2]
+        }
+
+        guard let token, !token.isEmpty else {
+            return nil
+        }
+
+        let webURL = components.queryItems?.first(where: { $0.name == webQueryItemName })?.value.flatMap(URL.init(string:))
+            ?? URL(string: "https://\(InfoPlistReader.app.arcanaInviteWebHost)/invite/\(token)")
+
+        return .invite(token: token, webURL: webURL)
     }
 }
 

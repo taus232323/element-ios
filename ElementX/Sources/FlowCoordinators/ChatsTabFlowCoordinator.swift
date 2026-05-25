@@ -172,7 +172,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
             }
         case .globalSearch:
             presentGlobalSearch()
-        case .accountProvisioningLink, .settings, .chatBackupSettings, .call, .genericCallLink:
+        case .accountProvisioningLink, .invite, .settings, .chatBackupSettings, .call, .genericCallLink:
             break // These routes cannot be handled.
         }
     }

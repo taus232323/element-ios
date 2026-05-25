@@ -63,7 +63,8 @@ targets:
             CFBundleURLName: "Application",
             CFBundleURLSchemes: [
               $(BASE_BUNDLE_IDENTIFIER), # The app's own scheme for custom routes
-              "matrix" # Matrix URI scheme for permalinks
+              "matrix", # Matrix URI scheme for permalinks
+              "arcana" # Arcana invite scheme
             ]
           }
         ]
@@ -83,6 +84,8 @@ targets:
         classicAppKeychainServiceIdentifier: $(CLASSIC_APP_KEYCHAIN_SERVICE_IDENTIFIER)
         classicAppKeychainAccessGroupIdentifier: $(CLASSIC_APP_KEYCHAIN_ACCESS_GROUP_IDENTIFIER)
         classicAppDeepLinkURL: $(CLASSIC_APP_DEEP_LINK_URL)
+        arcanaInviteWebHost: $(ARCANA_INVITE_WEB_HOST)
+        arcanaInviteDeepLinkURL: $(ARCANA_INVITE_DEEP_LINK_URL)
         productionAppName: $(PRODUCTION_APP_NAME)
         ITSAppUsesNonExemptEncryption: false
         NSUserActivityTypes: [
@@ -129,6 +132,7 @@ targets:
         - applinks:call.element.io
         - applinks:call.element.dev
         - applinks:matrix.to
+        - applinks:arcana.celesteai.ru
         # - applinks:localhost?mode=developer # developer mode only works with https (but self-signed is fine).
         - webcredentials:*.element.io
         com.apple.developer.usernotifications.communication: true

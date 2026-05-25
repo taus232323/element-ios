@@ -17,6 +17,7 @@ class ClientProxy: ClientProxyProtocol {
     private let client: ClientProtocol
     private let networkMonitor: NetworkMonitorProtocol
     private let appSettings: AppSettings
+    let accessToken: String
     private let analyticsService: AnalyticsService
     
     let mediaLoader: MediaLoaderProtocol
@@ -199,6 +200,7 @@ class ClientProxy: ClientProxyProtocol {
         self.networkMonitor = networkMonitor
         self.appSettings = appSettings
         self.analyticsService = analyticsService
+        accessToken = try client.session().accessToken
         
         if appSettings.automaticBackPaginationEnabled {
             // Must be called before creating the sync service, timelines etc.

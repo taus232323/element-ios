@@ -123,21 +123,6 @@ struct Application: App {
     /// https://github.com/element-hq/element-x-ios/issues/1824
     /// Avoid opening universal links in other app variants and infinite loops between them
     private func openURLInSystemBrowser(_ originalURL: URL) {
-        guard var urlComponents = URLComponents(url: originalURL, resolvingAgainstBaseURL: true) else {
-            openURL(originalURL)
-            return
-        }
-        
-        var queryItems = urlComponents.queryItems ?? []
-        queryItems.append(.init(name: "no_universal_links", value: "true"))
-        
-        urlComponents.queryItems = queryItems
-        
-        guard let url = urlComponents.url else {
-            openURL(originalURL)
-            return
-        }
-        
-        openURL(url)
+        openURL(originalURL.browserSafeURL)
     }
 }
