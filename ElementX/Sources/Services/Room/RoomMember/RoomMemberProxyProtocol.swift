@@ -10,7 +10,7 @@ import Foundation
 import MatrixRustSDK
 
 // sourcery: AutoMockable
-protocol RoomMemberProxyProtocol: AnyObject {
+protocol RoomMemberProxyProtocol: AnyObject, Sendable {
     var userID: String { get }
     
     var displayName: String? { get }

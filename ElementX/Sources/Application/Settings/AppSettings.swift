@@ -35,7 +35,7 @@ enum AppBuildType {
 }
 
 /// Store Element specific app settings.
-final class AppSettings {
+final class AppSettings: @unchecked Sendable {
     private enum UserDefaultsKeys: String {
         case lastVersionLaunched
         case seenInvites

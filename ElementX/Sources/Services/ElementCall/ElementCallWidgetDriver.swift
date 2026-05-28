@@ -6,9 +6,10 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-import Combine
+@preconcurrency import Combine
 import MatrixRustSDK
 import SwiftUI
+import Synchronization
 
 struct ElementCallWidgetMessage: Codable {
     enum Direction: String, Codable {
@@ -52,7 +53,7 @@ final class ElementCallWidgetDriver: WidgetCapabilitiesProvider, ElementCallWidg
     private let room: RoomProtocol
     private let deviceID: String
     
-    private var widgetDriver: WidgetDriverAndHandle?
+    private let widgetDriver = Mutex<WidgetDriverAndHandle?>(nil)
     
     let widgetID = UUID().uuidString
     let messagePublisher = PassthroughSubject<String, Never>()
@@ -127,7 +128,7 @@ final class ElementCallWidgetDriver: WidgetCapabilitiesProvider, ElementCallWidg
             return .failure(.failedBuildingWidgetDriver)
         }
         
-        self.widgetDriver = widgetDriver
+        self.widgetDriver.withLock { $0 = widgetDriver }
         
         Task.detached { [weak self, widgetDriver, messagePublisher] in
             MXLog.debug("Started message receiving loop")
@@ -163,7 +164,7 @@ final class ElementCallWidgetDriver: WidgetCapabilitiesProvider, ElementCallWidg
     
     @discardableResult
     func handleMessage(_ message: String) async -> Result<Bool, ElementCallWidgetDriverError> {
-        guard let widgetDriver else {
+        guard let widgetDriver = widgetDriver.withLock({ $0 }) else {
             return .failure(.driverNotSetup)
         }
         

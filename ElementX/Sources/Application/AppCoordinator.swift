@@ -366,9 +366,7 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
     }
     
     func handleUserActivity(_ userActivity: NSUserActivity) {
-        // `INStartVideoCallIntent` is to be replaced with `INStartCallIntent`
-        // but calls from Recents still send it ¯\_(ツ)_/¯
-        guard let intent = userActivity.interaction?.intent as? INStartVideoCallIntent,
+        guard let intent = userActivity.interaction?.intent as? INStartCallIntent,
               let contact = intent.contacts?.first,
               let roomIdentifier = contact.personHandle?.value else {
             MXLog.error("Failed retrieving information from userActivity: \(userActivity)")
@@ -379,7 +377,12 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
         handleAppRoute(AppRoute.call(roomID: roomIdentifier, isVoiceCall: false), windowType: nil)
     }
 
-    func presentInviteScreen(token: String, webURL: URL) {
+    func presentInviteScreen(token: String, webURL: URL?) {
+        guard let webURL = resolveInviteWebURL(token: token, webURL: webURL) else {
+            MXLog.error("Failed resolving invite web URL")
+            return
+        }
+
         let coordinator = InviteScreenCoordinator(parameters: .init(token: token,
                                                                     webURL: webURL,
                                                                     clientProxy: userSession?.clientProxy,
@@ -391,6 +394,14 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
                                                                         self.handleAppRoute(.room(roomID: roomID, via: []), windowType: nil)
                                                                     }))
         navigationRootCoordinator.setSheetCoordinator(coordinator, animated: true)
+    }
+
+    private func resolveInviteWebURL(token: String, webURL: URL?) -> URL? {
+        guard let webURL else {
+            return URL(string: "https://\(InfoPlistReader.app.arcanaInviteWebHost)/invite/\(token)")
+        }
+
+        return webURL
     }
     
     // MARK: - AuthenticationFlowCoordinatorDelegate

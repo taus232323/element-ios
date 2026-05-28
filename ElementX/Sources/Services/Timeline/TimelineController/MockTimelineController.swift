@@ -12,7 +12,7 @@ import Combine
 import Foundation
 import MatrixRustSDK
 
-class MockTimelineController: TimelineControllerProtocol {
+class MockTimelineController: TimelineControllerProtocol, @unchecked Sendable {
     /// An array of timeline item arrays that will be inserted in order for each back pagination request.
     var backPaginationResponses: [[RoomTimelineItemProtocol]] = []
     /// An array of timeline items that will be appended in order when ``simulateIncomingItems()`` is called.

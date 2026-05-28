@@ -204,10 +204,12 @@ extension URL {
         return ConfirmURLParameters(queryItems: queryItems)
     }
 
-    /// Opens the URL in the system browser, adding the app's universal-link bypass flag when possible.
+    // Opens the URL in the system browser, adding the app's universal-link bypass flag when possible.
+    #if !APP_EXTENSION
     func openInSystemBrowser() {
         UIApplication.shared.open(browserSafeURL)
     }
+    #endif
 
     /// A browser-safe URL that avoids universal-link loops across app variants when possible.
     var browserSafeURL: URL {

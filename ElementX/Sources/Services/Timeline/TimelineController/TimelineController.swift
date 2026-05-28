@@ -12,7 +12,7 @@ import IntentsUI
 import MatrixRustSDK
 import UIKit
 
-class TimelineController: TimelineControllerProtocol {
+class TimelineController: TimelineControllerProtocol, @unchecked Sendable {
     private let roomProxy: JoinedRoomProxyProtocol
     private let liveTimelineItemProvider: TimelineItemProviderProtocol
     private let timelineItemFactory: RoomTimelineItemFactoryProtocol

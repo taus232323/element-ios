@@ -164,7 +164,14 @@ extension AuthenticationService {
     func continueNativeLogin(_ pendingLogin: PendingNativeLogin, verificationCode: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
         guard let client else { return .failure(.failedLoggingIn) }
         do {
-            let deviceName = initialDeviceName ?? UIDevice.current.initialDeviceName
+            let deviceName: String
+            if let initialDeviceName {
+                deviceName = initialDeviceName
+            } else {
+                deviceName = await MainActor.run {
+                    UIDevice.current.initialDeviceName
+                }
+            }
             let response: NativeAuthSessionResponse = try await performNativeAuthRequest(baseURL: pendingLogin.homeserverUrl,
                                                                                          path: "_matrix/client/v3/login",
                                                                                          body: NativeAuthLoginContinueRequest(clientSecret: pendingLogin.clientSecret,
@@ -249,6 +256,14 @@ extension AuthenticationService {
     func finishNativeRegistration(_ pendingRegistration: PendingNativeRegistration, username: String?, password: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
         guard let client else { return .failure(.failedLoggingIn) }
         do {
+            let deviceName: String
+            if let initialDeviceName {
+                deviceName = initialDeviceName
+            } else {
+                deviceName = await MainActor.run {
+                    UIDevice.current.initialDeviceName
+                }
+            }
             let response: NativeAuthSessionResponse = try await performNativeAuthRequest(baseURL: pendingRegistration.homeserverUrl,
                                                                                          path: "_matrix/client/v3/register",
                                                                                          body: NativeAuthRegistrationFinishRequest(email: pendingRegistration.email,
@@ -260,7 +275,7 @@ extension AuthenticationService {
                                                                                                                                        return candidate.isBlank ? nil : candidate
                                                                                                                                    },
                                                                                                                                    deviceID: deviceID,
-                                                                                                                                   initialDeviceDisplayName: initialDeviceName ?? UIDevice.current.initialDeviceName,
+                                                                                                                                   initialDeviceDisplayName: deviceName,
                                                                                                                                    inhibitLogin: false))
 
             try await restoreNativeSession(response: response, client: client, fallbackHomeserverURL: pendingRegistration.homeserverUrl)

@@ -6,11 +6,11 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-import Combine
+@preconcurrency import Combine
 import Foundation
 import MatrixRustSDK
 
-private final class WeakSessionVerificationControllerProxy: SessionVerificationControllerDelegate {
+private final class WeakSessionVerificationControllerProxy: SessionVerificationControllerDelegate, @unchecked Sendable {
     private weak var proxy: SessionVerificationControllerProxy?
     
     init(proxy: SessionVerificationControllerProxy) {

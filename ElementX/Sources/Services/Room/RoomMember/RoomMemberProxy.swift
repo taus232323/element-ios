@@ -9,7 +9,7 @@
 import Foundation
 import MatrixRustSDK
 
-final class RoomMemberProxy: RoomMemberProxyProtocol {
+final class RoomMemberProxy: RoomMemberProxyProtocol, @unchecked Sendable {
     private let member: RoomMember
     
     init(member: RoomMember) {

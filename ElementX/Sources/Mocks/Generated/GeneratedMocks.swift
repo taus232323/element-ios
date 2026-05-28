@@ -2707,12 +2707,12 @@ class ClientProxyMock: ClientProxyProtocol, @unchecked Sendable {
         get { return underlyingHomeserver }
         set(value) { underlyingHomeserver = value }
     }
+    var underlyingHomeserver: String!
     var accessToken: String {
         get { return underlyingAccessToken }
         set(value) { underlyingAccessToken = value }
     }
     var underlyingAccessToken: String!
-    var underlyingHomeserver: String!
     var canDeactivateAccount: Bool {
         get { return underlyingCanDeactivateAccount }
         set(value) { underlyingCanDeactivateAccount = value }

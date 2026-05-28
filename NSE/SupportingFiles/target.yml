@@ -76,6 +76,7 @@ targets:
         SWIFT_OBJC_INTERFACE_HEADER_NAME: GeneratedInterface-Swift.h
         OTHER_SWIFT_FLAGS:
         - "-DIS_NSE"
+        - "-DAPP_EXTENSION"
         
     sources:
     - path: ../Sources
