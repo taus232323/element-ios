@@ -28,6 +28,7 @@ struct InfoPlistReader {
         static let classicAppKeychainServiceIdentifier = "classicAppKeychainServiceIdentifier"
         static let classicAppKeychainAccessGroupIdentifier = "classicAppKeychainAccessGroupIdentifier"
         static let classicAppDeepLinkURL = "classicAppDeepLinkURL"
+        static let arcanaAccountProvider = "arcanaAccountProvider"
         static let arcanaInviteWebHost = "arcanaInviteWebHost"
         static let arcanaInviteDeepLinkURL = "arcanaInviteDeepLinkURL"
     }
@@ -139,6 +140,10 @@ struct InfoPlistReader {
     var classicAppDeepLinkURL: URL? {
         let urlString: String? = infoPlistValue(forKey: Keys.classicAppDeepLinkURL)
         return urlString.flatMap { URL(string: $0) }
+    }
+
+    var arcanaAccountProvider: String {
+        infoPlistValue(forKey: Keys.arcanaAccountProvider)
     }
 
     var arcanaInviteWebHost: String {

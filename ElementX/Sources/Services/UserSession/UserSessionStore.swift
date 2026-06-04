@@ -55,6 +55,16 @@ class UserSessionStore: UserSessionStoreProtocol {
         guard let credentials = availableCredentials.first else {
             return .failure(.missingCredentials)
         }
+
+        #if targetEnvironment(simulator)
+        guard shouldRestore(credentials) else {
+            let restoredHomeserverURL = credentials.restorationToken.session.homeserverUrl
+            MXLog.warning("Resetting simulator session for user \(credentials.userID) with stale homeserver: \(restoredHomeserverURL)")
+            keychainController.removeRestorationTokenForUsername(credentials.userID)
+            credentials.restorationToken.sessionDirectories.delete()
+            return .failure(.missingCredentials)
+        }
+        #endif
         
         switch await restorePreviousLogin(credentials) {
         case .success(let clientProxy):
@@ -67,6 +77,17 @@ class UserSessionStore: UserSessionStoreProtocol {
             credentials.restorationToken.sessionDirectories.delete()
             
             return .failure(error)
+        }
+    }
+
+    private func shouldRestore(_ credentials: KeychainCredentials) -> Bool {
+        let restoredHomeserverURL = credentials.restorationToken.session.homeserverUrl
+        guard let restoredHomeserverHost = URL(string: restoredHomeserverURL)?.host() else {
+            return false
+        }
+
+        return appSettings.accountProviders.contains { provider in
+            restoredHomeserverHost == provider || restoredHomeserverHost.hasSuffix(".\(provider)")
         }
     }
     

@@ -62,10 +62,6 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>arcanaInviteDeepLinkURL</key>
-	<string>$(ARCANA_INVITE_DEEP_LINK_URL)</string>
-	<key>arcanaInviteWebHost</key>
-	<string>$(ARCANA_INVITE_WEB_HOST)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
@@ -127,6 +123,12 @@
 	</array>
 	<key>appGroupIdentifier</key>
 	<string>$(APP_GROUP_IDENTIFIER)</string>
+	<key>arcanaAccountProvider</key>
+	<string>$(ARCANA_ACCOUNT_PROVIDER)</string>
+	<key>arcanaInviteDeepLinkURL</key>
+	<string>$(ARCANA_INVITE_DEEP_LINK_URL)</string>
+	<key>arcanaInviteWebHost</key>
+	<string>$(ARCANA_INVITE_WEB_HOST)</string>
 	<key>baseBundleIdentifier</key>
 	<string>$(BASE_BUNDLE_IDENTIFIER)</string>
 	<key>classicAppDeepLinkURL</key>

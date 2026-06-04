@@ -9901,6 +9901,7 @@
 				APP_DISPLAY_NAME = Arcana;
 				APP_GROUP_IDENTIFIER = group.io.arcana;
 				APP_NAME = Arcana;
+				ARCANA_ACCOUNT_PROVIDER = arcana.celesteai.ru;
 				ARCANA_INVITE_DEEP_LINK_URL = "arcana://invite";
 				ARCANA_INVITE_WEB_HOST = arcana.celesteai.ru;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "colors/accent-color";
@@ -10309,6 +10310,7 @@
 				APP_DISPLAY_NAME = Arcana;
 				APP_GROUP_IDENTIFIER = group.io.arcana;
 				APP_NAME = Arcana;
+				ARCANA_ACCOUNT_PROVIDER = arcana.celesteai.ru;
 				ARCANA_INVITE_DEEP_LINK_URL = "arcana://invite";
 				ARCANA_INVITE_WEB_HOST = arcana.celesteai.ru;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "colors/accent-color";

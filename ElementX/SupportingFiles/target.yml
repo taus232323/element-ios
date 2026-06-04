@@ -84,6 +84,7 @@ targets:
         classicAppKeychainServiceIdentifier: $(CLASSIC_APP_KEYCHAIN_SERVICE_IDENTIFIER)
         classicAppKeychainAccessGroupIdentifier: $(CLASSIC_APP_KEYCHAIN_ACCESS_GROUP_IDENTIFIER)
         classicAppDeepLinkURL: $(CLASSIC_APP_DEEP_LINK_URL)
+        arcanaAccountProvider: $(ARCANA_ACCOUNT_PROVIDER)
         arcanaInviteWebHost: $(ARCANA_INVITE_WEB_HOST)
         arcanaInviteDeepLinkURL: $(ARCANA_INVITE_DEEP_LINK_URL)
         productionAppName: $(PRODUCTION_APP_NAME)
