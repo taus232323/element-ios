@@ -53,6 +53,6 @@ targets:
     sources:
     - path: ../Sources
     - path: ../SupportingFiles
-    - path: ../../Arcana/Sources/Other/AccessibilityIdentifiers.swift
-    - path: ../../Arcana/Sources/Other/Extensions/NSRegularExpresion.swift
-    - path: ../../Arcana/Sources/Other/Extensions/XCUIElement.swift
+    - path: ../../arcana/Sources/Other/AccessibilityIdentifiers.swift
+    - path: ../../arcana/Sources/Other/Extensions/NSRegularExpresion.swift
+    - path: ../../arcana/Sources/Other/Extensions/XCUIElement.swift

@@ -66,7 +66,7 @@ private final class InviteSpyAppCoordinator: AppCoordinator {
     private(set) var presentedInvite: AppRoute?
     let presentedInvites = PassthroughSubject<AppRoute, Never>()
 
-    override func presentInviteScreen(token: String, webURL: URL) {
+    override func presentInviteScreen(token: String, webURL: URL?) {
         let route = AppRoute.invite(token: token, webURL: webURL)
         presentedInvite = route
         presentedInvites.send(route)

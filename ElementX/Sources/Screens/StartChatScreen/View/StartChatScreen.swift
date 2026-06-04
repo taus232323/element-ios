@@ -101,12 +101,33 @@ struct StartChatScreen: View {
     private var inviteFriendsSection: some View {
         Section {
             ListRow(kind: .custom {
-                MatrixUserShareLink(userID: context.viewState.userID) {
-                    ListRowLabel.default(title: L10n.actionInvitePeopleToApp(InfoPlistReader.main.bundleDisplayName),
-                                         icon: \.shareIos)
-                }
+                inviteFriendsRowContent
             })
             .accessibilityIdentifier(A11yIdentifiers.startChatScreen.inviteFriends)
+        }
+    }
+
+    @ViewBuilder
+    private var inviteFriendsRowContent: some View {
+        switch context.viewState.inviteShareLinkState {
+        case .loading:
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.arrow.up")
+                    .foregroundStyle(.secondary)
+                ProgressView()
+                Spacer(minLength: 0)
+                Text(L10n.actionInvitePeopleToApp(InfoPlistReader.main.bundleDisplayName))
+                    .foregroundStyle(.secondary)
+            }
+        case .ready(let inviteURL):
+            ShareLink(item: L10n.inviteFriendsText(InfoPlistReader.main.bundleDisplayName, inviteURL.absoluteString)) {
+                ListRowLabel.default(title: L10n.actionInvitePeopleToApp(InfoPlistReader.main.bundleDisplayName),
+                                     icon: \.shareIos)
+            }
+        case .failed:
+            ListRowLabel.default(title: L10n.actionInvitePeopleToApp(InfoPlistReader.main.bundleDisplayName),
+                                 icon: \.shareIos)
+                .foregroundStyle(.secondary)
         }
     }
     

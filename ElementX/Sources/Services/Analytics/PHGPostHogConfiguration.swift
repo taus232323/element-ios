@@ -10,6 +10,10 @@ import PostHog
 
 extension PostHogConfig {
     static func standard(analyticsConfiguration: AnalyticsConfiguration) -> PostHogConfig? {
+        guard analyticsConfiguration.apiKey != "your_key" else {
+            return nil
+        }
+
         let postHogConfiguration = PostHogConfig(apiKey: analyticsConfiguration.apiKey, host: analyticsConfiguration.host)
         // We capture screens manually
         postHogConfiguration.captureScreenViews = false

@@ -81,26 +81,26 @@ targets:
     sources:
     - path: ../Sources
     - path: ../SupportingFiles
-    - path: ../../Arcana/Sources/ShareExtension
-    - path: ../../Arcana/Sources/AppHooks/AppHooks.swift
-    - path: ../../Arcana/Sources/AppHooks/Hooks/TracingHook.swift
-    - path: ../../Arcana/Sources/AppHooks/Hooks/ClientBuilderHook.swift
-    - path: ../../Arcana/Sources/AppHooks/Hooks/RemoteSettingsHook.swift
+    - path: ../../arcana/Sources/ShareExtension
+    - path: ../../arcana/Sources/AppHooks/AppHooks.swift
+    - path: ../../arcana/Sources/AppHooks/Hooks/TracingHook.swift
+    - path: ../../arcana/Sources/AppHooks/Hooks/ClientBuilderHook.swift
+    - path: ../../arcana/Sources/AppHooks/Hooks/RemoteSettingsHook.swift
     - path: ../../Secrets/Secrets.swift
-    - path: ../../Arcana/Sources/Application/Settings
-    - path: ../../Arcana/Sources/Application/TargetConfiguration.swift
-    - path: ../../Arcana/Sources/Services/Keychain/KeychainController.swift
-    - path: ../../Arcana/Sources/Services/Keychain/KeychainControllerProtocol.swift
-    - path: ../../Arcana/Sources/Services/UserSession/RestorationToken.swift
-    - path: ../../Arcana/Sources/Services/UserSession/SessionDirectories.swift
-    - path: ../../Arcana/Sources/Other/Extensions/Bundle.swift
-    - path: ../../Arcana/Sources/Other/Extensions/Dictionary.swift
-    - path: ../../Arcana/Sources/Other/Extensions/FileManager.swift
-    - path: ../../Arcana/Sources/Other/Extensions/NSItemProvider.swift
-    - path: ../../Arcana/Sources/Other/Extensions/ProcessInfo.swift
-    - path: ../../Arcana/Sources/Other/Extensions/UIView.swift
-    - path: ../../Arcana/Sources/Other/Extensions/URL.swift
-    - path: ../../Arcana/Sources/Other/InfoPlistReader.swift
-    - path: ../../Arcana/Sources/Other/CurrentValuePublisher.swift
-    - path: ../../Arcana/Sources/Other/Logging
-    - path: ../../Arcana/Sources/UITests/UITestsScreenIdentifier.swift
+    - path: ../../arcana/Sources/Application/Settings
+    - path: ../../arcana/Sources/Application/TargetConfiguration.swift
+    - path: ../../arcana/Sources/Services/Keychain/KeychainController.swift
+    - path: ../../arcana/Sources/Services/Keychain/KeychainControllerProtocol.swift
+    - path: ../../arcana/Sources/Services/UserSession/RestorationToken.swift
+    - path: ../../arcana/Sources/Services/UserSession/SessionDirectories.swift
+    - path: ../../arcana/Sources/Other/Extensions/Bundle.swift
+    - path: ../../arcana/Sources/Other/Extensions/Dictionary.swift
+    - path: ../../arcana/Sources/Other/Extensions/FileManager.swift
+    - path: ../../arcana/Sources/Other/Extensions/NSItemProvider.swift
+    - path: ../../arcana/Sources/Other/Extensions/ProcessInfo.swift
+    - path: ../../arcana/Sources/Other/Extensions/UIView.swift
+    - path: ../../arcana/Sources/Other/Extensions/URL.swift
+    - path: ../../arcana/Sources/Other/InfoPlistReader.swift
+    - path: ../../arcana/Sources/Other/CurrentValuePublisher.swift
+    - path: ../../arcana/Sources/Other/Logging
+    - path: ../../arcana/Sources/UITests/UITestsScreenIdentifier.swift

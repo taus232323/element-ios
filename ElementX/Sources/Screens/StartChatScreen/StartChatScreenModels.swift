@@ -25,6 +25,7 @@ struct StartChatScreenViewState: BindableState {
     var bindings = StartChatScreenViewStateBindings()
     var usersSection: UserDiscoverySection = .init(type: .suggestions, users: [])
     var isRoomDirectoryEnabled = false
+    var inviteShareLinkState: InviteShareLinkState = .loading
 
     var isSearching: Bool {
         !bindings.searchQuery.isEmpty
@@ -40,6 +41,7 @@ struct StartChatScreenViewState: BindableState {
 struct StartChatScreenViewStateBindings {
     var searchQuery = ""
     var roomAddress = ""
+    var inviteShareURL: URL?
     
     /// Information describing the currently displayed alert.
     var alertInfo: AlertInfo<StartChatScreenErrorType>?
@@ -62,4 +64,10 @@ enum JoinByAddressState: Equatable {
     case invalidAddress
     case addressNotFound
     case addressFound(address: String, roomID: String)
+}
+
+enum InviteShareLinkState: Equatable {
+    case loading
+    case ready(URL)
+    case failed
 }

@@ -47,8 +47,8 @@ targets:
     sources:
     - path: ../Sources
     - path: ../SupportingFiles
-    - path: ../../Arcana/Sources/UITests/UITestsSignalling.swift
-    - path: ../../Arcana/Sources/Other/AccessibilityIdentifiers.swift
-    - path: ../../Arcana/Sources/Other/MatrixEntityRegex.swift
-    - path: ../../Arcana/Sources/Other/Pills/PillUtilities.swift
-    - path: ../../Arcana/Sources/Other/Extensions/NSRegularExpresion.swift
+    - path: ../../arcana/Sources/UITests/UITestsSignalling.swift
+    - path: ../../arcana/Sources/Other/AccessibilityIdentifiers.swift
+    - path: ../../arcana/Sources/Other/MatrixEntityRegex.swift
+    - path: ../../arcana/Sources/Other/Pills/PillUtilities.swift
+    - path: ../../arcana/Sources/Other/Extensions/NSRegularExpresion.swift

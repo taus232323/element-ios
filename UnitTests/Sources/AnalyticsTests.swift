@@ -12,6 +12,8 @@ import PostHog
 import Testing
 
 final class AnalyticsTests {
+    private static let analyticsConfiguration = AnalyticsConfiguration(host: "https://posthog.localhost", apiKey: "test_key")
+
     private var appSettings: AppSettings
     private var analyticsClient: AnalyticsClientMock
     private var posthogMock: PHGPostHogMock
@@ -172,11 +174,11 @@ final class AnalyticsTests {
     }
     
     @Test
-    func sendingUserProperties() throws {
+    func sendingUserProperties() {
         // Given a client with user properties set
         
         let client = PostHogAnalyticsClient(posthogFactory: MockPostHogFactory(mock: posthogMock))
-        try client.start(analyticsConfiguration: #require(appSettings.analyticsConfiguration))
+        client.start(analyticsConfiguration: Self.analyticsConfiguration)
         
         client.updateUserProperties(AnalyticsEvent.UserProperties(URLPreviewsEnabled: nil,
                                                                   allChatsActiveFilter: nil,
@@ -225,10 +227,10 @@ final class AnalyticsTests {
     }
     
     @Test
-    func sendingAndUpdatingSuperProperties() throws {
+    func sendingAndUpdatingSuperProperties() {
         // Given a client with user properties set
         let client = PostHogAnalyticsClient(posthogFactory: MockPostHogFactory(mock: posthogMock))
-        try client.start(analyticsConfiguration: #require(appSettings.analyticsConfiguration))
+        client.start(analyticsConfiguration: Self.analyticsConfiguration)
         
         client.updateSuperProperties(AnalyticsEvent.SuperProperties(appPlatform: .EXI,
                                                                     cryptoSDK: .Rust,
@@ -282,7 +284,7 @@ final class AnalyticsTests {
     }
     
     @Test
-    func shouldNotReportIfNotStarted() throws {
+    func shouldNotReportIfNotStarted() {
         // Given a client with user properties set
         let client = PostHogAnalyticsClient(posthogFactory: MockPostHogFactory(mock: posthogMock))
         
@@ -309,7 +311,7 @@ final class AnalyticsTests {
         #expect(posthogMock.capturePropertiesUserPropertiesCalled == false)
         
         // start now
-        try client.start(analyticsConfiguration: #require(appSettings.analyticsConfiguration))
+        client.start(analyticsConfiguration: Self.analyticsConfiguration)
         #expect(posthogMock.optInCalled == true)
         
         client.capture(someEvent)
