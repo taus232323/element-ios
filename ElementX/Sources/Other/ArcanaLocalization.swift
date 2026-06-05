@@ -88,6 +88,10 @@ enum ArcanaLocalization {
         isRussian ? "Отправить код снова" : UntranslatedL10n.actionResendCodeIos
     }
 
+    static var forgotPassword: String {
+        isRussian ? "Забыли пароль?" : L10n.actionForgotPassword
+    }
+
     static var signIn: String {
         isRussian ? "Войти" : UntranslatedL10n.actionSignInIos
     }
@@ -238,5 +242,113 @@ enum ArcanaLocalization {
 
     static var nativeRegistrationInvalidRegistrationToken: String {
         isRussian ? "Неверный токен регистрации." : UntranslatedL10n.screenNativeRegistrationErrorInvalidRegistrationTokenIos
+    }
+
+    static var passwordResetTitle: String {
+        isRussian ? "Сбросить пароль" : UntranslatedL10n.screenPasswordResetTitleIos
+    }
+
+    static var passwordResetEmailStepTitle: String {
+        isRussian ? "Проверьте почту" : UntranslatedL10n.screenPasswordResetEmailStepTitleIos
+    }
+
+    static func passwordResetEmailStepSubtitle(homeserver: String) -> String {
+        if isRussian {
+            return "Введите адрес электронной почты для аккаунта на \(homeserver), и мы вышлем код для продолжения."
+        } else {
+            return UntranslatedL10n.screenPasswordResetEmailStepSubtitleIos(homeserver)
+        }
+    }
+
+    static var passwordResetEmailStepBody: String {
+        isRussian ? "Мы отправим код на вашу почту, прежде чем вы сможете выбрать новый пароль." : UntranslatedL10n.screenPasswordResetEmailStepBodyIos
+    }
+
+    static var passwordResetCodeStepTitle: String {
+        isRussian ? "Введите код" : UntranslatedL10n.screenPasswordResetCodeStepTitleIos
+    }
+
+    static func passwordResetCodeStepSubtitle(email: String) -> String {
+        if isRussian {
+            return "Мы отправили код на \(email). Введите его здесь, чтобы подтвердить аккаунт."
+        } else {
+            return UntranslatedL10n.screenPasswordResetCodeStepSubtitleIos(email)
+        }
+    }
+
+    static func passwordResetCodeStepBody(email: String) -> String {
+        if isRussian {
+            return "Введите код, который мы отправили на \(email)."
+        } else {
+            return UntranslatedL10n.screenPasswordResetCodeStepBodyIos(email)
+        }
+    }
+
+    static var passwordResetCodeStepHint: String {
+        isRussian ? "Если письма нет, проверьте папку со спамом или отправьте код ещё раз." : UntranslatedL10n.screenPasswordResetCodeStepHintIos
+    }
+
+    static var passwordResetCredentialsStepTitle: String {
+        isRussian ? "Выберите новый пароль" : UntranslatedL10n.screenPasswordResetCredentialsStepTitleIos
+    }
+
+    static func passwordResetCredentialsStepSubtitle(homeserver: String) -> String {
+        if isRussian {
+            return "Теперь задайте новый пароль для аккаунта на \(homeserver)."
+        } else {
+            return UntranslatedL10n.screenPasswordResetCredentialsStepSubtitleIos(homeserver)
+        }
+    }
+
+    static var passwordResetCredentialsStepBody: String {
+        isRussian ? "Теперь выберите новый пароль." : UntranslatedL10n.screenPasswordResetCredentialsStepBodyIos
+    }
+
+    static var passwordResetNewPasswordLabel: String {
+        isRussian ? "Новый пароль" : UntranslatedL10n.screenPasswordResetNewPasswordLabelIos
+    }
+
+    static var passwordResetConfirmPasswordLabel: String {
+        isRussian ? "Подтвердите новый пароль" : UntranslatedL10n.screenPasswordResetConfirmPasswordLabelIos
+    }
+
+    static var passwordResetUpdatePassword: String {
+        isRussian ? "Обновить пароль" : UntranslatedL10n.screenPasswordResetActionUpdatePasswordIos
+    }
+
+    static var passwordResetResendEmail: String {
+        isRussian ? "Отправить код ещё раз" : UntranslatedL10n.screenPasswordResetActionResendEmailIos
+    }
+
+    static var passwordResetSuccessTitle: String {
+        isRussian ? "Пароль обновлён" : UntranslatedL10n.screenPasswordResetSuccessTitleIos
+    }
+
+    static var passwordResetSuccessMessage: String {
+        isRussian ? "Ваш пароль изменён. Теперь вы можете войти с новым паролем." : UntranslatedL10n.screenPasswordResetSuccessMessageIos
+    }
+
+    static var passwordResetPasswordMismatch: String {
+        isRussian ? "Пароли не совпадают." : UntranslatedL10n.screenPasswordResetErrorPasswordMismatchIos
+    }
+
+    static var passwordResetInvalidEmail: String {
+        isRussian ? "Этот адрес электронной почты нельзя использовать для сброса пароля." : UntranslatedL10n.screenPasswordResetErrorInvalidEmailIos
+    }
+
+    static var passwordResetInvalidCode: String {
+        isRussian ? "Этот код недействителен. Попробуйте ещё раз или отправьте новый код." : UntranslatedL10n.screenPasswordResetErrorInvalidCodeIos
+    }
+
+    static func passwordResetRateLimited(seconds: Int) -> String {
+        if isRussian {
+            return "Слишком много попыток. Подождите \(seconds) секунд и попробуйте снова."
+        } else {
+            return UntranslatedL10n.screenPasswordResetErrorRateLimitedIos(seconds)
+        }
+    }
+
+    static var passwordResetUnknownError: String {
+        isRussian ? "При сбросе пароля произошла ошибка." : UntranslatedL10n.screenPasswordResetErrorUnknownIos
     }
 }

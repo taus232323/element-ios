@@ -328,6 +328,7 @@
 		329AFA9050671B320EE70F79 /* NotificationConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F622D5B69C58C8E7024A061 /* NotificationConstants.swift */; };
 		32B7CF3CA08848CE9249DC8F /* TimelineEventContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 330DBC017A73653943CDBB27 /* TimelineEventContent.swift */; };
 		32C23318482B5EF8510B95B2 /* StickerRoomTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 640F12EEA1DAE09453E5AB5A /* StickerRoomTimelineView.swift */; };
+		32D87F85FDC6CE336344AC3E /* PasswordResetScreenViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42C60E33121D11A2D9DC39C6 /* PasswordResetScreenViewModel.swift */; };
 		3318F51BE70BBAF93338FE1C /* SAS.strings in Resources */ = {isa = PBXBuildFile; fileRef = 56CFB96AAD4B8AFE9BD0836C /* SAS.strings */; };
 		335DA620029D7948AC8E7B1D /* EncryptionResetScreenCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB7D9D833EE233A3FC0BEFD2 /* EncryptionResetScreenCoordinator.swift */; };
 		33832E97F1622B66BE087FA1 /* TraceLogPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98347DFC321CB51871FB12AC /* TraceLogPack.swift */; };
@@ -838,6 +839,7 @@
 		8A8CB52D152B034E4E50D7A4 /* RoomSummaryProviderMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E84BC2567A99AE7908D396B /* RoomSummaryProviderMock.swift */; };
 		8A9C840DC7E0B80E2F2A98BA /* HomeScreenCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3479AC58F9044A3C843E2CC0 /* HomeScreenCoordinator.swift */; };
 		8AC38269B911854EE6E44599 /* PhishingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE8FDE9645EC2A92D4FC9FD7 /* PhishingDetector.swift */; };
+		8AD30C3C9D2385F4508F71C6 /* PasswordResetScreenModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED48C8CE9406904702B05681 /* PasswordResetScreenModels.swift */; };
 		8B36AC90AB9C320E15F2FC15 /* AppLockSetupFlowCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B03004BCD21D715BEB77DAE9 /* AppLockSetupFlowCoordinator.swift */; };
 		8B5ED86C1A287278D6942BD3 /* NSEUserSessionMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = E142493E87DEEEC54838216C /* NSEUserSessionMock.swift */; };
 		8BAE32CA5886EA7F88DB21ED /* RoomMessageEventStringBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3797162FE45FA9B9FEB073A0 /* RoomMessageEventStringBuilder.swift */; };
@@ -1233,6 +1235,7 @@
 		CEB1037F52681DF848744231 /* URLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8947E27171AED6C62E5F4720 /* URLTests.swift */; };
 		CF60AFEE18B5E581A1A432D8 /* MessageForwardingScreenViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EFB8C5B8B9A417BA5CE941 /* MessageForwardingScreenViewModelProtocol.swift */; };
 		CF6F8FE80E94425869C1574A /* EditRoomAddressListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABA8B2C4004C2A898D279745 /* EditRoomAddressListRow.swift */; };
+		D01A3E4B9DF980AB3B98F9E2 /* PasswordResetScreenCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBF9C6F9CA2AFF7398A7C590 /* PasswordResetScreenCoordinator.swift */; };
 		D01AA4C8CE3914F0215A20BA /* SessionVerificationControllerProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72BDD9EB67A7F5C3827531AC /* SessionVerificationControllerProxy.swift */; };
 		D08FB1CF2DEBDFD2FF25EE74 /* test_image.png in Resources */ = {isa = PBXBuildFile; fileRef = E35846F2F69A33519D8A11E0 /* test_image.png */; };
 		D0CEE4965D523974CF94DBBB /* EmoteRoomTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E35D9C7DD357A7DD404F0A49 /* EmoteRoomTimelineView.swift */; };
@@ -1366,6 +1369,7 @@
 		E6E0FE6BA051F8ACC20C20E0 /* UserSessionStoreProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B195F2E5D64953894AA5E4C5 /* UserSessionStoreProtocol.swift */; };
 		E6F11968ADF83AEA33E22D3C /* AppLockSetupPINScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 322A1123BEE3CBD810A1B829 /* AppLockSetupPINScreen.swift */; };
 		E6FC7C494D60D3073D685970 /* SecureBackupLogoutConfirmationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FAF434E652EC906543AA267 /* SecureBackupLogoutConfirmationScreen.swift */; };
+		E71AF2050CE65D3BF7B29CFA /* PasswordResetScreenViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02566F23BF2CCCFA12ED7243 /* PasswordResetScreenViewModelProtocol.swift */; };
 		E72F510038A6F76F7FEA7786 /* AppAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77CB37C18659858D4199F39 /* AppAppearance.swift */; };
 		E772EE4C93D1C74E4BBB76E9 /* UserPreferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C577D979D3BA34C7B737085 /* UserPreferenceTests.swift */; };
 		E7B1895D1C4351822798596B /* LinkNewDeviceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7F5F54099EA2630C758D9FB /* LinkNewDeviceService.swift */; };
@@ -1465,6 +1469,7 @@
 		F67191962800BB2359044862 /* AttributedString.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F34C841DDF18C8A412F9B52 /* AttributedString.swift */; };
 		F67EDBEF5D1E537439E775D7 /* VoiceMessageMediaManagerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35E58BD838D8D7AEEBDC5543 /* VoiceMessageMediaManagerProtocol.swift */; };
 		F68C801D872A99DDD50705F9 /* FileRoomTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7BAFCC938A584EF7822F246 /* FileRoomTimelineView.swift */; };
+		F6A24FC69CDC25037D915E07 /* PasswordResetScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F732F95AB5662BAA0AB5597E /* PasswordResetScreen.swift */; };
 		F6E8B952C0E96E966C1CC676 /* FileMediaEventsTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C6E4B5B45C96F23B7C1391 /* FileMediaEventsTimelineView.swift */; };
 		F6F1AC75D3B7EC8AD232A782 /* NotificationSettingsEditScreenViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24470FFBE975DABE2A7A5394 /* NotificationSettingsEditScreenViewModelTests.swift */; };
 		F7378E4BD5BECC264C19E093 /* FlowCoordinatorProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99828968B33817C6C23DBA7B /* FlowCoordinatorProtocol.swift */; };
@@ -1628,6 +1633,7 @@
 		0232A94FDC8A8909F7D04957 /* BannedRoomProxyMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BannedRoomProxyMock.swift; sourceTree = "<group>"; };
 		0249ECB7DC7FA99963C34B48 /* ComposerToolbarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerToolbarModels.swift; sourceTree = "<group>"; };
 		024A16BCE33A0D0268AE6A23 /* EditRoomAddressScreenViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditRoomAddressScreenViewModelTests.swift; sourceTree = "<group>"; };
+		02566F23BF2CCCFA12ED7243 /* PasswordResetScreenViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordResetScreenViewModelProtocol.swift; sourceTree = "<group>"; };
 		026C1D2470A33823CDA4D6AF /* SessionVerificationScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionVerificationScreen.swift; sourceTree = "<group>"; };
 		027D149D28DCB60201C611AB /* zh-Hant-TW */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant-TW"; path = "zh-Hant-TW.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		02BBF1334D9E587EEA264F1B /* PillTextAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillTextAttachment.swift; sourceTree = "<group>"; };
@@ -1977,6 +1983,7 @@
 		41662650CC1B95EA15D7138F /* ManageRoomMemberSheetViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManageRoomMemberSheetViewModelTests.swift; sourceTree = "<group>"; };
 		41ECE3BCE85480A980EEE855 /* KnockedRoomProxyMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnockedRoomProxyMock.swift; sourceTree = "<group>"; };
 		4248A8BD1153237BDFA07369 /* app.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = app.yml; sourceTree = "<group>"; };
+		42C60E33121D11A2D9DC39C6 /* PasswordResetScreenViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordResetScreenViewModel.swift; sourceTree = "<group>"; };
 		42D2F7984E463E398D4B1EA5 /* RoomModerationRole.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomModerationRole.swift; sourceTree = "<group>"; };
 		42D53308A6A9AE78193CC162 /* IdentityConfirmedScreenViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentityConfirmedScreenViewModelProtocol.swift; sourceTree = "<group>"; };
 		42E14C5B679BD0BEC4F79E92 /* RoomDirectorySearchProxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomDirectorySearchProxy.swift; sourceTree = "<group>"; };
@@ -2768,6 +2775,7 @@
 		BB49DC2BE78858BDED131CC8 /* RoomChangePermissionsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomChangePermissionsScreen.swift; sourceTree = "<group>"; };
 		BB5085498CBDF96ECACCE6B0 /* TimelineStartRoomTimelineItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineStartRoomTimelineItem.swift; sourceTree = "<group>"; };
 		BB5558B872333794B66DE881 /* AggregratedReaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AggregratedReaction.swift; sourceTree = "<group>"; };
+		BBF9C6F9CA2AFF7398A7C590 /* PasswordResetScreenCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordResetScreenCoordinator.swift; sourceTree = "<group>"; };
 		BC80E10DA423DF8A0AAACE7A /* ServerSelectionScreenModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerSelectionScreenModels.swift; sourceTree = "<group>"; };
 		BD4EEC88AC2E9EBCBFDA7A24 /* EncryptionResetPasswordScreenCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionResetPasswordScreenCoordinator.swift; sourceTree = "<group>"; };
 		BE2E47C4C868551CF1343066 /* AuthenticationClassicAppAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationClassicAppAccountView.swift; sourceTree = "<group>"; };
@@ -3044,6 +3052,7 @@
 		ECB3EF5F7838E1374FB2513C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		ECCFC5F86F1003E231594AB4 /* SpaceHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceHeaderView.swift; sourceTree = "<group>"; };
 		ED344EC0F79C571EEDC78839 /* RoomMembersListScreenCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomMembersListScreenCoordinator.swift; sourceTree = "<group>"; };
+		ED48C8CE9406904702B05681 /* PasswordResetScreenModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordResetScreenModels.swift; sourceTree = "<group>"; };
 		ED5418A90D4026C29C93D1C1 /* SpaceAddRoomsScreenModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceAddRoomsScreenModels.swift; sourceTree = "<group>"; };
 		ED98C9361F1A4F3F895C7C09 /* ManageRoomMemberSheetViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManageRoomMemberSheetViewModel.swift; sourceTree = "<group>"; };
 		EDA6D937FB823DB40B5A4BB0 /* ImageRoomTimelineItemContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageRoomTimelineItemContent.swift; sourceTree = "<group>"; };
@@ -3088,6 +3097,7 @@
 		F6A24159920F77483A8CCAAE /* SpaceServiceProxyProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceServiceProxyProtocol.swift; sourceTree = "<group>"; };
 		F6AD855FD86093F747AB7E18 /* ElementCallWidgetDriverProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElementCallWidgetDriverProtocol.swift; sourceTree = "<group>"; };
 		F6F0A64091D4F046FF5EF690 /* CallScreenCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallScreenCoordinator.swift; sourceTree = "<group>"; };
+		F732F95AB5662BAA0AB5597E /* PasswordResetScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordResetScreen.swift; sourceTree = "<group>"; };
 		F7392EA65B686D1F0D524DC5 /* HomeScreenInviteCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreenInviteCell.swift; sourceTree = "<group>"; };
 		F75FCACCF8CC6DFC00DC1762 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F773264E4D82368ECA0E39BD /* RoomSummaryProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomSummaryProvider.swift; sourceTree = "<group>"; };
@@ -5297,6 +5307,14 @@
 			path = Player;
 			sourceTree = "<group>";
 		};
+		7B978E0D708B432C8445EF80 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				F732F95AB5662BAA0AB5597E /* PasswordResetScreen.swift */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
 		7BF0180CC20A85CAB8E29206 /* ManageRoomMemberSheet */ = {
 			isa = PBXGroup;
 			children = (
@@ -6134,6 +6152,7 @@
 				2CE89D277E6B0100BFB6DB11 /* UIConstants.swift */,
 				5D58C62F2EAB52E250A4A70F /* LoginScreen */,
 				ECE1E7FA4CB77E1DC6D909FC /* NativeRegistrationScreen */,
+				D287D4092226737E68C57292 /* PasswordResetScreen */,
 				687B27C9FE065B67FC6E3A72 /* ServerConfirmationScreen */,
 				F55FABB51D6283193099DEBE /* ServerSelectionScreen */,
 				FBDFB3D27B5AB963F2776A88 /* SoftLogoutScreen */,
@@ -6610,6 +6629,18 @@
 				B195F2E5D64953894AA5E4C5 /* UserSessionStoreProtocol.swift */,
 			);
 			path = UserSession;
+			sourceTree = "<group>";
+		};
+		D287D4092226737E68C57292 /* PasswordResetScreen */ = {
+			isa = PBXGroup;
+			children = (
+				BBF9C6F9CA2AFF7398A7C590 /* PasswordResetScreenCoordinator.swift */,
+				ED48C8CE9406904702B05681 /* PasswordResetScreenModels.swift */,
+				42C60E33121D11A2D9DC39C6 /* PasswordResetScreenViewModel.swift */,
+				02566F23BF2CCCFA12ED7243 /* PasswordResetScreenViewModelProtocol.swift */,
+				7B978E0D708B432C8445EF80 /* View */,
+			);
+			path = PasswordResetScreen;
 			sourceTree = "<group>";
 		};
 		D2B2E86B068EC284950E830B /* TestablePreview */ = {
@@ -8816,6 +8847,11 @@
 				8CA8D3B308D29C3C847358AA /* Pagination.swift in Sources */,
 				056A02810EBD96A114665741 /* PaginationIndicatorRoomTimelineItem.swift in Sources */,
 				159FBE6FF754063F6599B87B /* PaginationIndicatorRoomTimelineView.swift in Sources */,
+				F6A24FC69CDC25037D915E07 /* PasswordResetScreen.swift in Sources */,
+				D01A3E4B9DF980AB3B98F9E2 /* PasswordResetScreenCoordinator.swift in Sources */,
+				8AD30C3C9D2385F4508F71C6 /* PasswordResetScreenModels.swift in Sources */,
+				32D87F85FDC6CE336344AC3E /* PasswordResetScreenViewModel.swift in Sources */,
+				E71AF2050CE65D3BF7B29CFA /* PasswordResetScreenViewModelProtocol.swift in Sources */,
 				8AC38269B911854EE6E44599 /* PhishingDetector.swift in Sources */,
 				EE5FA17E415F444EEA7338C5 /* PhotoLibraryManager.swift in Sources */,
 				C8FED7A1F3233FA2E36380E6 /* PhotoLibraryManagerMock.swift in Sources */,

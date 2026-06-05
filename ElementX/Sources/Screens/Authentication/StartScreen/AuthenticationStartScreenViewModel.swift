@@ -98,7 +98,8 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
                                                fallbackHomeserverURL: classicAppAccount.homeserverURL)
             }
         } else {
-            actionsSubject.send(.loginDirectlyWithPassword(loginHint: provisioningParameters?.loginHint))
+            await configureAccountProvider(appSettings.accountProviders[0],
+                                           loginHint: provisioningParameters?.loginHint)
         }
     }
 

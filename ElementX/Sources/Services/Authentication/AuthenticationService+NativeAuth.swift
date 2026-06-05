@@ -36,6 +36,8 @@ private struct NativeAuthSidOnlyResponse: Decodable {
     let sid: String
 }
 
+private struct NativeAuthEmptyResponse: Decodable { }
+
 private struct NativeAuthErrorResponse: Decodable {
     let errcode: String?
     let error: String?
@@ -121,6 +123,20 @@ private struct NativeAuthRegistrationFinishRequest: Encodable {
         case deviceID = "device_id"
         case initialDeviceDisplayName = "initial_device_display_name"
         case inhibitLogin = "inhibit_login"
+    }
+}
+
+private struct NativeAuthPasswordResetFinishRequest: Encodable {
+    let password: String
+    let clientSecret: String
+    let sid: String
+    let logoutDevices: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case password
+        case clientSecret = "client_secret"
+        case sid
+        case logoutDevices = "logout_devices"
     }
 }
 
@@ -306,6 +322,82 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
+
+    func startNativePasswordReset(email: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
+        guard let homeserverURL = nativeAuthHomeserverURL else { return .failure(.failedLoggingIn) }
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedEmail.isEmpty else {
+            return .failure(.invalidEmail)
+        }
+
+        let pendingPasswordReset = PendingNativePasswordReset(homeserverUrl: homeserverURL,
+                                                              email: trimmedEmail,
+                                                              clientSecret: UUID().uuidString,
+                                                              sendAttempt: 1,
+                                                              sid: nil)
+        do {
+            let response: NativeAuthSidOnlyResponse = try await performNativeAuthRequest(path: "_matrix/client/v3/account/password/email/requestToken",
+                                                                                         body: NativeAuthRegistrationEmailRequest(clientSecret: pendingPasswordReset.clientSecret,
+                                                                                                                                  email: pendingPasswordReset.email,
+                                                                                                                                  sendAttempt: pendingPasswordReset.sendAttempt))
+            return .success(pendingPasswordReset.with(sid: response.sid))
+        } catch let error as NativeAuthFailure {
+            return .failure(error.serviceError)
+        } catch {
+            MXLog.error("Failed starting native password reset: \(error)")
+            return .failure(.failedLoggingIn)
+        }
+    }
+
+    func continueNativePasswordResetEmailCode(_ pendingPasswordReset: PendingNativePasswordReset, verificationCode: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
+        do {
+            let response: NativeAuthSidOnlyResponse = try await performNativeAuthRequest(baseURL: pendingPasswordReset.homeserverUrl,
+                                                                                         path: "_matrix/client/v3/account/password/email/submitToken",
+                                                                                         body: NativeAuthRegistrationCodeRequest(clientSecret: pendingPasswordReset.clientSecret,
+                                                                                                                                 sid: requireNonNil(pendingPasswordReset.sid),
+                                                                                                                                 token: verificationCode))
+            return .success(pendingPasswordReset.with(sid: response.sid))
+        } catch let error as NativeAuthFailure {
+            return .failure(error.registrationVerificationServiceError)
+        } catch {
+            MXLog.error("Failed confirming native password reset email: \(error)")
+            return .failure(.failedLoggingIn)
+        }
+    }
+
+    func finishNativePasswordReset(_ pendingPasswordReset: PendingNativePasswordReset, password: String) async -> Result<Void, AuthenticationServiceError> {
+        do {
+            let _: NativeAuthEmptyResponse = try await performNativeAuthRequest(baseURL: pendingPasswordReset.homeserverUrl,
+                                                                                path: "_matrix/client/v3/account/password/email/reset",
+                                                                                body: NativeAuthPasswordResetFinishRequest(password: password,
+                                                                                                                           clientSecret: pendingPasswordReset.clientSecret,
+                                                                                                                           sid: requireNonNil(pendingPasswordReset.sid),
+                                                                                                                           logoutDevices: false))
+            return .success(())
+        } catch let error as NativeAuthFailure {
+            return .failure(error.serviceError)
+        } catch {
+            MXLog.error("Failed completing native password reset: \(error)")
+            return .failure(.failedLoggingIn)
+        }
+    }
+
+    func resendNativePasswordResetEmail(_ pendingPasswordReset: PendingNativePasswordReset) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
+        let updated = pendingPasswordReset.resending()
+        do {
+            let response: NativeAuthSidOnlyResponse = try await performNativeAuthRequest(baseURL: updated.homeserverUrl,
+                                                                                         path: "_matrix/client/v3/account/password/email/requestToken",
+                                                                                         body: NativeAuthRegistrationEmailRequest(clientSecret: updated.clientSecret,
+                                                                                                                                  email: updated.email,
+                                                                                                                                  sendAttempt: updated.sendAttempt))
+            return .success(updated.with(sid: response.sid))
+        } catch let error as NativeAuthFailure {
+            return .failure(error.serviceError)
+        } catch {
+            MXLog.error("Failed resending native password reset email: \(error)")
+            return .failure(.failedLoggingIn)
+        }
+    }
 }
 
 private extension AuthenticationService {
@@ -341,16 +433,32 @@ private extension AuthenticationService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NativeAuthFailure.unavailable
+        let maxAttempts = 3
+        for attempt in 1...maxAttempts {
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw NativeAuthFailure.unavailable
+                }
+
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    throw try mapNativeAuthFailure(from: data, statusCode: httpResponse.statusCode)
+                }
+
+                if Response.self == NativeAuthEmptyResponse.self, data.isEmpty {
+                    return NativeAuthEmptyResponse() as! Response
+                }
+
+                return try JSONDecoder().decode(Response.self, from: data)
+            } catch {
+                guard attempt < maxAttempts, error.isTransientNativeAuthNetworkError else {
+                    throw error
+                }
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 500_000_000)
+            }
         }
 
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw try mapNativeAuthFailure(from: data, statusCode: httpResponse.statusCode)
-        }
-
-        return try JSONDecoder().decode(Response.self, from: data)
+        throw NativeAuthFailure.unavailable
     }
 
     func mapNativeAuthFailure(from data: Data, statusCode: Int) throws -> NativeAuthFailure {
@@ -385,6 +493,21 @@ private extension AuthenticationService {
     func requireNonNil<T>(_ value: T?) throws -> T {
         guard let value else { throw NativeAuthFailure.unavailable }
         return value
+    }
+}
+
+private extension Error {
+    var isTransientNativeAuthNetworkError: Bool {
+        guard let urlError = self as? URLError else {
+            return false
+        }
+
+        switch urlError.code {
+        case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed, .networkConnectionLost, .notConnectedToInternet, .timedOut:
+            return true
+        default:
+            return false
+        }
     }
 }
 
@@ -479,6 +602,24 @@ private extension PendingNativeRegistration {
     }
 
     func resending() -> PendingNativeRegistration {
+        .init(homeserverUrl: homeserverUrl,
+              email: email,
+              clientSecret: clientSecret,
+              sendAttempt: sendAttempt + 1,
+              sid: sid)
+    }
+}
+
+private extension PendingNativePasswordReset {
+    func with(sid: String) -> PendingNativePasswordReset {
+        .init(homeserverUrl: homeserverUrl,
+              email: email,
+              clientSecret: clientSecret,
+              sendAttempt: sendAttempt,
+              sid: sid)
+    }
+
+    func resending() -> PendingNativePasswordReset {
         .init(homeserverUrl: homeserverUrl,
               email: email,
               clientSecret: clientSecret,

@@ -112,6 +112,60 @@ internal enum UntranslatedL10n {
   internal static var screenNativeRegistrationUsernameLabelIos: String { return UntranslatedL10n.tr("Untranslated", "screen_native_registration_username_label_ios") }
   /// Welcome to Arcana
   internal static var screenOnboardingWelcomeTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_onboarding_welcome_title_ios") }
+  /// Resend email
+  internal static var screenPasswordResetActionResendEmailIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_action_resend_email_ios") }
+  /// Update password
+  internal static var screenPasswordResetActionUpdatePasswordIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_action_update_password_ios") }
+  /// Enter the code we sent to %1$@.
+  internal static func screenPasswordResetCodeStepBodyIos(_ p1: Any) -> String {
+    return UntranslatedL10n.tr("Untranslated", "screen_password_reset_code_step_body_ios", String(describing: p1))
+  }
+  /// If you do not see the email, check spam or resend the code.
+  internal static var screenPasswordResetCodeStepHintIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_code_step_hint_ios") }
+  /// We sent a code to %1$@. Enter it here to verify the account.
+  internal static func screenPasswordResetCodeStepSubtitleIos(_ p1: Any) -> String {
+    return UntranslatedL10n.tr("Untranslated", "screen_password_reset_code_step_subtitle_ios", String(describing: p1))
+  }
+  /// Enter the code
+  internal static var screenPasswordResetCodeStepTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_code_step_title_ios") }
+  /// Confirm new password
+  internal static var screenPasswordResetConfirmPasswordLabelIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_confirm_password_label_ios") }
+  /// Now choose your new password.
+  internal static var screenPasswordResetCredentialsStepBodyIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_credentials_step_body_ios") }
+  /// Now set the new password for your account on %1$@.
+  internal static func screenPasswordResetCredentialsStepSubtitleIos(_ p1: Any) -> String {
+    return UntranslatedL10n.tr("Untranslated", "screen_password_reset_credentials_step_subtitle_ios", String(describing: p1))
+  }
+  /// Choose a new password
+  internal static var screenPasswordResetCredentialsStepTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_credentials_step_title_ios") }
+  /// We will send a code to your email before you can choose a new password.
+  internal static var screenPasswordResetEmailStepBodyIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_email_step_body_ios") }
+  /// Enter the email address for your account on %1$@ and we'll send a code to continue.
+  internal static func screenPasswordResetEmailStepSubtitleIos(_ p1: Any) -> String {
+    return UntranslatedL10n.tr("Untranslated", "screen_password_reset_email_step_subtitle_ios", String(describing: p1))
+  }
+  /// Check your email
+  internal static var screenPasswordResetEmailStepTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_email_step_title_ios") }
+  /// That code is not valid. Try again or resend a new code.
+  internal static var screenPasswordResetErrorInvalidCodeIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_error_invalid_code_ios") }
+  /// This email address cannot be used for password reset.
+  internal static var screenPasswordResetErrorInvalidEmailIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_error_invalid_email_ios") }
+  /// The passwords do not match.
+  internal static var screenPasswordResetErrorPasswordMismatchIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_error_password_mismatch_ios") }
+  /// Too many attempts. Please wait %1$d seconds and try again.
+  internal static func screenPasswordResetErrorRateLimitedIos(_ p1: Int) -> String {
+    return UntranslatedL10n.tr("Untranslated", "screen_password_reset_error_rate_limited_ios", p1)
+  }
+  /// Something went wrong while resetting the password.
+  internal static var screenPasswordResetErrorUnknownIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_error_unknown_ios") }
+  /// New password
+  internal static var screenPasswordResetNewPasswordLabelIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_new_password_label_ios") }
+  /// Your password has been changed. You can sign in with the new password now.
+  internal static var screenPasswordResetSuccessMessageIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_success_message_ios") }
+  /// Password updated
+  internal static var screenPasswordResetSuccessTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_success_title_ios") }
+  /// Reset password
+  internal static var screenPasswordResetTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_title_ios") }
   /// Clear all data currently stored on this device?
   /// Sign in again to access your account data and messages.
   internal static var softLogoutClearDataDialogContent: String { return UntranslatedL10n.tr("Untranslated", "soft_logout_clear_data_dialog_content") }

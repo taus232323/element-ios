@@ -272,6 +272,8 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                     stateMachine.tryEvent(.signedIn, userInfo: userSession)
                 case .cancel:
                     stateMachine.tryEvent(.cancelledPasswordLogin(previousState: fromState))
+                case .forgotPassword(let initialEmail):
+                    self.showPasswordResetScreen(initialEmail: initialEmail)
                 }
             }
             .store(in: &cancellables)
@@ -279,6 +281,26 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         navigationStackCoordinator.push(coordinator) { [weak self] in
             self?.handlePasswordLoginDismissal(previousState: fromState)
         }
+    }
+
+    private func showPasswordResetScreen(initialEmail: String) {
+        let parameters = PasswordResetScreenCoordinatorParameters(authenticationService: authenticationService,
+                                                                  initialEmail: initialEmail,
+                                                                  userIndicatorController: userIndicatorController)
+        let coordinator = PasswordResetScreenCoordinator(parameters: parameters)
+
+        coordinator.actions
+            .sink { [weak self] action in
+                guard let self else { return }
+
+                switch action {
+                case .complete, .cancel:
+                    navigationStackCoordinator.pop()
+                }
+            }
+            .store(in: &cancellables)
+
+        navigationStackCoordinator.push(coordinator)
     }
 
     private func showNativeRegistrationScreen(fromState: State) {

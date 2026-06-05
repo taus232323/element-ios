@@ -127,6 +127,7 @@ enum A11yIdentifiers {
         let emailUsername = "login-email_username"
         let password = "login-password"
         let `continue` = "login-continue"
+        let forgotPassword = "login-forgot_password"
         let unsupportedServer = "login-unsupported_server"
     }
     

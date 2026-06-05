@@ -13,6 +13,8 @@ enum LoginScreenViewModelAction {
     case signedIn(UserSessionProtocol)
     /// The login screen should be dismissed.
     case cancel
+    /// The password reset screen should be shown, prefilled with the current login where possible.
+    case forgotPassword(initialEmail: String)
 }
 
 enum LoginScreenStep: Equatable {
@@ -75,6 +77,8 @@ enum LoginScreenViewAction {
     case back
     /// Resend the verification code.
     case resendVerificationCode
+    /// Start the password reset flow.
+    case forgotPassword
 }
 
 enum LoginScreenErrorType: Hashable {

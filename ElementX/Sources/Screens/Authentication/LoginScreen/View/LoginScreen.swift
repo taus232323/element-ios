@@ -31,6 +31,8 @@ struct LoginScreen: View {
             case .oidc:
                 // This should never be shown.
                 ProgressView()
+            case .unknown:
+                ProgressView()
             default:
                 // This should never be shown either.
                 loginUnavailableText
@@ -121,6 +123,15 @@ struct LoginScreen: View {
                 .textContentType(.password)
                 .submitLabel(.done)
                 .onSubmit(submit)
+                .padding(.bottom, 20)
+
+                Button {
+                    context.send(viewAction: .forgotPassword)
+                } label: {
+                    Text(ArcanaLocalization.forgotPassword)
+                }
+                .buttonStyle(.compound(.textLink))
+                .accessibilityIdentifier(A11yIdentifiers.loginScreen.forgotPassword)
             } else {
                 TextField(text: $context.verificationCode) {
                     Text(ArcanaLocalization.loginVerificationCodeLabel).foregroundColor(.compound.textSecondary)

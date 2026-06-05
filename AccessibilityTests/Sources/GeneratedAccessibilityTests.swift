@@ -419,6 +419,10 @@ extension AccessibilityTests {
         try await performAccessibilityAudit(named: "PaginationIndicatorRoomTimelineView_Previews")
     }
 
+    func testPasswordResetScreen() async throws {
+        try await performAccessibilityAudit(named: "PasswordResetScreen_Previews")
+    }
+
     func testPillViewOnBubble() async throws {
         try await performAccessibilityAudit(named: "PillViewOnBubble_Previews")
     }

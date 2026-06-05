@@ -48,6 +48,9 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
             goBack()
         case .resendVerificationCode:
             resendVerificationCode()
+        case .forgotPassword:
+            let email = state.bindings.email.trimmingCharacters(in: .whitespacesAndNewlines)
+            actionsSubject.send(.forgotPassword(initialEmail: email))
         }
     }
     

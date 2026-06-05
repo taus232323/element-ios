@@ -22,6 +22,8 @@ enum LoginScreenCoordinatorAction {
     case signedIn(UserSessionProtocol)
     /// Login was cancelled.
     case cancel
+    /// The user wants to reset their password.
+    case forgotPassword(initialEmail: String)
 }
 
 /// Note: This code was brought over from Riot, we should move the authentication service logic into the view model.
@@ -55,6 +57,8 @@ final class LoginScreenCoordinator: CoordinatorProtocol {
                     actionsSubject.send(.signedIn(userSession))
                 case .cancel:
                     actionsSubject.send(.cancel)
+                case .forgotPassword(let initialEmail):
+                    actionsSubject.send(.forgotPassword(initialEmail: initialEmail))
                 }
             }
             .store(in: &cancellables)

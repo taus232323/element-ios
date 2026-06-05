@@ -248,7 +248,7 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
             }
 
             if let userSession {
-                presentInviteScreen(token: token, webURL: webURL)
+                handleArcanaInvite(token: token, webURL: webURL, userSession: userSession)
             } else {
                 storedAppRoute = appRoute
             }
@@ -402,6 +402,33 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
         }
 
         return webURL
+    }
+
+    private func handleArcanaInvite(token: String, webURL: URL?, userSession: UserSessionProtocol) {
+        if token.isMatrixUserID {
+            openDirectMessage(with: token, userSession: userSession)
+        } else {
+            presentInviteScreen(token: token, webURL: webURL)
+        }
+    }
+
+    private func openDirectMessage(with userID: String, userSession: UserSessionProtocol) {
+        switch userSession.clientProxy.directRoomForUserID(userID) {
+        case .success(.some(let roomID)):
+            handleAppRoute(.room(roomID: roomID, via: []), windowType: nil)
+        case .success:
+            Task { [weak self] in
+                guard let self else { return }
+                switch await userSession.clientProxy.createDirectRoom(with: userID, expectedRoomName: nil) {
+                case .success(let roomID):
+                    self.handleAppRoute(.room(roomID: roomID, via: []), windowType: nil)
+                case .failure(let error):
+                    MXLog.error("Failed opening Arcana invite direct message with error: \(error)")
+                }
+            }
+        case .failure(let error):
+            MXLog.error("Failed checking Arcana invite direct message with error: \(error)")
+        }
     }
     
     // MARK: - AuthenticationFlowCoordinatorDelegate
@@ -735,7 +762,7 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
         if let storedAppRoute = storedAppRoute.take() {
             switch storedAppRoute {
             case .invite(let token, let webURL):
-                presentInviteScreen(token: token, webURL: webURL)
+                handleArcanaInvite(token: token, webURL: webURL, userSession: userSession)
             case _ where storedAppRoute.isAuthenticationRoute == false:
                 userSessionFlowCoordinator.handleAppRoute(storedAppRoute, animated: false)
             default:
@@ -1333,5 +1360,11 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
                     task.setTaskCompleted(success: true)
                 }
             }
+    }
+}
+
+private extension String {
+    var isMatrixUserID: Bool {
+        hasPrefix("@") && contains(":") && count > 3
     }
 }

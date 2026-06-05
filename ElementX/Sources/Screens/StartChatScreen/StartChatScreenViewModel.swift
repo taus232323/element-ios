@@ -100,8 +100,6 @@ class StartChatScreenViewModel: StartChatScreenViewModelType, StartChatScreenVie
 
     // periphery:ignore - auto cancels when reassigned
     @CancellableTask private var resolveAliasTask: Task<Void, Never>?
-    // periphery:ignore - auto cancels when reassigned
-    @CancellableTask private var inviteShareTask: Task<Void, Never>?
     private var internalRoomAddressState: JoinByAddressState = .example
     
     private func setupBindings() {
@@ -144,28 +142,14 @@ class StartChatScreenViewModel: StartChatScreenViewModelType, StartChatScreenVie
 
     private func loadInviteShareLink() {
         if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
-            state.inviteShareLinkState = .ready(URL(string: "https://arcana.celesteai.ru/invite/token-preview")!)
-            state.bindings.inviteShareURL = URL(string: "https://arcana.celesteai.ru/invite/token-preview")
+            state.inviteShareLinkState = .ready(URL(string: "https://arcana.celesteai.ru/invite/%40alice%3Acelesteai.ru")!)
+            state.bindings.inviteShareURL = URL(string: "https://arcana.celesteai.ru/invite/%40alice%3Acelesteai.ru")
             return
         }
 
-        inviteShareTask = Task {
-            do {
-                let inviteURL = try await ArcanaInviteShareClient.createInvite(accessToken: userSession.clientProxy.accessToken)
-                guard !Task.isCancelled else {
-                    return
-                }
-                state.inviteShareLinkState = .ready(inviteURL)
-                state.bindings.inviteShareURL = inviteURL
-            } catch {
-                guard !Task.isCancelled else {
-                    return
-                }
-                MXLog.error("Failed to create Arcana invite share link with error: \(error)")
-                state.inviteShareLinkState = .failed
-                state.bindings.inviteShareURL = nil
-            }
-        }
+        let inviteURL = ArcanaInviteShareClient.inviteURL(forUserID: userSession.clientProxy.userID)
+        state.inviteShareLinkState = .ready(inviteURL)
+        state.bindings.inviteShareURL = inviteURL
     }
 
     private func resolveRoomAddress(_ roomAddress: String) {

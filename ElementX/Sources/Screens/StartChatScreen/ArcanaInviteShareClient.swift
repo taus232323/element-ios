@@ -11,6 +11,10 @@ enum ArcanaInviteShareClient {
     private static let baseURL = URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)")!
     private static let decoder = JSONDecoder()
 
+    static func inviteURL(forUserID userID: String) -> URL {
+        URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)/invite/\(percentEncodedInvitePathComponent(userID))")!
+    }
+
     static func createInvite(accessToken: String) async throws -> URL {
         let url = baseURL
             .appendingPathComponent("api")
@@ -30,7 +34,13 @@ enum ArcanaInviteShareClient {
             return webURL
         }
 
-        return URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)/invite/\(payload.token)")!
+        return URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)/invite/\(percentEncodedInvitePathComponent(payload.token))")!
+    }
+
+    private static func percentEncodedInvitePathComponent(_ value: String) -> String {
+        var allowedCharacters = CharacterSet.alphanumerics
+        allowedCharacters.insert(charactersIn: "-._~")
+        return value.addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? value
     }
 }
 

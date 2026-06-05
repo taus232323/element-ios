@@ -64,6 +64,14 @@ struct PendingNativeRegistration: Equatable {
     let sid: String?
 }
 
+struct PendingNativePasswordReset: Equatable {
+    let homeserverUrl: String
+    let email: String
+    let clientSecret: String
+    let sendAttempt: Int
+    let sid: String?
+}
+
 protocol AuthenticationServiceProtocol: QRCodeLoginServiceProtocol {
     /// The currently configured homeserver.
     var homeserver: CurrentValuePublisher<LoginHomeserver, Never> { get }
@@ -101,6 +109,18 @@ protocol AuthenticationServiceProtocol: QRCodeLoginServiceProtocol {
 
     /// Resends the native registration verification code.
     func resendNativeRegistrationEmail(_ pendingRegistration: PendingNativeRegistration) async -> Result<PendingNativeRegistration, AuthenticationServiceError>
+
+    /// Starts the native password reset flow.
+    func startNativePasswordReset(email: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError>
+
+    /// Confirms the password reset email verification code.
+    func continueNativePasswordResetEmailCode(_ pendingPasswordReset: PendingNativePasswordReset, verificationCode: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError>
+
+    /// Completes the native password reset flow once the new password has been entered.
+    func finishNativePasswordReset(_ pendingPasswordReset: PendingNativePasswordReset, password: String) async -> Result<Void, AuthenticationServiceError>
+
+    /// Resends the native password reset verification code.
+    func resendNativePasswordResetEmail(_ pendingPasswordReset: PendingNativePasswordReset) async -> Result<PendingNativePasswordReset, AuthenticationServiceError>
     
     /// Resets the current configuration requiring `configure(for:flow:)` to be called again.
     func reset()

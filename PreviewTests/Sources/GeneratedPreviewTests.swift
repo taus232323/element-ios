@@ -836,6 +836,14 @@ extension PreviewTests {
     }
 
     @Test
+    func passwordResetScreen() async throws {
+        AppSettings.resetAllSettings() // Ensure this test's previews start with fresh settings.
+        for (index, preview) in PasswordResetScreen_Previews._allPreviews.enumerated() {
+            try await assertSnapshots(matching: preview, step: index)
+        }
+    }
+
+    @Test
     func pillViewOnBubble() async throws {
         AppSettings.resetAllSettings() // Ensure this test's previews start with fresh settings.
         for (index, preview) in PillViewOnBubble_Previews._allPreviews.enumerated() {
