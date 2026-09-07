@@ -107,8 +107,6 @@ struct AppRouteURLParser {
 
 /// Represents a type that can parse a `URL` into an `AppRoute`.
 ///
-/// The following Universal Links are missing parsers.
-/// - mobile.element.io
 protocol URLParser {
     func route(from url: URL) -> AppRoute?
 }
@@ -140,7 +138,7 @@ private struct AppGroupURLParser: URLParser {
 
 /// The parser for Element Call links. This always returns a `.genericCallLink`.
 private struct ElementCallURLParser: URLParser {
-    private let knownHosts = ["call.element.io"]
+    private let knownHosts = ["call.celesteai.ru", "call.element.io"]
     private let customSchemeURLQueryParameterName = "url"
     
     func route(from url: URL) -> AppRoute? {

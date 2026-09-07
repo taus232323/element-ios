@@ -185,7 +185,7 @@
 "banner_set_up_recovery_content" = "Відновіть свою криптографічну ідентичність та історію повідомлень за допомогою ключа відновлення, якщо ви втратили всі наявні пристрої.";
 "banner_set_up_recovery_submit" = "Налаштувати відновлення";
 "banner_set_up_recovery_title" = "Налаштуйте відновлення для захисту свого облікового запису";
-"call_invalid_audio_device_bluetooth_devices_disabled" = "Element Call не підтримує використання аудіопристроїв Bluetooth у цій версії Android. Виберіть інший аудіопристрій.";
+"call_invalid_audio_device_bluetooth_devices_disabled" = "Arcana не підтримує використання аудіопристроїв Bluetooth у цій версії Android. Виберіть інший аудіопристрій.";
 "common_about" = "Відомості";
 "common_acceptable_use_policy" = "Політика прийнятного використання";
 "common_add_account" = "Додати обліковий запис";
@@ -479,8 +479,8 @@
 "notification_channel_ringing_calls" = "Виклики";
 "notification_channel_silent" = "Тихі сповіщення";
 "notification_fallback_content" = "У вас є нові повідомлення.";
-"notification_incoming_audio_call" = "📞 Incoming call";
-"notification_incoming_call" = "📹 Вхідний виклик";
+"notification_incoming_audio_call" = "Incoming call";
+"notification_incoming_call" = "Вхідний виклик";
 "notification_inline_reply_failed" = "** Не вдалося надіслати - відкрийте кімнату";
 "notification_invitation_action_join" = "Доєднатися";
 "notification_invitation_action_reject" = "Відхилити";

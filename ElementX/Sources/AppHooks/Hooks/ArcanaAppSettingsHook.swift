@@ -10,16 +10,20 @@ import Foundation
 
 struct ArcanaAppSettingsHook: AppSettingsHookProtocol {
     func configure(_ appSettings: AppSettings) -> AppSettings {
+        let privacyURL = URL(string: "https://arcana.celesteai.ru/privacy")!
+        let termsURL = URL(string: "https://arcana.celesteai.ru/terms")!
+        // Same Sygnal host as Android (`FirebaseConfig.PUSHER_HTTP_URL`).
+        let pushGatewayBaseURL = URL(string: "https://arcana.celesteai.ru")!
         appSettings.override(accountProviders: [InfoPlistReader.main.arcanaAccountProvider],
                              allowOtherAccountProviders: false,
                              hideBrandChrome: false,
-                             pushGatewayBaseURL: appSettings.pushGatewayBaseURL,
+                             pushGatewayBaseURL: pushGatewayBaseURL,
                              oidcRedirectURL: appSettings.oidcRedirectURL,
-                             websiteURL: URL(string: "https://celesteai.ru")!,
+                             websiteURL: URL(string: "https://arcana.celesteai.ru")!,
                              logoURL: appSettings.logoURL,
-                             copyrightURL: appSettings.copyrightURL,
-                             acceptableUseURL: appSettings.acceptableUseURL,
-                             privacyURL: appSettings.privacyURL,
+                             copyrightURL: URL(string: "https://arcana.celesteai.ru/terms#copyright")!,
+                             acceptableUseURL: termsURL,
+                             privacyURL: privacyURL,
                              encryptionURL: appSettings.encryptionURL,
                              deviceVerificationURL: appSettings.deviceVerificationURL,
                              chatBackupDetailsURL: appSettings.chatBackupDetailsURL,
@@ -28,7 +32,7 @@ struct ArcanaAppSettingsHook: AppSettingsHookProtocol {
                              elementWebHosts: appSettings.elementWebHosts,
                              accountProvisioningHost: appSettings.accountProvisioningHost,
                              bugReportApplicationID: appSettings.bugReportApplicationID,
-                             analyticsTermsURL: appSettings.analyticsTermsURL,
+                             analyticsTermsURL: privacyURL,
                              mapTilerConfiguration: appSettings.mapTilerConfiguration)
         return appSettings
     }

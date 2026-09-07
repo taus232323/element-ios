@@ -77,16 +77,14 @@ extension EncryptionAuthenticity {
         }
     }
     
-    init(shieldStateCode: TimelineEventShieldStateCode, color: EncryptionAuthenticity.Color) {
+    init?(shieldStateCode: TimelineEventShieldStateCode, color: EncryptionAuthenticity.Color) {
         switch shieldStateCode {
         case .authenticityNotGuaranteed:
             self = .notGuaranteed(color: color)
-        case .unknownDevice:
-            self = .unknownDevice(color: color)
-        case .unsignedDevice:
-            self = .unsignedDevice(color: color)
-        case .unverifiedIdentity:
-            self = .unverifiedIdentity(color: color)
+        // Email login is proof of ownership. Do not show Element-style
+        // "device not verified by its owner" warnings.
+        case .unknownDevice, .unsignedDevice, .unverifiedIdentity:
+            return nil
         case .verificationViolation:
             self = .verificationViolation(color: color)
         case .sentInClear:

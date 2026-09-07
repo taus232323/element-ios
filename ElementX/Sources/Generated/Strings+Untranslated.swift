@@ -28,6 +28,8 @@ internal enum UntranslatedL10n {
   internal static var screenArcanaInviteBrowserPageIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_browser_page_ios") }
   /// This invite can open in Arcana if it is installed. If not, use the browser page below.
   internal static var screenArcanaInviteDescriptionIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_description_ios") }
+  /// You can't accept your own invite. Share this link with someone else.
+  internal static var screenArcanaInviteOwnInviteIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_own_invite_ios") }
   /// Arcana invite
   internal static var screenArcanaInviteTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_title_ios") }
   /// Token

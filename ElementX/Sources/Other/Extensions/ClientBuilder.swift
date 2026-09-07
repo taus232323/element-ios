@@ -53,7 +53,10 @@ extension ClientBuilder {
                 .decryptionSettings(decryptionSettings: .init(senderDeviceTrustRequirement: .crossSignedOrLegacy))
         } else {
             builder = builder
-                .roomKeyRecipientStrategy(strategy: .errorOnVerifiedUserProblem)
+                // Email OTP is proof of ownership on Arcana. Do not wedge encrypted
+                // sends (including call membership) when a verified account still has
+                // an unsigned device.
+                .roomKeyRecipientStrategy(strategy: .allDevices)
                 .decryptionSettings(decryptionSettings: .init(senderDeviceTrustRequirement: .untrusted))
         }
         

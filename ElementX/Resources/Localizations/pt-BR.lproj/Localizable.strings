@@ -185,7 +185,7 @@
 "banner_set_up_recovery_content" = "Recupere sua identidade criptográfica e o histórico de mensagens com uma chave de recuperação caso você perda todos os dispositivos existentes.";
 "banner_set_up_recovery_submit" = "Configurar a recuperação";
 "banner_set_up_recovery_title" = "Configure a recuperação para proteger sua conta";
-"call_invalid_audio_device_bluetooth_devices_disabled" = "O Element Call não tem suporte a dispositivos de áudio Bluetooth nesta versão do Android. Por favor, selecione um dispositivo de áudio diferente.";
+"call_invalid_audio_device_bluetooth_devices_disabled" = "O Arcana não tem suporte a dispositivos de áudio Bluetooth nesta versão do Android. Por favor, selecione um dispositivo de áudio diferente.";
 "common_about" = "Sobre";
 "common_acceptable_use_policy" = "Política de uso aceitável";
 "common_add_account" = "Adicionar uma conta";
@@ -479,8 +479,8 @@
 "notification_channel_ringing_calls" = "Chamadas tocando";
 "notification_channel_silent" = "Notificações silenciosas";
 "notification_fallback_content" = "Você tem mensagens novas.";
-"notification_incoming_audio_call" = "📞 Incoming call";
-"notification_incoming_call" = "📹 Chamada recebida";
+"notification_incoming_audio_call" = "Incoming call";
+"notification_incoming_call" = "Chamada recebida";
 "notification_inline_reply_failed" = "** Falha ao enviar - por favor, abra a sala";
 "notification_invitation_action_join" = "Entrar";
 "notification_invitation_action_reject" = "Recusar";

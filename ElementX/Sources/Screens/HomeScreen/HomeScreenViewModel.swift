@@ -20,6 +20,7 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
     private let appSettings: AppSettings
     private let notificationManager: NotificationManagerProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
+    private let userDiscoveryService: UserDiscoveryServiceProtocol
     
     private let roomSummaryProvider: RoomSummaryProviderProtocol?
     
@@ -34,12 +35,14 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
          appSettings: AppSettings,
          analyticsService: AnalyticsService,
          notificationManager: NotificationManagerProtocol,
-         userIndicatorController: UserIndicatorControllerProtocol) {
+         userIndicatorController: UserIndicatorControllerProtocol,
+         userDiscoveryService: UserDiscoveryServiceProtocol? = nil) {
         self.userSession = userSession
         self.analyticsService = analyticsService
         self.appSettings = appSettings
         self.notificationManager = notificationManager
         self.userIndicatorController = userIndicatorController
+        self.userDiscoveryService = userDiscoveryService ?? UserDiscoveryService(clientProxy: userSession.clientProxy)
         
         spaceFilterSubject = CurrentValueSubject<SpaceServiceFilter?, Never>(nil)
         
@@ -156,6 +159,7 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
             .store(in: &cancellables)
         
         setupRoomListSubscriptions()
+        setupPeopleSearch()
         
         updateRooms()
     }
@@ -254,6 +258,10 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
             }
         case .declineInvite(let roomIdentifier):
             Task { await showDeclineInviteConfirmationAlert(roomID: roomIdentifier) }
+        case .selectUser(let user):
+            selectUser(user)
+        case .createDM(let user):
+            Task { await createDirectRoom(user: user) }
         }
     }
     
@@ -271,6 +279,103 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
     }
     
     // MARK: - Private
+    
+    // periphery:ignore - auto cancels when reassigned
+    @CancellableTask
+    private var fetchUsersTask: Task<Void, Never>?
+    
+    private func setupPeopleSearch() {
+        context.$viewState
+            .map(\.bindings.searchQuery)
+            .debounceTextQueriesAndRemoveDuplicates()
+            .sink { [weak self] query in
+                self?.fetchUsers(for: query)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func fetchUsers(for searchQuery: String) {
+        guard searchQuery.count >= 2 else {
+            state.peopleSearchResults = []
+            fetchUsersTask = nil
+            return
+        }
+        
+        fetchUsersTask = Task {
+            let result = await userDiscoveryService.searchProfiles(with: searchQuery)
+            
+            guard !Task.isCancelled else { return }
+            
+            switch result {
+            case .success(let users):
+                state.peopleSearchResults = users
+            case .failure:
+                state.peopleSearchResults = []
+            }
+        }
+    }
+    
+    private func selectUser(_ user: UserProfileProxy) {
+        showLoadingIndicator(delay: .milliseconds(200))
+        
+        let currentDirectRoom = userSession.clientProxy.directRoomForUserID(user.userID)
+        switch currentDirectRoom {
+        case .success(.some(let roomId)):
+            hideLoadingIndicator()
+            actionsSubject.send(.presentRoom(roomIdentifier: roomId))
+        case .success:
+            if appSettings.enableKeyShareOnInvite {
+                Task {
+                    let isUnknown = if case .success(let identity) = await self.userSession.clientProxy.userIdentity(for: user.userID, fallBackToServer: false) {
+                        identity == nil
+                    } else {
+                        true
+                    }
+                    self.state.bindings.selectedUserToInvite = UserToInvite(user: user, isUnknown: isUnknown)
+                    hideLoadingIndicator()
+                }
+            } else {
+                hideLoadingIndicator()
+                state.bindings.selectedUserToInvite = UserToInvite(user: user, isUnknown: false)
+            }
+        case .failure:
+            hideLoadingIndicator()
+            state.bindings.alertInfo = AlertInfo(id: UUID(),
+                                                 title: L10n.commonError,
+                                                 message: L10n.screenStartChatErrorStartingChat)
+        }
+    }
+    
+    private func createDirectRoom(user: UserProfileProxy) async {
+        defer {
+            hideLoadingIndicator()
+            state.bindings.selectedUserToInvite = nil
+        }
+        showLoadingIndicator()
+        switch await userSession.clientProxy.createDirectRoom(with: user.userID, expectedRoomName: user.displayName) {
+        case .success(let roomId):
+            analyticsService.trackCreatedRoom(isDM: true)
+            actionsSubject.send(.presentRoom(roomIdentifier: roomId))
+        case .failure:
+            state.bindings.alertInfo = AlertInfo(id: UUID(),
+                                                 title: L10n.commonError,
+                                                 message: L10n.screenStartChatErrorStartingChat)
+        }
+    }
+    
+    private static let loadingIndicatorIdentifier = "\(HomeScreenViewModel.self)-Loading"
+    
+    private func showLoadingIndicator(delay: Duration? = nil) {
+        userIndicatorController.submitIndicator(UserIndicator(id: Self.loadingIndicatorIdentifier,
+                                                              type: .modal(progress: .indeterminate, interactiveDismissDisabled: true, allowsInteraction: false),
+                                                              title: L10n.commonLoading,
+                                                              persistent: true),
+                                                delay: delay)
+    }
+    
+    private func hideLoadingIndicator() {
+        userIndicatorController.retractIndicatorWithId(Self.loadingIndicatorIdentifier)
+    }
     
     private func updateFilter() {
         if state.shouldHideRoomList {

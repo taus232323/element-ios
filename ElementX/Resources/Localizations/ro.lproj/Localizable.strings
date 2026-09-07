@@ -185,7 +185,7 @@
 "banner_set_up_recovery_content" = "Recuperați-vă identitatea criptografică și mesajele anterioare cu o cheie de recuperare dacă ați pierdut toate dispozitivele existente.";
 "banner_set_up_recovery_submit" = "Configurați recuperarea";
 "banner_set_up_recovery_title" = "Configurați recuperarea pentru a vă proteja contul";
-"call_invalid_audio_device_bluetooth_devices_disabled" = "Element Call nu permite utilizarea dispozitivelor audio Bluetooth în această versiune Android. Vă rugăm să selectați un alt dispozitiv audio.";
+"call_invalid_audio_device_bluetooth_devices_disabled" = "Arcana nu permite utilizarea dispozitivelor audio Bluetooth în această versiune Android. Vă rugăm să selectați un alt dispozitiv audio.";
 "common_about" = "Despre";
 "common_acceptable_use_policy" = "Politică de utilizare rezonabilă";
 "common_add_account" = "Adăugați un cont";
@@ -479,7 +479,7 @@
 "notification_channel_ringing_calls" = "Apeluri care sună";
 "notification_channel_silent" = "Notificări silențioase";
 "notification_fallback_content" = "Aveți mesaje noi";
-"notification_incoming_audio_call" = "📞 Incoming call";
+"notification_incoming_audio_call" = "Incoming call";
 "notification_incoming_call" = "Apel primit";
 "notification_inline_reply_failed" = "** Trimiterea eșuată - vă rugăm să deschideți camera";
 "notification_invitation_action_join" = "Alăturați-vă";

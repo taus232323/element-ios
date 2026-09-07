@@ -227,10 +227,10 @@ final class AppSettings: @unchecked Sendable {
     /// A URL describing how history sharing works
     private(set) var historySharingDetailsURL: URL = "https://element.io/en/help#e2ee-history-sharing"
 
-    /// Any domains that Element web may be hosted on - used for handling links.
-    private(set) var elementWebHosts = ["app.element.io", "staging.element.io", "develop.element.io"]
-    /// The domain that account provisioning links will be hosted on - used for handling the links.
-    private(set) var accountProvisioningHost = "mobile.element.io"
+    /// Domains that Arcana web may be hosted on - used for handling permalink-style links.
+    private(set) var elementWebHosts = ["arcana.celesteai.ru"]
+    /// Legacy Element account-provisioning host; unused for Arcana invite flows.
+    private(set) var accountProvisioningHost = ""
     /// The App Store URL for Element Pro, shown to the user when a homeserver requires that app.
     /// **Note:** This property isn't overridable as it in unexpected for forks to come across the error (or to even have a "Pro" app).
     let elementProAppStoreURL: URL = "https://apps.apple.com/app/element-pro-for-work/id6502951615"

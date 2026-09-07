@@ -19,7 +19,9 @@ final class UserDiscoveryService: UserDiscoveryServiceProtocol {
         async let queriedProfile = profileIfPossible(with: searchQuery)
 
         do {
-            async let searchedUsers = clientProxy.searchUsers(searchTerm: searchQuery, limit: 10).get()
+            // Directory match is on localpart; strip a leading '@' so `@taus23` finds the user.
+            let directoryTerm = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+            async let searchedUsers = clientProxy.searchUsers(searchTerm: directoryTerm, limit: 10).get()
             let users = try await merge(queriedProfile: queriedProfile, searchResults: searchedUsers)
             return .success(filterAccountOwner(users))
         } catch {
@@ -47,14 +49,31 @@ final class UserDiscoveryService: UserDiscoveryServiceProtocol {
     }
     
     private func profileIfPossible(with searchQuery: String) async -> UserProfileProxy? {
-        guard searchQuery.isMatrixIdentifier, searchQuery != clientProxy.userID else {
+        guard let userID = resolveUserID(from: searchQuery), userID != clientProxy.userID else {
             return nil
         }
         
-        let getProfileResult = try? await clientProxy.profile(for: searchQuery).get()
+        let getProfileResult = try? await clientProxy.profile(for: userID).get()
         
         // fallback to a "local profile" if the profile api fails
-        return getProfileResult ?? .init(userID: searchQuery)
+        return getProfileResult ?? .init(userID: userID)
+    }
+
+    /// Resolve `alice`, `@alice`, or `@alice:server` to a full MXID on this homeserver.
+    private func resolveUserID(from searchQuery: String) -> String? {
+        let trimmed = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isMatrixIdentifier {
+            return trimmed
+        }
+        let localpart = trimmed.hasPrefix("@") ? String(trimmed.dropFirst()) : trimmed
+        guard !localpart.isEmpty,
+              !localpart.contains(":"),
+              !localpart.contains(" "),
+              let serverName = clientProxy.userIDServerName else {
+            return nil
+        }
+        let fullID = "@\(localpart):\(serverName)"
+        return fullID.isMatrixIdentifier ? fullID : nil
     }
 
     private func filterAccountOwner(_ profiles: [UserProfileProxy]) -> [UserProfileProxy] {

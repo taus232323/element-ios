@@ -32,6 +32,7 @@ internal enum Asset {
     internal static let appLogo = ImageAsset(name: "images/app-logo")
     internal static let arcanaMark = ImageAsset(name: "images/arcana-mark")
     internal static let backgroundBottom = ImageAsset(name: "images/background-bottom")
+    internal static let callkitIcon = ImageAsset(name: "images/callkit-icon")
     internal static let launchBackground = ImageAsset(name: "images/launch-background")
     internal static let locationMarkerShape = ImageAsset(name: "images/location-marker-shape")
     internal static let mapBlurred = ImageAsset(name: "images/mapBlurred")

@@ -50,6 +50,9 @@ enum HomeScreenViewAction {
     
     case acceptInvite(roomIdentifier: String)
     case declineInvite(roomIdentifier: String)
+    
+    case selectUser(UserProfileProxy)
+    case createDM(user: UserProfileProxy)
 }
 
 enum HomeScreenRoomListMode: CustomStringConvertible {
@@ -115,6 +118,9 @@ struct HomeScreenViewState: BindableState {
     var shouldShowSpaceFilters = false
     var selectedSpaceFilter: SpaceServiceFilter?
     
+    /// People matching the home search query (directory / username lookup).
+    var peopleSearchResults: [UserProfileProxy] = []
+    
     var visibleRooms: [HomeScreenRoom] {
         if roomListMode == .skeletons {
             return placeholderRooms
@@ -160,6 +166,7 @@ struct HomeScreenViewStateBindings {
     var leaveRoomAlertItem: LeaveRoomAlertItem?
     
     var spaceFiltersViewModel: ChatsSpaceFiltersScreenViewModel?
+    var selectedUserToInvite: UserToInvite?
 }
 
 enum CallBadgeType {

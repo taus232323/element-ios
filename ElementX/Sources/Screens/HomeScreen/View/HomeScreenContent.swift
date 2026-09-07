@@ -53,6 +53,22 @@ struct HomeScreenContent: View {
                         } header: {
                             topSection
                         }
+                        
+                        if context.isSearchFieldFocused, !context.viewState.peopleSearchResults.isEmpty {
+                            Section {
+                                ForEach(context.viewState.peopleSearchResults, id: \.userID) { user in
+                                    UserProfileListRow(user: user,
+                                                       membership: nil,
+                                                       mediaProvider: context.mediaProvider,
+                                                       kind: .button {
+                                                           context.send(viewAction: .selectUser(user))
+                                                       })
+                                }
+                            } header: {
+                                Text(L10n.commonPeople)
+                                    .compoundListSectionHeader()
+                            }
+                        }
                     }
                     .isSearching($context.isSearchFieldFocused)
                     .searchable(text: $context.searchQuery, placement: .navigationBarDrawer(displayMode: .always))

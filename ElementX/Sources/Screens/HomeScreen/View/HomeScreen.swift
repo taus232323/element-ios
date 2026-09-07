@@ -38,6 +38,12 @@ struct HomeScreen: View {
                     .navigationTransition(.zoom(sourceID: NavigationTransitionSourceID.spaceFilters,
                                                 in: navigationTransitionNamespace))
             }
+            .sheet(item: $context.selectedUserToInvite) { userToInvite in
+                SendInviteConfirmationView(userToInvite: userToInvite,
+                                           mediaProvider: context.mediaProvider) {
+                    context.send(viewAction: .createDM(user: userToInvite.user))
+                }
+            }
     }
     
     // MARK: - Private

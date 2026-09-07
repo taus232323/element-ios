@@ -479,8 +479,8 @@
 "notification_channel_ringing_calls" = "Çalan aramalar";
 "notification_channel_silent" = "Sessiz bildirimler";
 "notification_fallback_content" = "Yeni mesajlarınız var";
-"notification_incoming_audio_call" = "📞 Incoming call";
-"notification_incoming_call" = "📹 Gelen çağrı";
+"notification_incoming_audio_call" = "Incoming call";
+"notification_incoming_call" = "Gelen çağrı";
 "notification_inline_reply_failed" = "** Gönderilemedi - lütfen odayı açın";
 "notification_invitation_action_join" = "Katıl";
 "notification_invitation_action_reject" = "Reddet";

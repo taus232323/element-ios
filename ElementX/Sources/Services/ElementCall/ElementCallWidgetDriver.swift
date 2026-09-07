@@ -85,7 +85,7 @@ final class ElementCallWidgetDriver: WidgetCapabilitiesProvider, ElementCallWidg
         do {
             widgetSettings = try await newVirtualElementCallWidget(props: .init(elementCallUrl: baseURL.absoluteString,
                                                                                 widgetId: widgetID,
-                                                                                parentUrl: nil,
+                                                                                parentUrl: baseURL.absoluteString,
                                                                                 fontScale: nil,
                                                                                 font: nil,
                                                                                 encryption: useEncryption ? .perParticipantKeys : .unencrypted,
@@ -96,7 +96,9 @@ final class ElementCallWidgetDriver: WidgetCapabilitiesProvider, ElementCallWidg
                                                                                 sentryDsn: analyticsConfiguration?.sentryDSN,
                                                                                 
                                                                                 sentryEnvironment: nil),
-                                                                   config: .init(intent: intent))
+                                                                   config: .init(intent: intent,
+                                                                                 skipLobby: true,
+                                                                                 appPrompt: false))
         } catch {
             MXLog.error("Failed to build widget settings: \(error)")
             return .failure(.failedBuildingWidgetSettings)

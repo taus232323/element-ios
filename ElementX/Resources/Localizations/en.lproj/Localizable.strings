@@ -187,7 +187,7 @@
 "banner_set_up_recovery_content" = "Your chats are automatically backed up with end-to-end encryption. To restore this backup and retain your digital identity when you lose access to all your devices, you will need your recovery key.";
 "banner_set_up_recovery_submit" = "Get recovery key";
 "banner_set_up_recovery_title" = "Back up your chats";
-"call_invalid_audio_device_bluetooth_devices_disabled" = "Element Call does not support using Bluetooth audio devices in this Android version. Please select a different audio device.";
+"call_invalid_audio_device_bluetooth_devices_disabled" = "Arcana does not support using Bluetooth audio devices in this Android version. Please select a different audio device.";
 "common_about" = "About";
 "common_acceptable_use_policy" = "Acceptable use policy";
 "common_add_account" = "Add an account";
@@ -248,7 +248,7 @@
 "common_gif" = "GIF";
 "common_image" = "Image";
 "common_in_reply_to" = "In reply to %1$@";
-"common_invite_unknown_profile" = "This Matrix ID can't be found, so the invite might not be received.";
+"common_invite_unknown_profile" = "This Arcana username can't be found, so the invite might not be received.";
 "common_leaving_room" = "Leaving room";
 "common_leaving_space" = "Leaving space";
 "common_light" = "Light";
@@ -481,8 +481,8 @@
 "notification_channel_ringing_calls" = "Ringing calls";
 "notification_channel_silent" = "Silent notifications";
 "notification_fallback_content" = "You have new messages.";
-"notification_incoming_audio_call" = "📞 Incoming call";
-"notification_incoming_call" = "📹 Incoming call";
+"notification_incoming_audio_call" = "Incoming call";
+"notification_incoming_call" = "Incoming call";
 "notification_inline_reply_failed" = "** Failed to send - please open room";
 "notification_invitation_action_join" = "Join";
 "notification_invitation_action_reject" = "Reject";

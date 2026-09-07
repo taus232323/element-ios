@@ -185,7 +185,7 @@
 "banner_set_up_recovery_content" = "Οι συνομιλίες σας αποθηκεύονται αυτόματα με κρυπτογράφηση από άκρο σε άκρο. Για να επαναφέρετε αυτό το αντίγραφο ασφαλείας και να διατηρήσετε την ψηφιακή σας ταυτότητα όταν χάσετε την πρόσβαση σε όλες τις συσκευές σας, θα χρειαστείτε το κλειδί ανάκτησης. ";
 "banner_set_up_recovery_submit" = "Λήψη κλειδιού ανάκτησης";
 "banner_set_up_recovery_title" = "Δημιουργήστε αντίγραφα ασφαλείας των συνομιλιών σας";
-"call_invalid_audio_device_bluetooth_devices_disabled" = "Το Element Call δεν υποστηρίζει τη χρήση συσκευών ήχου Bluetooth σε αυτήν την έκδοση Android. Επέλεξε μια διαφορετική συσκευή ήχου.";
+"call_invalid_audio_device_bluetooth_devices_disabled" = "Το Arcana δεν υποστηρίζει τη χρήση συσκευών ήχου Bluetooth σε αυτήν την έκδοση Android. Επέλεξε μια διαφορετική συσκευή ήχου.";
 "common_about" = "Σχετικά";
 "common_acceptable_use_policy" = "Πολιτική αποδεκτής χρήσης";
 "common_add_account" = "Προσθέστε έναν λογαριασμό";
@@ -479,8 +479,8 @@
 "notification_channel_ringing_calls" = "Κουδούνισμα κλήσεων";
 "notification_channel_silent" = "Αθόρυβες ειδοποιήσεις";
 "notification_fallback_content" = "Έχεις νέο(α) μήνυμα(τα).";
-"notification_incoming_audio_call" = "📞 Εισερχόμενη κλήση";
-"notification_incoming_call" = "📹 Εισερχόμενη κλήση";
+"notification_incoming_audio_call" = "Εισερχόμενη κλήση";
+"notification_incoming_call" = "Εισερχόμενη κλήση";
 "notification_inline_reply_failed" = "** Αποτυχία αποστολής - παρακαλώ ανοίξτε την αίθουσα";
 "notification_invitation_action_join" = "Συμμετοχή";
 "notification_invitation_action_reject" = "Απόρριψη";

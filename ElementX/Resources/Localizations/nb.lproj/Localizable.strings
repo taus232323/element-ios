@@ -185,7 +185,7 @@
 "banner_set_up_recovery_content" = "Gjenopprett din kryptografiske identitet og meldingshistorikk med en gjenopprettingsnøkkel hvis du har mistet alle dine brukte enheter.";
 "banner_set_up_recovery_submit" = "Hent gjenopprettingsnøkkel";
 "banner_set_up_recovery_title" = "Konfigurer gjenoppretting for å beskytte kontoen din";
-"call_invalid_audio_device_bluetooth_devices_disabled" = "Element Call støtter ikke bruk av Bluetooth-lydenheter i denne Android-versjonen. Velg en annen lydenhet.";
+"call_invalid_audio_device_bluetooth_devices_disabled" = "Arcana støtter ikke bruk av Bluetooth-lydenheter i denne Android-versjonen. Velg en annen lydenhet.";
 "common_about" = "Om";
 "common_acceptable_use_policy" = "Retningslinjer for akseptabel bruk";
 "common_add_account" = "Legg til en konto";
@@ -479,8 +479,8 @@
 "notification_channel_ringing_calls" = "Ringende anrop";
 "notification_channel_silent" = "Stille varsler";
 "notification_fallback_content" = "Du har nye meldinger.";
-"notification_incoming_audio_call" = "📞 Innkommende anrop";
-"notification_incoming_call" = "📹 Innkommende anrop";
+"notification_incoming_audio_call" = "Innkommende anrop";
+"notification_incoming_call" = "Innkommende anrop";
 "notification_inline_reply_failed" = "** Kunne ikke sende - vennligst åpne rommet";
 "notification_invitation_action_join" = "Bli med";
 "notification_invitation_action_reject" = "Avvis";

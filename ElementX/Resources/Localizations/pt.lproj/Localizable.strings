@@ -479,8 +479,8 @@
 "notification_channel_ringing_calls" = "Chamadas a tocar";
 "notification_channel_silent" = "Notificações silenciosas";
 "notification_fallback_content" = "Tens novas mensagens.";
-"notification_incoming_audio_call" = "📞 Incoming call";
-"notification_incoming_call" = "📹 A receber chamada";
+"notification_incoming_audio_call" = "Incoming call";
+"notification_incoming_call" = "A receber chamada";
 "notification_inline_reply_failed" = "** Falha no envio - por favor abre a sala";
 "notification_invitation_action_join" = "Entrar";
 "notification_invitation_action_reject" = "Rejeitar";

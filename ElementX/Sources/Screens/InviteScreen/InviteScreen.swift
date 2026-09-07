@@ -166,6 +166,11 @@ struct InviteScreen: View {
         guard !isAccepting else {
             return
         }
+        if let inviterUserId = invite.inviterUserId,
+           inviterUserId == clientProxy.userID {
+            acceptErrorMessage = UntranslatedL10n.screenArcanaInviteOwnInviteIos
+            return
+        }
 
         isAccepting = true
         acceptErrorMessage = nil
@@ -176,7 +181,7 @@ struct InviteScreen: View {
             onOpenRoom(roomID)
         } catch {
             isAccepting = false
-            acceptErrorMessage = L10n.errorUnknown
+            acceptErrorMessage = ArcanaInviteClient.errorMessage(from: error)
             MXLog.error("Failed accepting Arcana invite with error: \(error)")
         }
     }
@@ -276,14 +281,37 @@ private enum ArcanaInviteClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, 200..<300 ~= httpResponse.statusCode else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
+        }
+        guard 200..<300 ~= httpResponse.statusCode else {
+            throw ArcanaInviteClientError.httpError(statusCode: httpResponse.statusCode, body: String(data: data, encoding: .utf8))
         }
         let payload = try decoder.decode(ArcanaInviteAcceptResponse.self, from: data)
         return payload.roomID
     }
+
+    static func errorMessage(from error: Error) -> String {
+        if case let ArcanaInviteClientError.httpError(_, body) = error,
+           let body,
+           let data = body.data(using: .utf8),
+           let payload = try? decoder.decode(ArcanaInviteErrorResponse.self, from: data),
+           let message = payload.error, !message.isEmpty {
+            return message
+        }
+        return L10n.errorUnknown
+    }
+}
+
+private enum ArcanaInviteClientError: Error {
+    case httpError(statusCode: Int, body: String?)
+}
+
+private struct ArcanaInviteErrorResponse: Decodable {
+    let error: String?
 }
 
 private struct ArcanaInviteAcceptResponse: Decodable {

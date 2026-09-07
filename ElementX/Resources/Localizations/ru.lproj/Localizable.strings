@@ -185,7 +185,7 @@
 "banner_set_up_recovery_content" = "Ваши чаты автоматически резервируются с использованием сквозного шифрования. Для восстановления этой резервной копии и сохранения вашей цифровой личности в случае потери доступа ко всем вашим устройствам вам потребуется ключ восстановления.";
 "banner_set_up_recovery_submit" = "Получить ключ восстановления";
 "banner_set_up_recovery_title" = "Сделайте резервную копию своих чатов.";
-"call_invalid_audio_device_bluetooth_devices_disabled" = "Element Call не поддерживает использование устройств Bluetooth в данной версии Android. Пожалуйста, выберите другое устройство.";
+"call_invalid_audio_device_bluetooth_devices_disabled" = "Arcana не поддерживает использование устройств Bluetooth в данной версии Android. Пожалуйста, выберите другое устройство.";
 "common_about" = "О приложении";
 "common_acceptable_use_policy" = "Политика допустимого использования";
 "common_add_account" = "Добавить аккаунт";
@@ -246,7 +246,7 @@
 "common_gif" = "GIF";
 "common_image" = "Изображение";
 "common_in_reply_to" = "В ответ %1$@";
-"common_invite_unknown_profile" = "Идентификатор Matrix ID не найден, приглашение может быть не получено.";
+"common_invite_unknown_profile" = "Имя пользователя Arcana не найдено, приглашение может быть не получено.";
 "common_leaving_room" = "Покидаем комнату";
 "common_leaving_space" = "Покидаем пространство";
 "common_light" = "Светлое";
@@ -479,8 +479,8 @@
 "notification_channel_ringing_calls" = "Звонки со звуком";
 "notification_channel_silent" = "Уведомления без звука";
 "notification_fallback_content" = "У вас есть новые сообщения.";
-"notification_incoming_audio_call" = "📞 Входящий вызов";
-"notification_incoming_call" = "📹 Входящий вызов";
+"notification_incoming_audio_call" = "Входящий вызов";
+"notification_incoming_call" = "Входящий вызов";
 "notification_inline_reply_failed" = "** Не удалось отправить - пожалуйста, откройте комнату";
 "notification_invitation_action_join" = "Присоединиться";
 "notification_invitation_action_reject" = "Отклонить";

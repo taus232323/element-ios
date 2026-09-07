@@ -197,9 +197,9 @@ extension AuthenticationService {
                                                                                                                               initialDeviceDisplayName: deviceName))
 
             try await restoreNativeSession(response: response, client: client, fallbackHomeserverURL: pendingLogin.homeserverUrl)
-            await verifyClientIfPossible(client: client)
-            appSettings.hasRunIdentityConfirmationOnboarding = true
-            return await userSession(for: client)
+            // Arcana: email OTP + password proves ownership — bootstrap cross-signing so this
+            // device is verified and encrypted sends are not wedged.
+            return await completeNativeSession(client: client, identityBootstrapPassword: pendingLogin.password)
         } catch let error as NativeAuthFailure {
             return .failure(error.loginVerificationServiceError)
         } catch {
@@ -295,9 +295,7 @@ extension AuthenticationService {
                                                                                                                                    inhibitLogin: false))
 
             try await restoreNativeSession(response: response, client: client, fallbackHomeserverURL: pendingRegistration.homeserverUrl)
-            await verifyClientIfPossible(client: client)
-            appSettings.hasRunIdentityConfirmationOnboarding = true
-            return await userSession(for: client)
+            return await completeNativeSession(client: client, identityBootstrapPassword: password)
         } catch let error as NativeAuthFailure {
             return .failure(error.serviceError)
         } catch {
@@ -417,6 +415,68 @@ private extension AuthenticationService {
                               oidcData: nil,
                               slidingSyncVersion: .native)
         try await client.restoreSession(session: session)
+    }
+
+    /// Restore is done; start sync then bootstrap identity. Cross-signing reset requires E2EE
+    /// initialisation, which only happens after the first sync.
+    func completeNativeSession(client: ClientProtocol, identityBootstrapPassword: String) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
+        await verifyClientIfPossible(client: client)
+        let sessionResult = await userSession(for: client)
+        if case .success(let userSession) = sessionResult {
+            userSession.clientProxy.startSync()
+            await ensureDeviceIdentityVerified(client: client, password: identityBootstrapPassword)
+        }
+        appSettings.hasRunIdentityConfirmationOnboarding = true
+        return sessionResult
+    }
+
+    /// If the session is not cross-signed yet, reset identity with the account password so this
+    /// device becomes the verified owner device (Arcana email-login trust model).
+    ///
+    /// Must run after sync has started. Do not wait for `.verified` after the reset — that status
+    /// can lag until a later sync and previously hung the email-confirm spinner.
+    func ensureDeviceIdentityVerified(client: ClientProtocol, password: String) async {
+        let encryption = client.encryption()
+        await waitForE2eeInitialization(encryption)
+        guard encryption.verificationState() != .verified else {
+            MXLog.info("Session already verified, skipping identity bootstrap")
+            return
+        }
+        MXLog.info("Bootstrapping crypto identity after email auth")
+        do {
+            guard let handle = try await encryption.resetIdentity() else {
+                MXLog.info("Identity reset completed without interactive auth")
+                return
+            }
+            switch handle.authType() {
+            case .uiaa:
+                let userID = try client.userId()
+                try await handle.reset(auth: .password(passwordDetails: .init(identifier: userID, password: password)))
+                MXLog.info("Identity bootstrap with password succeeded")
+            case .oidc(_):
+                MXLog.warning("Identity reset requires OIDC — cannot auto-bootstrap for Arcana email login")
+                await handle.cancel()
+            }
+        } catch {
+            MXLog.error("Failed bootstrapping identity after email auth: \(error)")
+        }
+    }
+
+    /// Wait until Olm is ready, or 15s. Status stays `.unknown` until E2EE init after sync.
+    func waitForE2eeInitialization(_ encryption: Encryption) async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await encryption.waitForE2eeInitializationTasks()
+            }
+            group.addTask {
+                for _ in 0..<60 {
+                    if encryption.verificationState() != .unknown { return }
+                    try? await Task.sleep(for: .milliseconds(250))
+                }
+            }
+            await group.next()
+            group.cancelAll()
+        }
     }
 
     func performNativeAuthRequest<Body: Encodable, Response: Decodable>(path: String, body: Body) async throws -> Response {

@@ -185,7 +185,7 @@
 "banner_set_up_recovery_content" = "Loo uus taastevõti, mida saad kasutada oma krüptitud sõnumite ajaloo taastamisel olukorras, kus kaotad ligipääsu oma seadmetele.";
 "banner_set_up_recovery_submit" = "Seadista andmete taastamine";
 "banner_set_up_recovery_title" = "Seadista taastamine";
-"call_invalid_audio_device_bluetooth_devices_disabled" = "Element Call ei võimalda selles Androidi versioonis Bluetoothi heliseadmete kasutamist. Palun vali mõni muu heliseade.";
+"call_invalid_audio_device_bluetooth_devices_disabled" = "Arcana ei võimalda selles Androidi versioonis Bluetoothi heliseadmete kasutamist. Palun vali mõni muu heliseade.";
 "common_about" = "Rakenduse teave";
 "common_acceptable_use_policy" = "Vastuvõetava kasutamise põhimõtted";
 "common_add_account" = "Lisa kasutajakonto";
@@ -479,8 +479,8 @@
 "notification_channel_ringing_calls" = "Kõnehelinad";
 "notification_channel_silent" = "Vaiksed teavitused";
 "notification_fallback_content" = "Sulle on uusi sõnumeid.";
-"notification_incoming_audio_call" = "📞 Incoming call";
-"notification_incoming_call" = "📹 Sissetulev kõne";
+"notification_incoming_audio_call" = "Incoming call";
+"notification_incoming_call" = "Sissetulev kõne";
 "notification_inline_reply_failed" = "** Saatmine ei õnnestunud - palun ava jututoa täisvaade";
 "notification_invitation_action_join" = "Liitu";
 "notification_invitation_action_reject" = "Keeldu";

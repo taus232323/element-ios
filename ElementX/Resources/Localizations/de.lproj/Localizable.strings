@@ -185,7 +185,7 @@
 "banner_set_up_recovery_content" = "Deine Chats werden automatisch gesichert und mit einer Ende-zu-Ende-Verschlüsselung geschützt. Um dieses Backup wiederherzustellen und deine digitale Identität zu bewahren, falls du den Zugriff auf alle deine Geräte verlierst, benötigst du deinen Wiederherstellungsschlüssel.";
 "banner_set_up_recovery_submit" = "Wiederherstellungsschlüssel einrichten";
 "banner_set_up_recovery_title" = "Sichere deine Chats";
-"call_invalid_audio_device_bluetooth_devices_disabled" = "Element Call unterstützt in dieser Android-Version keine Bluetooth Geräte. Bitte wähle ein anderes Audiogerät.";
+"call_invalid_audio_device_bluetooth_devices_disabled" = "Arcana unterstützt in dieser Android-Version keine Bluetooth Geräte. Bitte wähle ein anderes Audiogerät.";
 "common_about" = "Über";
 "common_acceptable_use_policy" = "Nutzungsrichtlinie";
 "common_add_account" = "Konto hinzufügen";
@@ -479,7 +479,7 @@
 "notification_channel_ringing_calls" = "Klingelnde Anrufe";
 "notification_channel_silent" = "Stumme Benachrichtigungen";
 "notification_fallback_content" = "Du hast neue Nachrichten.";
-"notification_incoming_audio_call" = "📞 Eingehender Anruf";
+"notification_incoming_audio_call" = "Eingehender Anruf";
 "notification_incoming_call" = "Eingehender Anruf";
 "notification_inline_reply_failed" = "** Fehler beim Senden - bitte Chat öffnen";
 "notification_invitation_action_join" = "Beitreten";

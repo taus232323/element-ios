@@ -7,6 +7,7 @@
 "screen_arcana_invite_description_ios" = "This invite can open in Arcana if it is installed. If not, use the browser page below.";
 "screen_arcana_invite_title_ios" = "Arcana invite";
 "screen_arcana_invite_token_ios" = "Token";
+"screen_arcana_invite_own_invite_ios" = "You can't accept your own invite. Share this link with someone else.";
 "soft_logout_clear_data_dialog_content" = "Clear all data currently stored on this device?\nSign in again to access your account data and messages.";
 "soft_logout_clear_data_dialog_title" = "Clear data";
 "soft_logout_clear_data_notice" = "Warning: Your personal data (including encryption keys) is still stored on this device.\n\nClear it if you’re finished using this device, or want to sign in to another account.";

@@ -185,7 +185,7 @@
 "banner_set_up_recovery_content" = "Your chats are automatically backed up with end-to-end encryption. To restore this backup and retain your digital identity when you lose access to all your devices, you will need your recovery key.";
 "banner_set_up_recovery_submit" = "Konfiguratu berreskurapena";
 "banner_set_up_recovery_title" = "Back up your chats";
-"call_invalid_audio_device_bluetooth_devices_disabled" = "Element Call does not support using Bluetooth audio devices in this Android version. Please select a different audio device.";
+"call_invalid_audio_device_bluetooth_devices_disabled" = "Arcana does not support using Bluetooth audio devices in this Android version. Please select a different audio device.";
 "common_about" = "Honi buruz";
 "common_acceptable_use_policy" = "Acceptable use policy";
 "common_add_account" = "Add an account";
@@ -479,7 +479,7 @@
 "notification_channel_ringing_calls" = "Ringing calls";
 "notification_channel_silent" = "Jakinarazpen isilak";
 "notification_fallback_content" = "Mezu berriak dituzu.";
-"notification_incoming_audio_call" = "📞 Incoming call";
+"notification_incoming_audio_call" = "Incoming call";
 "notification_incoming_call" = "Deia jasotzen";
 "notification_inline_reply_failed" = "** Huts egin du bidalketak - ireki gela";
 "notification_invitation_action_join" = "Elkartu";
