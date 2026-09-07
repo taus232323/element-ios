@@ -387,11 +387,7 @@ struct RoomDetailsScreen_Previews: PreviewProvider, TestablePreview {
         
         let roomProxy = JoinedRoomProxyMock(.init(id: "room_a_id",
                                                   name: "Room A",
-                                                  topic: """
-                                                  Discussions about Arcana iOS
-                  
-                                                  https://arcana.celesteai.ru
-                                                  """,
+                                                  topic: "Discussions about Arcana iOS — https://arcana.celesteai.ru",
                                                   isDirect: false,
                                                   isEncrypted: true,
                                                   canonicalAlias: "#alias:domain.com",

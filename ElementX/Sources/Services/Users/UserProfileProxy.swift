@@ -53,6 +53,11 @@ struct UserProfileProxy: Equatable, Hashable {
     var isVerified: Bool {
         displayName != nil || avatarURL != nil
     }
+    
+    /// User ID shown in the UI without the homeserver suffix (`@alice:celesteai.ru` → `@alice`).
+    var displayableUserID: String {
+        userID.matrixDisplayNameWithAt
+    }
 }
 
 struct SearchUsersResultsProxy {

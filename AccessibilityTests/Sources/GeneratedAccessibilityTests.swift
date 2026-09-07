@@ -43,7 +43,6 @@ extension AccessibilityTests {
         try await performAccessibilityAudit(named: "AudioRoomTimelineView_Previews")
     }
 
-
     func testAuthenticationStartScreen() async throws {
         try await performAccessibilityAudit(named: "AuthenticationStartScreen_Previews")
     }
@@ -219,8 +218,6 @@ extension AccessibilityTests {
     func testHomeScreen() async throws {
         try await performAccessibilityAudit(named: "HomeScreen_Previews")
     }
-
-
 
     func testImageMediaEventsTimelineView() async throws {
         try await performAccessibilityAudit(named: "ImageMediaEventsTimelineView_Previews")

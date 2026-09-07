@@ -39,6 +39,15 @@ extension String {
         }
         return mutableString.trimmingCharacters(in: .whitespaces)
     }
+    
+    /// Matrix user ID for UI, matching Android `UserId.displayNameWithAt`.
+    /// `@localpart:celesteai.ru` → `@localpart`. Non-MXID strings are returned unchanged.
+    var matrixDisplayNameWithAt: String {
+        guard hasPrefix("@"), let colon = firstIndex(of: ":"), colon > startIndex else {
+            return self
+        }
+        return String(self[startIndex..<colon])
+    }
 }
 
 extension String {

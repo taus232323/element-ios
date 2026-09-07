@@ -24,6 +24,10 @@ internal enum UntranslatedL10n {
   internal static var cryptoHistorySharingConfirmStartChatDialogContent: String { return UntranslatedL10n.tr("Untranslated", "crypto_history_sharing_confirm_start_chat_dialog_content") }
   /// Start a chat with this new contact?
   internal static var cryptoHistorySharingConfirmStartChatDialogTitle: String { return UntranslatedL10n.tr("Untranslated", "crypto_history_sharing_confirm_start_chat_dialog_title") }
+  /// Set a custom base URL for calls.
+  internal static var screenAdvancedSettingsCallBaseUrlDescriptionIos: String { return UntranslatedL10n.tr("Untranslated", "screen_advanced_settings_call_base_url_description_ios") }
+  /// Custom call base URL
+  internal static var screenAdvancedSettingsCallBaseUrlIos: String { return UntranslatedL10n.tr("Untranslated", "screen_advanced_settings_call_base_url_ios") }
   /// Browser page
   internal static var screenArcanaInviteBrowserPageIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_browser_page_ios") }
   /// This invite can open in Arcana if it is installed. If not, use the browser page below.
@@ -114,12 +118,6 @@ internal enum UntranslatedL10n {
   internal static var screenNativeRegistrationUsernameLabelIos: String { return UntranslatedL10n.tr("Untranslated", "screen_native_registration_username_label_ios") }
   /// Welcome to Arcana
   internal static var screenOnboardingWelcomeTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_onboarding_welcome_title_ios") }
-  /// Unsupported call. Ask if the caller can use the Arcana app.
-  internal static var screenRoomTimelineLegacyCallIos: String { return UntranslatedL10n.tr("Untranslated", "screen_room_timeline_legacy_call_ios") }
-  /// Custom call base URL
-  internal static var screenAdvancedSettingsCallBaseUrlIos: String { return UntranslatedL10n.tr("Untranslated", "screen_advanced_settings_call_base_url_ios") }
-  /// Set a custom base URL for calls.
-  internal static var screenAdvancedSettingsCallBaseUrlDescriptionIos: String { return UntranslatedL10n.tr("Untranslated", "screen_advanced_settings_call_base_url_description_ios") }
   /// Resend email
   internal static var screenPasswordResetActionResendEmailIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_action_resend_email_ios") }
   /// Update password
@@ -174,6 +172,8 @@ internal enum UntranslatedL10n {
   internal static var screenPasswordResetSuccessTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_success_title_ios") }
   /// Reset password
   internal static var screenPasswordResetTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_title_ios") }
+  /// Unsupported call. Ask if the caller can use the Arcana app.
+  internal static var screenRoomTimelineLegacyCallIos: String { return UntranslatedL10n.tr("Untranslated", "screen_room_timeline_legacy_call_ios") }
   /// Clear all data currently stored on this device?
   /// Sign in again to access your account data and messages.
   internal static var softLogoutClearDataDialogContent: String { return UntranslatedL10n.tr("Untranslated", "soft_logout_clear_data_dialog_content") }

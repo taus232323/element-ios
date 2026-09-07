@@ -83,7 +83,6 @@ extension PreviewTests {
         }
     }
 
-
     @Test
     func authenticationStartScreen() async throws {
         AppSettings.resetAllSettings() // Ensure this test's previews start with fresh settings.
@@ -435,8 +434,6 @@ extension PreviewTests {
             try await assertSnapshots(matching: preview, step: index)
         }
     }
-
-
 
     @Test
     func imageMediaEventsTimelineView() async throws {
