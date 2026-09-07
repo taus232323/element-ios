@@ -6,7 +6,7 @@ settings:
   ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: "colors/accent-color"
   DEVELOPMENT_TEAM: 7J4U792NQT
 
-  # Element Classic migration intentionally omitted for Arcana.
+  # Classic Element migration intentionally omitted.
   ARCANA_ACCOUNT_PROVIDER: arcana.celesteai.ru
   ARCANA_INVITE_WEB_HOST: arcana.celesteai.ru
   ARCANA_INVITE_DEEP_LINK_URL: "arcana://invite"

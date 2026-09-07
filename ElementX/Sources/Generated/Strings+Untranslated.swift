@@ -114,6 +114,12 @@ internal enum UntranslatedL10n {
   internal static var screenNativeRegistrationUsernameLabelIos: String { return UntranslatedL10n.tr("Untranslated", "screen_native_registration_username_label_ios") }
   /// Welcome to Arcana
   internal static var screenOnboardingWelcomeTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_onboarding_welcome_title_ios") }
+  /// Unsupported call. Ask if the caller can use the Arcana app.
+  internal static var screenRoomTimelineLegacyCallIos: String { return UntranslatedL10n.tr("Untranslated", "screen_room_timeline_legacy_call_ios") }
+  /// Custom call base URL
+  internal static var screenAdvancedSettingsCallBaseUrlIos: String { return UntranslatedL10n.tr("Untranslated", "screen_advanced_settings_call_base_url_ios") }
+  /// Set a custom base URL for calls.
+  internal static var screenAdvancedSettingsCallBaseUrlDescriptionIos: String { return UntranslatedL10n.tr("Untranslated", "screen_advanced_settings_call_base_url_description_ios") }
   /// Resend email
   internal static var screenPasswordResetActionResendEmailIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_action_resend_email_ios") }
   /// Update password

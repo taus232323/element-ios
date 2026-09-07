@@ -21,9 +21,6 @@ enum AuthenticationStartScreenViewModelAction: Equatable {
 struct AuthenticationStartScreenViewState: BindableState {
     let showCreateAccountButton: Bool
     
-    enum ClassicAppMode { case welcomeBack(ClassicAppAccount), otherOptions(ClassicAppAccount) }
-    var classicAppMode: ClassicAppMode?
-    
     let hideBrandChrome: Bool
     
     var bindings = AuthenticationStartScreenViewStateBindings()
@@ -35,7 +32,6 @@ struct AuthenticationStartScreenViewState: BindableState {
 
 struct AuthenticationStartScreenViewStateBindings {
     var alertInfo: AlertInfo<AuthenticationStartScreenAlertType>?
-    var showClassicAppBackupInstructions = false
 }
 
 enum AuthenticationStartScreenAlertType {
@@ -48,9 +44,4 @@ enum AuthenticationStartScreenViewAction {
     
     case login
     case register
-    
-    case continueWithClassic(ClassicAppAccount)
-    case otherOptions(ClassicAppAccount)
-    case closeOtherOptions(ClassicAppAccount)
-    case openClassicApp
 }

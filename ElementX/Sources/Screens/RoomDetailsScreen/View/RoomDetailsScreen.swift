@@ -388,12 +388,9 @@ struct RoomDetailsScreen_Previews: PreviewProvider, TestablePreview {
         let roomProxy = JoinedRoomProxyMock(.init(id: "room_a_id",
                                                   name: "Room A",
                                                   topic: """
-                                                  Discussions about Element X iOS | https://github.com/vector-im/element-x-ios
-                                                  
-                                                  Feature Status: https://github.com/vector-im/element-x-ios/issues/1225
-                                                  
-                                                  App Store: https://apple.co/3r6LJHZ
-                                                  TestFlight: https://testflight.apple.com/join/uZbeZCOi
+                                                  Discussions about Arcana iOS
+                  
+                                                  https://arcana.celesteai.ru
                                                   """,
                                                   isDirect: false,
                                                   isEncrypted: true,

@@ -41,9 +41,9 @@ enum AppRoute: Hashable {
     case childEventOnRoomAlias(eventID: String, alias: String)
     /// The profile of a matrix user (outside of a room).
     case userProfile(userID: String)
-    /// An Element Call running in a particular room
+    /// An Arcana call running in a particular room
     case call(roomID: String, isVoiceCall: Bool)
-    /// An Element Call link generated outside of a chat room.
+    /// A call link generated outside of a chat room.
     case genericCallLink(url: URL)
     /// The settings screen.
     case settings
@@ -136,9 +136,9 @@ private struct AppGroupURLParser: URLParser {
     }
 }
 
-/// The parser for Element Call links. This always returns a `.genericCallLink`.
+/// The parser for call deep links (Arcana Call / Element Call widget scheme).
 private struct ElementCallURLParser: URLParser {
-    private let knownHosts = ["call.celesteai.ru", "call.element.io"]
+    private let knownHosts = ["call.celesteai.ru"]
     private let customSchemeURLQueryParameterName = "url"
     
     func route(from url: URL) -> AppRoute? {

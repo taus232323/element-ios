@@ -15,7 +15,7 @@ struct CallInviteRoomTimelineView: View {
     
     var body: some View {
         Label {
-            Text(L10n.screenRoomTimelineLegacyCall)
+            Text(UntranslatedL10n.screenRoomTimelineLegacyCallIos)
         } icon: {
             CompoundIcon(\.voiceCallSolid, size: .medium, relativeTo: .compound.bodyMD)
         }

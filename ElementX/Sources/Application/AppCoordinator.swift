@@ -522,9 +522,8 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
         MXLog.info("The app was upgraded from \(oldVersion) to \(newVersion)")
         
         if oldVersion < Version(1, 6, 0) {
-            MXLog.info("Migrating to v1.6.0, marking identity confirmation onboarding as ran.")
+            MXLog.info("Migrating to v1.6.0, marking notification permissions onboarding as ran.")
             if !userSessionStore.userIDs.isEmpty {
-                appSettings.hasRunIdentityConfirmationOnboarding = true
                 appSettings.hasRunNotificationPermissionsOnboarding = true
             }
         }
@@ -724,13 +723,10 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
     
     private func startAuthentication() {
         let encryptionKeyProvider = EncryptionKeyProvider()
-        let classicAppManager = ClassicAppManager()
         let authenticationService = AuthenticationService(userSessionStore: userSessionStore,
                                                           encryptionKeyProvider: encryptionKeyProvider,
-                                                          classicAppManager: classicAppManager,
                                                           appSettings: appSettings,
                                                           appHooks: appHooks)
-        Task { await authenticationService.setupClassicAppAccountState() }
         
         let coordinator = AuthenticationFlowCoordinator(authenticationService: authenticationService,
                                                         bugReportService: bugReportService,
@@ -788,7 +784,6 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
             
             let authenticationService = AuthenticationService(userSessionStore: userSessionStore,
                                                               encryptionKeyProvider: EncryptionKeyProvider(),
-                                                              classicAppManager: ClassicAppManager(),
                                                               appSettings: appSettings,
                                                               appHooks: appHooks)
             _ = await authenticationService.configure(for: userSession.clientProxy.homeserver, flow: .login)

@@ -16,12 +16,7 @@ struct AuthenticationStartScreen: View {
     @Bindable var context: AuthenticationStartScreenViewModel.Context
     
     var body: some View {
-        if case let .welcomeBack(classicAppAccount) = context.viewState.classicAppMode,
-           classicAppAccount.state.isServerSupported != false {
-            AuthenticationClassicAppAccountView(context: context, classicAppAccount: classicAppAccount)
-        } else {
-            standardContent
-        }
+        standardContent
     }
     
     var standardContent: some View {
@@ -51,8 +46,7 @@ struct AuthenticationStartScreen: View {
             AuthenticationStartScreenBackgroundImage()
         }
         .preferredColorScheme(.dark)
-        .navigationBarHidden(context.viewState.classicAppMode == nil)
-        .toolbar { toolbar }
+        .navigationBarHidden(true)
         .alert(item: $context.alertInfo)
     }
     
@@ -124,17 +118,6 @@ struct AuthenticationStartScreen: View {
         let shortVersionString = ProcessInfo.isRunningTests ? "0.0.0" : InfoPlistReader.main.bundleShortVersionString
         return Text(ArcanaLocalization.onboardingAppVersion(shortVersionString))
     }
-    
-    @ToolbarContentBuilder
-    var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
-            if case let .otherOptions(classicAppAccount) = context.viewState.classicAppMode {
-                ToolbarButton(role: .close) {
-                    context.send(viewAction: .closeOtherOptions(classicAppAccount))
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Previews
@@ -142,32 +125,20 @@ struct AuthenticationStartScreen: View {
 struct AuthenticationStartScreen_Previews: PreviewProvider, TestablePreview {
     static let viewModel = makeViewModel()
     static let provisionedViewModel = makeViewModel(provisionedServerName: "example.com")
-    static let classicAppViewModel = makeViewModel(hasClassicAppAccount: true)
     
     static var previews: some View {
         AuthenticationStartScreen(context: viewModel.context)
             .previewDisplayName("Default")
         AuthenticationStartScreen(context: provisionedViewModel.context)
             .previewDisplayName("Provisioned")
-        
-        ElementNavigationStack {
-            AuthenticationStartScreen(context: classicAppViewModel.context)
-        }
-        .previewDisplayName("Classic App")
     }
     
-    static func makeViewModel(provisionedServerName: String? = nil, hasClassicAppAccount: Bool = false) -> AuthenticationStartScreenViewModel {
-        let classicAppAccount = ClassicAppAccount.mockDan
-        classicAppAccount.state.isServerSupported = true
-        classicAppAccount.state.availableSecrets = .complete
-        let classicAppManager: ClassicAppManagerMock? = hasClassicAppAccount ? .init(.init(accounts: [classicAppAccount])) : nil
-        
-        return AuthenticationStartScreenViewModel(authenticationService: AuthenticationService.mock(classicAppManager: classicAppManager),
-                                                  provisioningParameters: provisionedServerName.map { .init(accountProvider: $0, loginHint: nil) },
-                                                  isBugReportServiceEnabled: true,
-                                                  appMediator: AppMediatorMock(),
-                                                  appSettings: ServiceLocator.shared.settings,
-                                                  mediaProvider: MediaProviderMock(configuration: .init()),
-                                                  userIndicatorController: UserIndicatorControllerMock())
+    static func makeViewModel(provisionedServerName: String? = nil) -> AuthenticationStartScreenViewModel {
+        AuthenticationStartScreenViewModel(authenticationService: AuthenticationService.mock,
+                                           provisioningParameters: provisionedServerName.map { .init(accountProvider: $0, loginHint: nil) },
+                                           isBugReportServiceEnabled: true,
+                                           appSettings: ServiceLocator.shared.settings,
+                                           mediaProvider: MediaProviderMock(configuration: .init()),
+                                           userIndicatorController: UserIndicatorControllerMock())
     }
 }

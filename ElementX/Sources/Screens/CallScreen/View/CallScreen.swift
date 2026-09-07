@@ -368,7 +368,7 @@ struct CallScreen_Previews: PreviewProvider {
                                    configuration: .init(roomProxy: roomProxy,
                                                         clientProxy: clientProxy,
                                                         clientID: "io.element.elementx",
-                                                        elementCallBaseURL: "https://call.element.io",
+                                                        elementCallBaseURL: "https://call.celesteai.ru",
                                                         elementCallBaseURLOverride: nil,
                                                         voiceOnly: false,
                                                         colorScheme: .light),

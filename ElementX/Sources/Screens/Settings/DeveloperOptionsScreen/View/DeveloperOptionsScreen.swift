@@ -123,8 +123,8 @@ struct DeveloperOptionsScreen: View {
                 Text("WARNING: this feature is EXPERIMENTAL and not all security precautions are implemented. Do not enable on production accounts.")
             }
 
-            Section("Element Call remote URL override") {
-                TextField("Leave empty to use EC locally", text: $elementCallURLOverrideString)
+            Section("Call remote URL override") {
+                TextField("Leave empty to use the embedded call client", text: $elementCallURLOverrideString)
                     .autocorrectionDisabled(true)
                     .autocapitalization(.none)
                     .foregroundColor(URL(string: elementCallURLOverrideString) == nil ? .red : .primary)

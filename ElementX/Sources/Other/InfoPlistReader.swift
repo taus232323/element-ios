@@ -24,10 +24,6 @@ struct InfoPlistReader {
         static let bundleURLName = "CFBundleURLName"
         static let bundleURLSchemes = "CFBundleURLSchemes"
         
-        static let classicAppGroupIdentifier = "classicAppGroupIdentifier"
-        static let classicAppKeychainServiceIdentifier = "classicAppKeychainServiceIdentifier"
-        static let classicAppKeychainAccessGroupIdentifier = "classicAppKeychainAccessGroupIdentifier"
-        static let classicAppDeepLinkURL = "classicAppDeepLinkURL"
         static let arcanaAccountProvider = "arcanaAccountProvider"
         static let arcanaInviteWebHost = "arcanaInviteWebHost"
         static let arcanaInviteDeepLinkURL = "arcanaInviteDeepLinkURL"
@@ -103,7 +99,7 @@ struct InfoPlistReader {
     }
     
     var elementCallScheme: String {
-        customSchemeForName("Element Call")
+        customSchemeForName("Arcana Call")
     }
     
     // MARK: - Mention Pills
@@ -121,25 +117,6 @@ struct InfoPlistReader {
         // the bug is fixed, even though the value used in the fork's Info.plist no longer matches the value returned.
         // Maybe in the future the fork should set their own PILLS_UT_TYPE_IDENTIFIER, but for now this works 🤷‍♂️🤷‍♂️🤷‍♂️
         return utType.lowercased()
-    }
-    
-    // MARK: - Sign in with Classic app
-    
-    var classicAppGroupIdentifier: String? {
-        infoPlistValue(forKey: Keys.classicAppGroupIdentifier)
-    }
-    
-    var classicAppKeychainServiceIdentifier: String? {
-        infoPlistValue(forKey: Keys.classicAppKeychainServiceIdentifier)
-    }
-    
-    var classicAppKeychainAccessGroupIdentifier: String? {
-        infoPlistValue(forKey: Keys.classicAppKeychainAccessGroupIdentifier)
-    }
-    
-    var classicAppDeepLinkURL: URL? {
-        let urlString: String? = infoPlistValue(forKey: Keys.classicAppDeepLinkURL)
-        return urlString.flatMap { URL(string: $0) }
     }
 
     var arcanaAccountProvider: String {

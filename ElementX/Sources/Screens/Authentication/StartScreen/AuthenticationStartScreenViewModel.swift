@@ -14,7 +14,6 @@ typealias AuthenticationStartScreenViewModelType = StateStoreViewModelV2<Authent
 class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType, AuthenticationStartScreenViewModelProtocol {
     private let authenticationService: AuthenticationServiceProtocol
     private let provisioningParameters: AccountProvisioningParameters?
-    private let appMediator: AppMediatorProtocol
     private let appSettings: AppSettings
     private let userIndicatorController: UserIndicatorControllerProtocol
     
@@ -29,36 +28,19 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
     init(authenticationService: AuthenticationServiceProtocol,
          provisioningParameters: AccountProvisioningParameters?,
          isBugReportServiceEnabled: Bool,
-         appMediator: AppMediatorProtocol,
          appSettings: AppSettings,
          mediaProvider: MediaProviderProtocol?,
-         notificationCenter: NotificationCenter = .default,
          userIndicatorController: UserIndicatorControllerProtocol) {
         self.authenticationService = authenticationService
         self.provisioningParameters = provisioningParameters
-        self.appMediator = appMediator
         self.appSettings = appSettings
         self.userIndicatorController = userIndicatorController
         canReportProblem = isBugReportServiceEnabled
 
-        let classicAppAccountProvider = authenticationService.classicAppAccount?.serverName
-        let isClassicAppAccountAllowed = classicAppAccountProvider.map { appSettings.accountProviders.contains($0) } ?? false
-        
-        let classicAppMode: AuthenticationStartScreenViewState.ClassicAppMode? = authenticationService.classicAppAccount.flatMap {
-            isClassicAppAccountAllowed ? .welcomeBack($0) : nil
-        }
-
         let initialViewState = AuthenticationStartScreenViewState(showCreateAccountButton: appSettings.showCreateAccountButton,
-                                                                  classicAppMode: classicAppMode,
                                                                   hideBrandChrome: appSettings.hideBrandChrome)
         
         super.init(initialViewState: initialViewState, mediaProvider: mediaProvider)
-        
-        notificationCenter.publisher(for: UIApplication.didBecomeActiveNotification)
-            .sink { [weak self] _ in
-                self?.reloadClassicAppAccount()
-            }
-            .store(in: &cancellables)
     }
     
     override func process(viewAction: AuthenticationStartScreenViewAction) {
@@ -73,64 +55,21 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
             Task { await login() }
         case .register:
             actionsSubject.send(.register)
-        
-        case .continueWithClassic(let account):
-            Task { await login(classicAppAccount: account) }
-        case .otherOptions(let account):
-            state.classicAppMode = .otherOptions(account)
-        case .closeOtherOptions(let account):
-            state.classicAppMode = .welcomeBack(account)
-        case .openClassicApp:
-            guard let classicAppDeepLinkURL = InfoPlistReader.main.classicAppDeepLinkURL else { return }
-            appMediator.open(classicAppDeepLinkURL)
         }
     }
     
     // MARK: - Private
     
-    private func login(classicAppAccount: ClassicAppAccount? = nil) async {
-        if let classicAppAccount {
-            if classicAppAccount.state.availableSecrets == .requiresBackup {
-                state.bindings.showClassicAppBackupInstructions = true
-            } else {
-                await configureAccountProvider(classicAppAccount.serverName,
-                                               loginHint: nil,
-                                               fallbackHomeserverURL: classicAppAccount.homeserverURL)
-            }
-        } else {
-            await configureAccountProvider(appSettings.accountProviders[0],
-                                           loginHint: provisioningParameters?.loginHint)
-        }
-    }
-
-    private func configureAccountProvider(_ accountProvider: String, loginHint: String? = nil, fallbackHomeserverURL: URL? = nil) async {
+    private func login() async {
         startLoading()
         defer { stopLoading() }
         
-        if case .failure = await authenticationService.configure(for: accountProvider, flow: .login) {
-            if let fallbackHomeserverURL,
-               case .success = await authenticationService.configure(for: fallbackHomeserverURL.absoluteString, flow: .login) {
-            } else {
-                displayError()
-                return
-            }
+        if case .failure = await authenticationService.configure(for: appSettings.accountProviders[0], flow: .login) {
+            displayError()
+            return
         }
-        actionsSubject.send(.loginDirectlyWithPassword(loginHint: loginHint))
-    }
-    
-    @CancellableTask private var reloadClassicAppSecretsTask: Task<Void, Never>?
-    private func reloadClassicAppAccount() {
-        guard case let .welcomeBack(classicAppAccount) = state.classicAppMode else { return }
         
-        reloadClassicAppSecretsTask = Task { [weak self] in
-            await self?.authenticationService.refreshClassicAppAccountState()
-            
-            guard !Task.isCancelled else { return }
-            
-            if let availableSecrets = classicAppAccount.state.availableSecrets, availableSecrets != .requiresBackup {
-                await MainActor.run { self?.state.bindings.showClassicAppBackupInstructions = false }
-            }
-        }
+        actionsSubject.send(.loginDirectlyWithPassword(loginHint: provisioningParameters?.loginHint))
     }
     
     // MARK: - User Indicators

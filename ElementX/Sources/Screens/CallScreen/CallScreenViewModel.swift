@@ -177,8 +177,10 @@ class CallScreenViewModel: CallScreenViewModelType, CallScreenViewModelProtocol 
                     elementCallBaseURL
                 }
                 
-                // We only set the analytics configuration if analytics are enabled
-                let analyticsConfiguration: ElementCallAnalyticsConfiguration? = if analyticsService.isEnabled {
+                // Arcana: never send call analytics to Element infrastructure.
+                let analyticsConfiguration: ElementCallAnalyticsConfiguration? = if analyticsService.isEnabled,
+                                                                                    !appSettings.elementCallPosthogAPIHost.isEmpty,
+                                                                                    !appSettings.elementCallPosthogAPIKey.isEmpty {
                     .init(posthogAPIHost: appSettings.elementCallPosthogAPIHost,
                           posthogAPIKey: appSettings.elementCallPosthogAPIKey,
                           sentryDSN: appSettings.elementCallPosthogSentryDSN)
@@ -216,7 +218,7 @@ class CallScreenViewModel: CallScreenViewModelType, CallScreenViewModelProtocol 
             timeoutTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(10))
                 guard !Task.isCancelled, let self else { return }
-                MXLog.error("Failed to join Element Call: Timeout")
+                MXLog.error("Failed to join call: Timeout")
                 state.bindings.alertInfo = .init(id: UUID(),
                                                  title: L10n.commonError,
                                                  message: L10n.errorUnknown,

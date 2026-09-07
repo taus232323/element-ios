@@ -75,4 +75,7 @@
 "screen_password_reset_error_rate_limited_ios" = "Too many attempts. Please wait %1$d seconds and try again.";
 "screen_password_reset_error_unknown_ios" = "Something went wrong while resetting the password.";
 "screen_onboarding_welcome_title_ios" = "Welcome to Arcana";
+"screen_room_timeline_legacy_call_ios" = "Unsupported call. Ask if the caller can use the Arcana app.";
+"screen_advanced_settings_call_base_url_ios" = "Custom call base URL";
+"screen_advanced_settings_call_base_url_description_ios" = "Set a custom base URL for calls.";
 "untranslated" = "Untranslated";

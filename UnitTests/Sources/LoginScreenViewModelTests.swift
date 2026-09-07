@@ -123,7 +123,6 @@ final class LoginScreenAuthenticationServiceStub: AuthenticationServiceProtocol 
     }
 
     var flow: AuthenticationFlow = .login
-    var classicAppAccount: ClassicAppAccount?
 
     private let successSession = UserSessionMock(.init())
 
@@ -181,6 +180,22 @@ final class LoginScreenAuthenticationServiceStub: AuthenticationServiceProtocol 
         .failure(.failedLoggingIn)
     }
 
+    func startNativePasswordReset(email: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
+        .failure(.failedLoggingIn)
+    }
+
+    func continueNativePasswordResetEmailCode(_ pendingPasswordReset: PendingNativePasswordReset, verificationCode: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
+        .failure(.failedLoggingIn)
+    }
+
+    func finishNativePasswordReset(_ pendingPasswordReset: PendingNativePasswordReset, password: String) async -> Result<Void, AuthenticationServiceError> {
+        .failure(.failedLoggingIn)
+    }
+
+    func resendNativePasswordResetEmail(_ pendingPasswordReset: PendingNativePasswordReset) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
+        .failure(.failedLoggingIn)
+    }
+
     func loginWithQRCode(data: Data) -> QRLoginProgressPublisher {
         CurrentValueSubject<QRLoginProgress, AuthenticationServiceError>(.starting).asCurrentValuePublisher()
     }
@@ -189,8 +204,4 @@ final class LoginScreenAuthenticationServiceStub: AuthenticationServiceProtocol 
         homeserverSubject.send(.init(address: "example.com", loginMode: .unknown))
         flow = .login
     }
-
-    func setupClassicAppAccountState() async { }
-
-    func refreshClassicAppAccountState() async { }
 }

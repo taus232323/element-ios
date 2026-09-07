@@ -53,7 +53,7 @@ targets:
         CFBundleURLTypes: [
           {
             CFBundleTypeRole: Editor,
-            CFBundleURLName: "Element Call",
+            CFBundleURLName: "Arcana Call",
             CFBundleURLSchemes: [
               io.element.call
             ]
@@ -103,7 +103,7 @@ targets:
           location
         ]
         BGTaskSchedulerPermittedIdentifiers: [
-          io.element.elementx.background.refresh
+          io.arcana.arcana.background.refresh
         ]
         UTExportedTypeDeclarations:
         - UTTypeConformsTo: [public.text]

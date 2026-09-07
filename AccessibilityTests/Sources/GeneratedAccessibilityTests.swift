@@ -43,9 +43,6 @@ extension AccessibilityTests {
         try await performAccessibilityAudit(named: "AudioRoomTimelineView_Previews")
     }
 
-    func testAuthenticationClassicAppBackupInstructionsView() async throws {
-        try await performAccessibilityAudit(named: "AuthenticationClassicAppBackupInstructionsView_Previews")
-    }
 
     func testAuthenticationStartScreen() async throws {
         try await performAccessibilityAudit(named: "AuthenticationStartScreen_Previews")
@@ -223,13 +220,7 @@ extension AccessibilityTests {
         try await performAccessibilityAudit(named: "HomeScreen_Previews")
     }
 
-    func testIdentityConfirmationScreen() async throws {
-        try await performAccessibilityAudit(named: "IdentityConfirmationScreen_Previews")
-    }
 
-    func testIdentityConfirmedScreen() async throws {
-        try await performAccessibilityAudit(named: "IdentityConfirmedScreen_Previews")
-    }
 
     func testImageMediaEventsTimelineView() async throws {
         try await performAccessibilityAudit(named: "ImageMediaEventsTimelineView_Previews")

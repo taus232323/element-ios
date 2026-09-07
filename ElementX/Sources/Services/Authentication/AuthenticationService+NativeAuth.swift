@@ -420,13 +420,11 @@ private extension AuthenticationService {
     /// Restore is done; start sync then bootstrap identity. Cross-signing reset requires E2EE
     /// initialisation, which only happens after the first sync.
     func completeNativeSession(client: ClientProtocol, identityBootstrapPassword: String) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
-        await verifyClientIfPossible(client: client)
         let sessionResult = await userSession(for: client)
         if case .success(let userSession) = sessionResult {
             userSession.clientProxy.startSync()
             await ensureDeviceIdentityVerified(client: client, password: identityBootstrapPassword)
         }
-        appSettings.hasRunIdentityConfirmationOnboarding = true
         return sessionResult
     }
 

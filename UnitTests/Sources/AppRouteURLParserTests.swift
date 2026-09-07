@@ -29,13 +29,14 @@ struct AppRouteURLParserTests {
     
     @Test
     func elementCallRoutes() throws {
-        let url = try #require(URL(string: "https://call.element.io/test"))
-        
-        #expect(appRouteURLParser.route(from: url) == AppRoute.genericCallLink(url: url))
-        
-        let customSchemeURL = try #require(URL(string: "io.element.call:/?url=https%3A%2F%2Fcall.element.io%2Ftest"))
-        
-        #expect(appRouteURLParser.route(from: customSchemeURL) == AppRoute.genericCallLink(url: url))
+        // Universal links only accept Arcana's call host.
+        let elementHostURL = try #require(URL(string: "https://call.element.io/test"))
+        #expect(appRouteURLParser.route(from: elementHostURL) == nil)
+
+        let arcanaCallURL = try #require(URL(string: "https://call.celesteai.ru/test"))
+        let customSchemeURL = try #require(URL(string: "io.element.call:/?url=https%3A%2F%2Fcall.celesteai.ru%2Ftest"))
+
+        #expect(appRouteURLParser.route(from: customSchemeURL) == AppRoute.genericCallLink(url: arcanaCallURL))
     }
     
     @Test

@@ -122,7 +122,7 @@ enum QRCodeLoginState: Equatable {
         case cancelled
         case declined
         case expired
-        /// The other device does not support linking Element X by QR code.
+        /// The other device does not support linking Arcana by QR code.
         case linkingNotSupported
         /// Login cannot be continued due to a lack of Sliding Sync.
         case slidingSyncNotAvailable
