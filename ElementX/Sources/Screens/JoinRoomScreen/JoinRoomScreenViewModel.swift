@@ -146,7 +146,7 @@ class JoinRoomScreenViewModel: JoinRoomScreenViewModelType, JoinRoomScreenViewMo
         case .joined(let joinedRoomProxy):
             roomInfo = joinedRoomProxy.infoPublisher.value
         case .invited(let invitedRoomProxy):
-            inviter = invitedRoomProxy.inviter.map(RoomInviterDetails.init)
+            inviter = invitedRoomProxy.inviter.map { RoomInviterDetails(member: $0) }
             roomInfo = invitedRoomProxy.info
         case .knocked(let knockedRoomProxy):
             roomInfo = knockedRoomProxy.info

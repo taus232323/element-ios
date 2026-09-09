@@ -219,7 +219,7 @@ private struct ArcanaInviteURLParser: URLParser {
         }
         let decodedToken = token.removingPercentEncoding ?? token
 
-        let webURL = components.queryItems?.first(where: { $0.name == webQueryItemName })?.value.flatMap(URL.init(string:))
+        let webURL = components.queryItems?.first { $0.name == webQueryItemName }?.value.flatMap { URL(string: $0) }
             ?? URL(string: "https://\(InfoPlistReader.app.arcanaInviteWebHost)/invite/\(token)")
 
         return .invite(token: decodedToken, webURL: webURL)

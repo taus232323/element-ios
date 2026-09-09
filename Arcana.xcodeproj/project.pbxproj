@@ -7662,15 +7662,15 @@
 				ORGANIZATIONNAME = Arcana;
 				TargetAttributes = {
 					01354F9B7F094A3EE92D92A5 = {
-						DevelopmentTeam = 7J4U792NQT;
+						DevelopmentTeam = 746KXDCLCY;
 						TestTargetID = 4328A985A9A7269498133BFD;
 					};
 					0D484535F91AB7643D1F7025 = {
-						DevelopmentTeam = 7J4U792NQT;
+						DevelopmentTeam = 746KXDCLCY;
 						TestTargetID = 4328A985A9A7269498133BFD;
 					};
 					0EFE453F3582E3ACD1EB4BD7 = {
-						DevelopmentTeam = 7J4U792NQT;
+						DevelopmentTeam = 746KXDCLCY;
 					};
 					1563752805232FA956F150C3 = {
 						DevelopmentTeam = "$(DEVELOPMENT_TEAM)";
@@ -7679,20 +7679,20 @@
 						DevelopmentTeam = "$(DEVELOPMENT_TEAM)";
 					};
 					60F90033DBCEC8812A3D557C = {
-						DevelopmentTeam = 7J4U792NQT;
+						DevelopmentTeam = 746KXDCLCY;
 						TestTargetID = 4328A985A9A7269498133BFD;
 					};
 					A18E39A62B57998B88828380 = {
 						DevelopmentTeam = "$(DEVELOPMENT_TEAM)";
 					};
 					BDB1F83B900E37B09AA1FBEF = {
-						DevelopmentTeam = 7J4U792NQT;
+						DevelopmentTeam = 746KXDCLCY;
 					};
 					BFA67ECFA55717440FEB7861 = {
-						DevelopmentTeam = 7J4U792NQT;
+						DevelopmentTeam = 746KXDCLCY;
 					};
 					D5131F4F9B30C1761D137B67 = {
-						DevelopmentTeam = 7J4U792NQT;
+						DevelopmentTeam = 746KXDCLCY;
 					};
 				};
 			};
@@ -9831,7 +9831,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 7J4U792NQT;
+				DEVELOPMENT_TEAM = 746KXDCLCY;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -10236,7 +10236,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 7J4U792NQT;
+				DEVELOPMENT_TEAM = 746KXDCLCY;
 				ENABLE_BITCODE = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

@@ -176,16 +176,16 @@ struct TimelineReplyView: View {
                         Image(systemName: "photo")
                             .padding(4.0)
                     }
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
                 case .systemIcon(let systemIconName):
                     Image(systemName: systemIconName)
                         .resizable()
-                        .aspectRatio(contentMode: .fit)
+                        .scaledToFit()
                         .padding(8.0)
                 case .iconAsset(let asset):
                     Image(asset: asset)
                         .resizable()
-                        .aspectRatio(contentMode: .fit)
+                        .scaledToFit()
                         .padding(8.0)
                 case .icon(let keyPath):
                     CompoundIcon(keyPath, size: .medium, relativeTo: .body)

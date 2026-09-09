@@ -42,7 +42,7 @@ struct AppCoordinatorDeepLinkTests {
         #expect(handled)
         #expect(appCoordinator.presentedInvite == nil)
 
-        let deferred = deferFulfillment(appCoordinator.presentedInvites, until: { $0 == route })
+        let deferred = deferFulfillment(appCoordinator.presentedInvites) { $0 == route }
         appCoordinator.authenticationFlowCoordinator(didLoginWithSession: UserSessionMock(.init()))
 
         try await deferred.fulfill()

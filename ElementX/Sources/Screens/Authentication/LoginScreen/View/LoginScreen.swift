@@ -150,9 +150,9 @@ struct LoginScreen: View {
                 }
                 .padding(.bottom, 20)
 
-                Button(action: { context.send(viewAction: .resendVerificationCode) }) {
+                Button(action: { context.send(viewAction: .resendVerificationCode) }, label: {
                     Text(ArcanaLocalization.resendCode)
-                }
+                })
                 .buttonStyle(.compound(.textLink))
                 .disabled(!context.viewState.canResendVerificationCode)
             }

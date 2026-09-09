@@ -19,10 +19,13 @@ class LAContextMock: LAContext {
         internalBiometryTypeValue
     }
     
+    /// Injected biometry state hash (replaces deprecated `evaluatedPolicyDomainState` in production code).
     var evaluatedPolicyDomainStateValue: Data?
-    private var internalEvaluatedPolicyDomainStateValue: Data?
-    override var evaluatedPolicyDomainState: Data? {
-        internalEvaluatedPolicyDomainStateValue
+    private var internalBiometryStateHash: Data?
+    
+    /// Hash exposed to `AppLockService` after policy evaluation (mirrors `domainState.biometry.stateHash`).
+    var biometryStateHash: Data? {
+        internalBiometryStateHash
     }
     
     override func canEvaluatePolicy(_ policy: LAPolicy, error: NSErrorPointer) -> Bool {
@@ -39,6 +42,6 @@ class LAContextMock: LAContext {
     
     private func updateInternalValues() {
         internalBiometryTypeValue = biometryTypeValue
-        internalEvaluatedPolicyDomainStateValue = evaluatedPolicyDomainStateValue
+        internalBiometryStateHash = evaluatedPolicyDomainStateValue
     }
 }

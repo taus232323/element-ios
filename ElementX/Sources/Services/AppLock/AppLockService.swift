@@ -39,7 +39,7 @@ class AppLockService: AppLockServiceProtocol {
     
     var biometryType: LABiometryType {
         updateBiometrics()
-        guard context.evaluatedPolicyDomainState != nil else { return .none }
+        guard biometryStateHash != nil else { return .none }
         return context.biometryType
     }
     
@@ -50,7 +50,7 @@ class AppLockService: AppLockServiceProtocol {
     var biometricUnlockTrusted: Bool {
         guard let state = keychainController.pinCodeBiometricState() else { return false }
         updateBiometrics()
-        return state == context.evaluatedPolicyDomainState
+        return state == biometryStateHash
     }
     
     var numberOfPINAttempts: AnyPublisher<Int, Never> {
@@ -88,7 +88,7 @@ class AppLockService: AppLockServiceProtocol {
     
     func enableBiometricUnlock() -> Result<Void, AppLockServiceError> {
         guard isEnabled else { return .failure(.pinNotSet) }
-        guard let state = context.evaluatedPolicyDomainState else { return .failure(.biometricUnlockNotSupported) }
+        guard let state = biometryStateHash else { return .failure(.biometricUnlockNotSupported) }
         
         do {
             try keychainController.setPINCodeBiometricState(state)
@@ -164,6 +164,16 @@ class AppLockService: AppLockServiceProtocol {
     }
     
     // MARK: - Private
+    
+    /// Biometry enrollment state used to detect Face ID / Touch ID changes.
+    ///
+    /// Uses the iOS 18+ API. `LAContextMock` supplies the hash directly for tests.
+    private var biometryStateHash: Data? {
+        if let mock = context as? LAContextMock {
+            return mock.biometryStateHash
+        }
+        return context.domainState.biometry.stateHash
+    }
     
     /// Queries the context for supported biometrics and enrolment state.
     private func updateBiometrics() {

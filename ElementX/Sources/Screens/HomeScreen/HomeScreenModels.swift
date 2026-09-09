@@ -281,7 +281,7 @@ extension HomeScreenRoom {
         } else { CallBadgeType.none }
         
         let type: HomeScreenRoom.RoomType = switch summary.joinRequestType {
-        case .invite(let inviter): .invite(inviterDetails: inviter.map(RoomInviterDetails.init))
+        case .invite(let inviter): .invite(inviterDetails: inviter.map { RoomInviterDetails(member: $0) })
         case .knock: .knock
         case .none: .room
         }

@@ -27,17 +27,18 @@ public final nonisolated class CompoundUIColors {
     /// access for temporary tokens while waiting for official ones to be formalised.
     private static let coreTokens = CompoundCoreUIColorTokens.self
     /// The main semantic tokens generated from the Style Dictionary.
-    private let tokens = CompoundUIColorTokens()
+    // nonisolated(unsafe): readable from attributed-string builders off the main actor.
+    nonisolated(unsafe) private let tokens = CompoundUIColorTokens()
     /// Runtime overrides for the `tokens` property.
-    private var overrides = [KeyPath<CompoundUIColorTokens, UIColor>: UIColor]()
+    nonisolated private var overrides = [KeyPath<CompoundUIColorTokens, UIColor>: UIColor]()
     
-    public subscript(dynamicMember keyPath: KeyPath<CompoundUIColorTokens, UIColor>) -> UIColor {
+    public nonisolated subscript(dynamicMember keyPath: KeyPath<CompoundUIColorTokens, UIColor>) -> UIColor {
         overrides[keyPath] ?? tokens[keyPath: keyPath]
     }
     
     /// Customise the colour at the specified key path with the supplied colour.
     /// Supplying `nil` as the colour will remove any existing customisation.
-    public func override(_ keyPath: KeyPath<CompoundUIColorTokens, UIColor>, with color: UIColor?) {
+    public nonisolated func override(_ keyPath: KeyPath<CompoundUIColorTokens, UIColor>, with color: UIColor?) {
         overrides[keyPath] = color
     }
     

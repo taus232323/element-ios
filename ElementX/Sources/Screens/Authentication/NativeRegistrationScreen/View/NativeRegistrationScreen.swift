@@ -112,7 +112,7 @@ struct NativeRegistrationScreen: View {
                 .keyboardType(.numberPad)
                 .submitLabel(.done)
                 .onSubmit(submit)
-                .onChange(of: context.verificationCode) { newValue in
+                .onChange(of: context.verificationCode) { _, newValue in
                     let digitsOnly = newValue.filter(\.isNumber)
                     if digitsOnly != newValue {
                         context.verificationCode = digitsOnly
@@ -120,9 +120,9 @@ struct NativeRegistrationScreen: View {
                 }
                 .padding(.bottom, 20)
 
-                Button(action: { context.send(viewAction: .resendVerificationCode) }) {
+                Button(action: { context.send(viewAction: .resendVerificationCode) }, label: {
                     Text(ArcanaLocalization.nativeRegistrationResendEmail)
-                }
+                })
                 .buttonStyle(.compound(.textLink))
                 .disabled(!context.viewState.canResendVerificationCode)
             case .credentials:

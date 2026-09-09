@@ -62,7 +62,7 @@ struct MapLibreStaticMapView<PinAnnotation: View>: View {
                         ZStack {
                             image
                                 .resizable()
-                                .aspectRatio(contentMode: .fill)
+                                .scaledToFill()
                             pinAnnotationView
                         }
                     case .failure:

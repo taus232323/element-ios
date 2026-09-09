@@ -185,6 +185,14 @@ class WindowManager: SecureWindowManagerProtocol {
     }
     
     func closeSecondaryWindow(forType type: SecondaryWindowType) {
+        // Room/settings flows always request dismissal on finish, but secondary windows
+        // are only opened when detached (Mac/iPad). Calling dismissWindow on iPhone
+        // triggers "Unable to dismiss a window when the app does not support multiple
+        // windows" and can hang via a QoS priority inversion.
+        guard coordinators[type] != nil else {
+            return
+        }
+        
         dismissWindowAction(value: type)
     }
     

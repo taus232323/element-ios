@@ -15,6 +15,8 @@ import Sentry
 import SwiftUI
 import Version
 
+// Arcana invite helpers push this slightly over the upstream limit.
+// swiftlint:disable type_body_length
 class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDelegate, NotificationManagerDelegate, SecureWindowManagerDelegate {
     private let stateMachine: AppCoordinatorStateMachine
     private let navigationRootCoordinator: NavigationRootCoordinator
@@ -385,14 +387,13 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
 
         let coordinator = InviteScreenCoordinator(parameters: .init(token: token,
                                                                     webURL: webURL,
-                                                                    clientProxy: userSession?.clientProxy,
-                                                                    onOpenRoom: { [weak self] roomID in
-                                                                        guard let self else { return }
-                                                                        if let userSession {
-                                                                            userSession.clientProxy.roomsToAwait.insert(roomID)
-                                                                        }
-                                                                        self.handleAppRoute(.room(roomID: roomID, via: []), windowType: nil)
-                                                                    }))
+                                                                    clientProxy: userSession?.clientProxy) { [weak self] roomID in
+            guard let self else { return }
+            if let userSession {
+                userSession.clientProxy.roomsToAwait.insert(roomID)
+            }
+            handleAppRoute(.room(roomID: roomID, via: []), windowType: nil)
+        })
         navigationRootCoordinator.setSheetCoordinator(coordinator, animated: true)
     }
 

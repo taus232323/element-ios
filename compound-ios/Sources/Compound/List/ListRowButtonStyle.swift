@@ -8,6 +8,7 @@
 
 import SwiftUI
 
+// swiftlint:disable todo
 // TODO: Check if the primitive style is actually needed now the insets are part of ListRow.
 // It might still be useful for ListRow(kind: .custom) usage?
 
@@ -37,6 +38,7 @@ public struct ListRowButtonStyle: PrimitiveButtonStyle {
 
 // TODO: Fix the previews, either the style should expand the label to fill or
 // the previews need to do this manually for demonstration purposes.
+// swiftlint:enable todo
 
 public struct ListRowButtonStyle_Previews: PreviewProvider, TestablePreview {
     public static var previews: some View {

@@ -29,7 +29,6 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
         actionsSubject.eraseToAnyPublisher()
     }
     
-    // swiftlint:disable:next function_body_length
     init(userSession: UserSessionProtocol,
          selectedRoomPublisher: CurrentValuePublisher<String?, Never>,
          appSettings: AppSettings,

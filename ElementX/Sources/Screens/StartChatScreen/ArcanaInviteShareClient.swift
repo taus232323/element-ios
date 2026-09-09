@@ -8,15 +8,23 @@
 import Foundation
 
 enum ArcanaInviteShareClient {
-    private static let baseURL = URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)")!
     private static let decoder = JSONDecoder()
 
+    private static func baseURL() throws -> URL {
+        guard let url = URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)") else {
+            throw URLError(.badURL)
+        }
+        return url
+    }
+
     static func inviteURL(forUserID userID: String) -> URL {
-        URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)/invite/\(percentEncodedInvitePathComponent(userID))")!
+        let path = percentEncodedInvitePathComponent(userID)
+        return URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)/invite/\(path)")
+            ?? URL(filePath: "/")
     }
 
     static func createInvite(accessToken: String) async throws -> URL {
-        let url = baseURL
+        let url = try baseURL()
             .appendingPathComponent("api")
             .appendingPathComponent("invite")
 
@@ -30,11 +38,15 @@ enum ArcanaInviteShareClient {
         }
 
         let payload = try decoder.decode(ArcanaInviteShareResponse.self, from: data)
-        if let webURL = payload.webURL.flatMap(URL.init(string:)) {
+        if let webURL = payload.webURL.flatMap({ URL(string: $0) }) {
             return webURL
         }
 
-        return URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)/invite/\(percentEncodedInvitePathComponent(payload.token))")!
+        let path = percentEncodedInvitePathComponent(payload.token)
+        guard let inviteURL = URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)/invite/\(path)") else {
+            throw URLError(.badURL)
+        }
+        return inviteURL
     }
 
     private static func percentEncodedInvitePathComponent(_ value: String) -> String {

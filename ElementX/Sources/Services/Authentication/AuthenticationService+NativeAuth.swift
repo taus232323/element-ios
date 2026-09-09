@@ -451,7 +451,7 @@ private extension AuthenticationService {
                 let userID = try client.userId()
                 try await handle.reset(auth: .password(passwordDetails: .init(identifier: userID, password: password)))
                 MXLog.info("Identity bootstrap with password succeeded")
-            case .oidc(_):
+            case .oidc:
                 MXLog.warning("Identity reset requires OIDC — cannot auto-bootstrap for Arcana email login")
                 await handle.cancel()
             }
@@ -504,7 +504,10 @@ private extension AuthenticationService {
                 }
 
                 if Response.self == NativeAuthEmptyResponse.self, data.isEmpty {
-                    return NativeAuthEmptyResponse() as! Response
+                    guard let emptyResponse = NativeAuthEmptyResponse() as? Response else {
+                        throw NativeAuthFailure.unavailable
+                    }
+                    return emptyResponse
                 }
 
                 return try JSONDecoder().decode(Response.self, from: data)

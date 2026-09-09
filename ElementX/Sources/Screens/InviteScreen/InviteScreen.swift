@@ -257,11 +257,17 @@ private struct ArcanaInviteRoom: Decodable {
 }
 
 private enum ArcanaInviteClient {
-    private static let baseURL = URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)")!
     private static let decoder = JSONDecoder()
 
+    private static func baseURL() throws -> URL {
+        guard let url = URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)") else {
+            throw URLError(.badURL)
+        }
+        return url
+    }
+
     static func loadInvite(token: String) async throws -> ArcanaInvitePreview {
-        let url = baseURL
+        let url = try baseURL()
             .appendingPathComponent("api")
             .appendingPathComponent("invite")
             .appendingPathComponent(token)
@@ -273,7 +279,7 @@ private enum ArcanaInviteClient {
     }
 
     static func acceptInvite(token: String, accessToken: String) async throws -> String {
-        let url = baseURL
+        let url = try baseURL()
             .appendingPathComponent("api")
             .appendingPathComponent("invite")
             .appendingPathComponent(token)
@@ -331,9 +337,8 @@ private struct ArcanaInviteAcceptResponse: Decodable {
 struct InviteScreen_Previews: PreviewProvider, TestablePreview {
     static var previews: some View {
         InviteScreen(token: "token-123",
-                     webURL: URL(string: "https://arcana.celesteai.ru/invite/token-123")!,
-                     clientProxy: nil,
-                     onOpenRoom: { _ in })
+                     webURL: URL(string: "https://arcana.celesteai.ru/invite/token-123") ?? URL(filePath: "/"),
+                     clientProxy: nil) { _ in }
             .previewDisplayName("Default")
     }
 }

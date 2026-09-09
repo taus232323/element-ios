@@ -135,9 +135,9 @@ struct PasswordResetScreen: View {
                     .foregroundColor(.compound.textSecondary)
                     .padding(.bottom, 20)
 
-                Button(action: { context.send(viewAction: .resendVerificationCode) }) {
+                Button(action: { context.send(viewAction: .resendVerificationCode) }, label: {
                     Text(ArcanaLocalization.passwordResetResendEmail)
-                }
+                })
                 .buttonStyle(.compound(.textLink))
                 .disabled(!context.viewState.canResendVerificationCode)
             case .credentials:

@@ -8,7 +8,6 @@
 
 import SwiftUI
 
-@MainActor
 struct RoomInviterDetails: Equatable {
     let id: String
     let displayName: String?
@@ -28,11 +27,12 @@ struct RoomInviterDetails: Equatable {
         }
         
         // Pre-compute the attributed string.
+        // Prefer UIColor.compound — Color.compound is MainActor via @Observable CompoundColors.
         let placeholder = "{displayname}"
         var string = AttributedString(L10n.screenInvitesInvitedYou(placeholder, id))
         var displayNameString = AttributedString(nameOrLocalPart)
         displayNameString.bold()
-        displayNameString.foregroundColor = .compound.textPrimary
+        displayNameString.foregroundColor = Color(uiColor: UIColor.compound.textPrimary)
         string.replace(placeholder, with: displayNameString)
         attributedInviteText = string
     }
