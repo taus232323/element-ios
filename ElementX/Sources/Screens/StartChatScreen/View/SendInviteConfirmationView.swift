@@ -30,9 +30,9 @@ struct SendInviteConfirmationView: View {
     private var subtitle: String {
         let string: String
         if let displayName = userToInvite.displayName {
-            string = L10n.commonNameAndId(displayName, userToInvite.id)
+            string = L10n.commonNameAndId(displayName, userToInvite.id.matrixDisplayNameWithAt)
         } else {
-            string = userToInvite.id
+            string = userToInvite.id.matrixDisplayNameWithAt
         }
         return if userToInvite.isUnknown {
             L10n.screenBottomSheetCreateDmUnknownUserContent

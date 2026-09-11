@@ -54,7 +54,7 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
         case .login:
             Task { await login() }
         case .register:
-            actionsSubject.send(.register)
+            Task { await register() }
         }
     }
     
@@ -70,6 +70,20 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
         }
         
         actionsSubject.send(.loginDirectlyWithPassword(loginHint: provisioningParameters?.loginHint))
+    }
+    
+    private func register() async {
+        startLoading()
+        defer { stopLoading() }
+        
+        // Native registration reads the homeserver URL from the configured client.
+        // Without this step, startNativeRegistration fails with `.failedLoggingIn`.
+        if case .failure = await authenticationService.configure(for: appSettings.accountProviders[0], flow: .register) {
+            displayError()
+            return
+        }
+        
+        actionsSubject.send(.register)
     }
     
     // MARK: - User Indicators

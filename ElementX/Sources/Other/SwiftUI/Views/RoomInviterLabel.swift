@@ -15,21 +15,28 @@ struct RoomInviterDetails: Equatable {
     
     let attributedInviteText: AttributedString
     
+    /// User ID for UI without the homeserver suffix (`@alice:celesteai.ru` → `@alice`).
+    var displayableID: String {
+        id.matrixDisplayNameWithAt
+    }
+    
     init(member: RoomMemberProxyProtocol) {
         id = member.userID
         displayName = member.displayName
         avatarURL = member.avatarURL
         
+        let displayableID = member.userID.matrixDisplayNameWithAt
         let nameOrLocalPart = if let displayName = member.displayName {
             displayName
         } else {
-            String(member.userID.dropFirst().prefix { $0 != ":" })
+            // `@alice` without leading @ for the bold name part when no display name.
+            String(displayableID.drop(while: { $0 == "@" }))
         }
         
         // Pre-compute the attributed string.
         // Prefer UIColor.compound — Color.compound is MainActor via @Observable CompoundColors.
         let placeholder = "{displayname}"
-        var string = AttributedString(L10n.screenInvitesInvitedYou(placeholder, id))
+        var string = AttributedString(L10n.screenInvitesInvitedYou(placeholder, displayableID))
         var displayNameString = AttributedString(nameOrLocalPart)
         displayNameString.bold()
         displayNameString.foregroundColor = Color(uiColor: UIColor.compound.textPrimary)

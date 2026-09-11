@@ -39,20 +39,26 @@ final class AuthenticationStartScreenViewModelTests {
         #expect(context.viewState.showCreateAccountButton)
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
         
-        // When tapping report/register the actions should pass through without configuring a homeserver.
-        let actions: [(AuthenticationStartScreenViewAction, AuthenticationStartScreenViewModelAction)] = [
-            (.register, .register),
-            (.reportProblem, .reportProblem)
-        ]
+        // When tapping report the action should pass through without configuring a homeserver.
+        let deferred = deferFulfillment(viewModel.actions) { $0 == .reportProblem }
+        context.send(viewAction: .reportProblem)
+        try await deferred.fulfill()
         
-        for action in actions {
-            let deferred = deferFulfillment(viewModel.actions) { $0 == action.1 }
-            context.send(viewAction: action.0)
-            try await deferred.fulfill()
-            
-            #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 0)
-            #expect(authenticationService.homeserver.value.loginMode == .unknown)
-        }
+        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 0)
+        #expect(authenticationService.homeserver.value.loginMode == .unknown)
+    }
+    
+    @Test
+    func registerConfiguresHomeserver() async throws {
+        await setupViewModel()
+        #expect(authenticationService.homeserver.value.loginMode == .unknown)
+        
+        let deferred = deferFulfillment(viewModel.actions) { $0 == .register }
+        context.send(viewAction: .register)
+        try await deferred.fulfill()
+        
+        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
+        #expect(authenticationService.homeserver.value.loginMode == .password)
     }
     
     @Test

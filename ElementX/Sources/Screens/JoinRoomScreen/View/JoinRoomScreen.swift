@@ -330,7 +330,7 @@ private struct InviterView: View {
                         .multilineTextAlignment(.center)
                 }
                 
-                Text(inviter.id)
+                Text(inviter.displayableID)
                     .font(.compound.bodySM)
                     .foregroundStyle(.compound.textSecondary)
                     .multilineTextAlignment(.center)

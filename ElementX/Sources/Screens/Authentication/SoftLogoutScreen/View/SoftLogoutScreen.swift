@@ -50,7 +50,7 @@ struct SoftLogoutScreen: View {
                 .foregroundColor(.compound.textPrimary)
                 .accessibilityIdentifier(A11yIdentifiers.softLogoutScreen.title)
 
-            Text(UntranslatedL10n.softLogoutSigninNotice(context.viewState.credentials.homeserverName, context.viewState.credentials.userDisplayName, context.viewState.credentials.userID))
+            Text(UntranslatedL10n.softLogoutSigninNotice(context.viewState.credentials.homeserverName, context.viewState.credentials.userDisplayName, context.viewState.credentials.userID.matrixDisplayNameWithAt))
                 .font(.compound.bodyLG)
                 .multilineTextAlignment(.leading)
                 .foregroundColor(.compound.textPrimary)

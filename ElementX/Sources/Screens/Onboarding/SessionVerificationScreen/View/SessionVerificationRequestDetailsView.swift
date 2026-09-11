@@ -36,12 +36,12 @@ struct SessionVerificationRequestDetailsView: View {
                 .accessibilityHidden(true)
             
             VStack(alignment: .leading, spacing: 0) {
-                Text(details.senderProfile.displayName ?? details.senderProfile.userID)
+                Text(details.senderProfile.displayName ?? details.senderProfile.displayableUserID)
                     .font(.compound.bodySM)
                     .foregroundColor(.compound.textSecondary)
                 
                 if details.senderProfile.displayName != nil {
-                    Text(details.senderProfile.userID)
+                    Text(details.senderProfile.displayableUserID)
                         .font(.compound.bodyMD)
                         .foregroundColor(.compound.textPrimary)
                 }
@@ -66,7 +66,7 @@ struct SessionVerificationRequestDetailsView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     
                     let displayName = isUserVerification ? details.senderProfile.displayName : details.deviceDisplayName
-                    Text(displayName ?? details.senderProfile.userID)
+                    Text(displayName ?? details.senderProfile.displayableUserID)
                         .font(.compound.bodyMDSemibold)
                         .foregroundColor(.compound.textPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)

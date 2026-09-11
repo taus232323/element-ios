@@ -406,7 +406,7 @@ class JoinRoomScreenViewModel: JoinRoomScreenViewModelType, JoinRoomScreenViewMo
         } else {
             state.bindings.alertInfo = .init(id: .declineInviteAndBlock,
                                              title: L10n.screenJoinRoomDeclineAndBlockAlertTitle,
-                                             message: L10n.screenJoinRoomDeclineAndBlockAlertMessage(userID),
+                                             message: L10n.screenJoinRoomDeclineAndBlockAlertMessage(userID.matrixDisplayNameWithAt),
                                              primaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil),
                                              secondaryButton: .init(title: L10n.screenJoinRoomDeclineAndBlockAlertConfirmation, role: .destructive) { Task { await self.declineAndBlock(userID: userID) } })
         }

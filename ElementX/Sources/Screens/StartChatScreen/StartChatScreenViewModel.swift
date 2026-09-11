@@ -142,14 +142,26 @@ class StartChatScreenViewModel: StartChatScreenViewModelType, StartChatScreenVie
 
     private func loadInviteShareLink() {
         if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
-            state.inviteShareLinkState = .ready(URL(string: "https://arcana.celesteai.ru/invite/%40alice%3Acelesteai.ru")!)
-            state.bindings.inviteShareURL = URL(string: "https://arcana.celesteai.ru/invite/%40alice%3Acelesteai.ru")
+            let previewURL = URL(string: "https://arcana.celesteai.ru/invite/preview-token")!
+            state.inviteShareLinkState = .ready(previewURL)
+            state.bindings.inviteShareURL = previewURL
             return
         }
 
-        let inviteURL = ArcanaInviteShareClient.inviteURL(forUserID: userSession.clientProxy.userID)
-        state.inviteShareLinkState = .ready(inviteURL)
-        state.bindings.inviteShareURL = inviteURL
+        // Prefer a token invite link so the shared URL never embeds `@user:server`.
+        Task {
+            do {
+                let inviteURL = try await ArcanaInviteShareClient.createInvite(accessToken: userSession.clientProxy.accessToken)
+                state.inviteShareLinkState = .ready(inviteURL)
+                state.bindings.inviteShareURL = inviteURL
+            } catch {
+                MXLog.error("Failed creating Arcana invite share link: \(error)")
+                // Last-resort fallback: localpart only (no homeserver suffix).
+                let inviteURL = ArcanaInviteShareClient.inviteURL(forUserID: userSession.clientProxy.userID.matrixDisplayNameWithAt)
+                state.inviteShareLinkState = .ready(inviteURL)
+                state.bindings.inviteShareURL = inviteURL
+            }
+        }
     }
 
     private func resolveRoomAddress(_ roomAddress: String) {

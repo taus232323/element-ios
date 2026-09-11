@@ -229,7 +229,10 @@ extension AuthenticationService {
     }
 
     func startNativeRegistration(email: String) async -> Result<PendingNativeRegistration, AuthenticationServiceError> {
-        guard let homeserverURL = nativeAuthHomeserverURL else { return .failure(.failedLoggingIn) }
+        guard let homeserverURL = nativeAuthHomeserverURL else {
+            MXLog.error("Native registration started without a configured client/homeserver")
+            return .failure(.failedLoggingIn)
+        }
         let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedEmail.isEmpty else {
             return .failure(.invalidEmail)
@@ -270,7 +273,10 @@ extension AuthenticationService {
     }
 
     func finishNativeRegistration(_ pendingRegistration: PendingNativeRegistration, username: String?, password: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
-        guard let client else { return .failure(.failedLoggingIn) }
+        guard let client else {
+            MXLog.error("Native registration finish called without a configured client")
+            return .failure(.failedLoggingIn)
+        }
         do {
             let deviceName: String
             if let initialDeviceName {

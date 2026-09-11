@@ -43,13 +43,13 @@ struct InviteScreen: View {
                         .padding(.vertical, 8)
                 case .loaded:
                     VStack(spacing: 16) {
-                        if let inviter = invite?.inviterDisplayName ?? invite?.inviterUserId {
+                        if let inviter = invite?.inviterDisplayName ?? invite?.inviterUserId?.matrixDisplayNameWithAt {
                             infoCard(title: L10n.screenJoinRoomInvitedBy, value: inviter)
                         }
                         if let roomName = invite?.roomName ?? invite?.roomId {
                             infoCard(title: L10n.commonRoomName, value: roomName)
                         }
-                        if let target = invite?.targetDisplayName ?? invite?.targetUserId {
+                        if let target = invite?.targetDisplayName ?? invite?.targetUserId?.matrixDisplayNameWithAt {
                             infoCard(title: L10n.commonName, value: target)
                         }
                         infoCard(title: UntranslatedL10n.screenArcanaInviteTokenIos, value: token)

@@ -69,7 +69,7 @@ struct JoinRoomScreenViewState: BindableState {
     
     var title: String {
         if isDMInvite, let inviter = roomDetails?.inviter {
-            return inviter.displayName ?? inviter.id
+            return inviter.displayName ?? inviter.displayableID
         } else {
             return roomDetails?.name ?? L10n.screenJoinRoomTitleNoPreview
         }
@@ -82,7 +82,7 @@ struct JoinRoomScreenViewState: BindableState {
             switch mode {
             case .invited(isDM: true):
                 if let inviter = roomDetails?.inviter {
-                    return inviter.displayName != nil ? inviter.id : nil
+                    return inviter.displayName != nil ? inviter.displayableID : nil
                 }
                 return nil
             case .loading, .unknown, .knocked:
