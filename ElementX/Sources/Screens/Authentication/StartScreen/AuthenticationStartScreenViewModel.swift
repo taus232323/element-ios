@@ -38,7 +38,9 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
         canReportProblem = isBugReportServiceEnabled
 
         let initialViewState = AuthenticationStartScreenViewState(showCreateAccountButton: appSettings.showCreateAccountButton,
-                                                                  hideBrandChrome: appSettings.hideBrandChrome)
+                                                                  hideBrandChrome: appSettings.hideBrandChrome,
+                                                                  legalNotice: Self.makeLegalNotice(termsURL: appSettings.acceptableUseURL,
+                                                                                                    privacyURL: appSettings.privacyURL))
         
         super.init(initialViewState: initialViewState, mediaProvider: mediaProvider)
     }
@@ -59,6 +61,25 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
     }
     
     // MARK: - Private
+    
+    private static func makeLegalNotice(termsURL: URL, privacyURL: URL) -> AttributedString {
+        let termsPlaceholder = "{terms}"
+        let privacyPlaceholder = "{privacy}"
+        var notice = AttributedString(ArcanaLocalization.authenticationLegalNotice(termsPlaceholder: termsPlaceholder,
+                                                                                    privacyPlaceholder: privacyPlaceholder))
+        
+        var termsLink = AttributedString(ArcanaLocalization.authenticationLegalTermsLink)
+        termsLink.link = termsURL
+        termsLink.underlineStyle = .single
+        notice.replace(termsPlaceholder, with: termsLink)
+        
+        var privacyLink = AttributedString(ArcanaLocalization.authenticationLegalPrivacyLink)
+        privacyLink.link = privacyURL
+        privacyLink.underlineStyle = .single
+        notice.replace(privacyPlaceholder, with: privacyLink)
+        
+        return notice
+    }
     
     private func login() async {
         startLoading()

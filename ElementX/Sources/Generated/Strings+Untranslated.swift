@@ -38,6 +38,12 @@ internal enum UntranslatedL10n {
   internal static var screenArcanaInviteTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_title_ios") }
   /// Token
   internal static var screenArcanaInviteTokenIos: String { return UntranslatedL10n.tr("Untranslated", "screen_arcana_invite_token_ios") }
+  /// By continuing, you agree to our {terms} and {privacy}.
+  internal static var screenAuthenticationLegalNoticeIos: String { return UntranslatedL10n.tr("Untranslated", "screen_authentication_legal_notice_ios") }
+  /// Privacy Policy
+  internal static var screenAuthenticationLegalPrivacyLinkIos: String { return UntranslatedL10n.tr("Untranslated", "screen_authentication_legal_privacy_link_ios") }
+  /// Terms of Use
+  internal static var screenAuthenticationLegalTermsLinkIos: String { return UntranslatedL10n.tr("Untranslated", "screen_authentication_legal_terms_link_ios") }
   /// Enter your login or email and password.
   internal static var screenLoginCredentialsSubtitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_credentials_subtitle_ios") }
   /// Sign in

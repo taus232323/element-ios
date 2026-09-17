@@ -72,17 +72,8 @@ class SettingsScreenViewModel: SettingsScreenViewModelType, SettingsScreenViewMo
             }
             .store(in: &cancellables)
         
-        userSession.clientProxy.ignoredUsersPublisher
-            .receive(on: DispatchQueue.main)
-            .map {
-                guard let blockedUsers = $0 else {
-                    return false
-                }
-                
-                return !blockedUsers.isEmpty
-            }
-            .weakAssign(to: \.state.showBlockedUsers, on: self)
-            .store(in: &cancellables)
+        // Always show Blocked users so App Review can find the block/unblock flow (Guideline 1.2).
+        state.showBlockedUsers = true
         
         Task {
             await userSession.clientProxy.loadUserAvatarURL()

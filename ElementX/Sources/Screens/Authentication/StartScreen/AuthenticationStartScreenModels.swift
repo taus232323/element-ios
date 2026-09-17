@@ -23,6 +23,9 @@ struct AuthenticationStartScreenViewState: BindableState {
     
     let hideBrandChrome: Bool
     
+    /// Terms of Use + Privacy Policy notice shown before sign-in / registration (App Store 1.2).
+    let legalNotice: AttributedString
+    
     var bindings = AuthenticationStartScreenViewStateBindings()
     
     var loginButtonTitle: String {

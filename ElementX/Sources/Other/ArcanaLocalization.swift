@@ -112,6 +112,22 @@ enum ArcanaLocalization {
         isRussian ? "Сообщить о проблеме" : L10n.commonReportAProblem
     }
 
+    static func authenticationLegalNotice(termsPlaceholder: String, privacyPlaceholder: String) -> String {
+        if isRussian {
+            return "Продолжая, вы соглашаетесь с нашими \(termsPlaceholder) и \(privacyPlaceholder)."
+        } else {
+            return UntranslatedL10n.screenAuthenticationLegalNoticeIos
+        }
+    }
+
+    static var authenticationLegalTermsLink: String {
+        isRussian ? "Условиями использования" : UntranslatedL10n.screenAuthenticationLegalTermsLinkIos
+    }
+
+    static var authenticationLegalPrivacyLink: String {
+        isRussian ? "Политикой конфиденциальности" : UntranslatedL10n.screenAuthenticationLegalPrivacyLinkIos
+    }
+
     static var otherOptions: String {
         isRussian ? "Другие варианты" : L10n.commonOtherOptions
     }

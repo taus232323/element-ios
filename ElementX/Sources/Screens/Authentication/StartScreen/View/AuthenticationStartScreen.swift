@@ -103,11 +103,18 @@ struct AuthenticationStartScreen: View {
             .buttonStyle(.compound(.textLink))
             .accessibilityIdentifier(A11yIdentifiers.authenticationStartScreen.reportProblem)
             
+            Text(context.viewState.legalNotice)
+                .font(.compound.bodySM)
+                .foregroundColor(.compound.textSecondary)
+                .tint(.compound.textActionAccent)
+                .multilineTextAlignment(.center)
+                .padding(.top, 8)
+            
             versionText
                 .font(.compound.bodySM)
                 .foregroundColor(.compound.textSecondary)
                 .accessibilityIdentifier(A11yIdentifiers.authenticationStartScreen.appVersion)
-                .padding(.top, 16)
+                .padding(.top, 8)
         }
         .padding(.horizontal, verticalSizeClass == .compact ? 128 : 24)
         .readableFrame()
