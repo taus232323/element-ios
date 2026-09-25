@@ -37,14 +37,14 @@ extension RoomMemberProxyProtocol {
         try? URL(string: matrixToUserPermalink(userId: userID))
     }
     
-    /// The name used for sorting the member alphabetically. This will be the displayname if,
-    /// it exists otherwise it will be the userID with the leading `@` removed.
+    /// The name used for sorting the member alphabetically. Uses the display name when
+    /// present; otherwise the Matrix localpart only (`@alice:example.com` → `alice`).
     var sortingName: String {
         if let displayName {
             return displayName.lowercased()
         }
         
-        // Sort by localpart without `@` and without the homeserver suffix.
+        // matrixDisplayNameWithAt strips `:homeserver`, then drop the leading `@`.
         let localpartWithAt = userID.matrixDisplayNameWithAt
         let localpart = localpartWithAt.hasPrefix("@") ? String(localpartWithAt.dropFirst()) : localpartWithAt
         return localpart.lowercased()
