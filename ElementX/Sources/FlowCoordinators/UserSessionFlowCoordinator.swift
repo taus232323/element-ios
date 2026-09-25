@@ -320,12 +320,17 @@ class UserSessionFlowCoordinator: FlowCoordinatorProtocol {
             case .clearCache:
                 actionsSubject.send(.clearCache)
             case .runLogoutFlow:
-                _ = Task {
-                    self.navigationTabCoordinator.setSheetCoordinator(nil)
+                Task {
+                    navigationTabCoordinator.setSheetCoordinator(nil)
                     
-                    // The sheet needs to be dismissed before the alert can be shown
-                    try? await Task.sleep(for: .milliseconds(100))
-                    await self.runLogoutFlow()
+                    // The sheet needs to be dismissed before the alert can be shown.
+                    // Always continue to logout even if the delay is cancelled.
+                    do {
+                        try await Task.sleep(for: .milliseconds(100))
+                    } catch {
+                        MXLog.warning("Logout delay interrupted, continuing with logout flow")
+                    }
+                    await runLogoutFlow()
                 }
             case .forceLogout:
                 actionsSubject.send(.forceLogout)

@@ -79,6 +79,7 @@ class SpaceScreenViewModel: SpaceScreenViewModelType, SpaceScreenViewModelProtoc
 
     private func configureJoinedSpaceRoom() async {
         guard case let .joined(roomProxy) = await userSession.clientProxy.roomForIdentifier(spaceRoomListProxy.id) else {
+            MXLog.error("Joined room proxy unavailable for space \(spaceRoomListProxy.id)")
             return
         }
         // Required to listen for membership updates in the members flow
@@ -255,7 +256,9 @@ class SpaceScreenViewModel: SpaceScreenViewModelType, SpaceScreenViewModelProtoc
                 state.bindings.leaveSpaceViewModel = nil
             case .presentRolesAndPermissions:
                 guard let roomProxy = state.roomProxy else {
-                    fatalError("There should always be a room proxy available for joined spaces.")
+                    MXLog.error("Missing room proxy while presenting roles and permissions for space \(spaceRoomListProxy.id)")
+                    state.bindings.leaveSpaceViewModel = nil
+                    return
                 }
                 state.bindings.leaveSpaceViewModel = nil
                 actionsSubject.send(.presentRolesAndPermissions(roomProxy: roomProxy))
@@ -264,7 +267,9 @@ class SpaceScreenViewModel: SpaceScreenViewModelType, SpaceScreenViewModelProtoc
                 actionsSubject.send(.leftSpace)
             case .presentTransferOwnership:
                 guard let roomProxy = state.roomProxy else {
-                    fatalError("There should always be a room proxy available for joined spaces.")
+                    MXLog.error("Missing room proxy while presenting transfer ownership for space \(spaceRoomListProxy.id)")
+                    state.bindings.leaveSpaceViewModel = nil
+                    return
                 }
                 state.bindings.leaveSpaceViewModel = nil
                 actionsSubject.send(.presentTransferOwnership(roomProxy: roomProxy))

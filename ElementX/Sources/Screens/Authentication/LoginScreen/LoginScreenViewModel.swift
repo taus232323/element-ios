@@ -116,7 +116,14 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
 
     private func finalizeDeviceSecurity() async {
         guard let password = identityBootstrapPassword, completedUserSession != nil else {
-            state.step = .credentials
+            // Already past OTP — stay on this step and offer retry instead of bouncing to credentials.
+            state.isLoading = false
+            state.bindings.alertInfo = AlertInfo(id: .deviceSecurityAlert,
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginDeviceSecurityFailed,
+                                                 primaryButton: .init(title: L10n.actionRetry) { [weak self] in
+                                                     self?.process(viewAction: .retryDeviceSecurity)
+                                                 })
             return
         }
 

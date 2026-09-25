@@ -16,7 +16,7 @@ import SwiftUI
 import Version
 
 // Arcana invite helpers push this slightly over the upstream limit.
-// swiftlint:disable:next type_body_length
+// swiftlint:disable type_body_length
 class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDelegate, NotificationManagerDelegate, SecureWindowManagerDelegate {
     private let stateMachine: AppCoordinatorStateMachine
     private let navigationRootCoordinator: NavigationRootCoordinator
@@ -1364,6 +1364,8 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
             }
     }
 }
+
+// swiftlint:enable type_body_length
 
 private extension String {
     var isMatrixUserID: Bool {

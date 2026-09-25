@@ -267,13 +267,13 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
     // perphery: ignore - used in release mode
     func presentCrashedLastRunAlert() {
         // Delay setting the alert otherwise it automatically gets dismissed. Same as the force logout one.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.state.bindings.alertInfo = AlertInfo(id: UUID(),
-                                                      title: L10n.crashDetectionDialogContent(InfoPlistReader.main.bundleDisplayName),
-                                                      primaryButton: .init(title: L10n.actionNo, action: nil),
-                                                      secondaryButton: .init(title: L10n.actionYes) {
-                                                          self.actionsSubject.send(.presentFeedbackScreen)
-                                                      })
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.state.bindings.alertInfo = AlertInfo(id: UUID(),
+                                                       title: L10n.crashDetectionDialogContent(InfoPlistReader.main.bundleDisplayName),
+                                                       primaryButton: .init(title: L10n.actionNo, action: nil),
+                                                       secondaryButton: .init(title: L10n.actionYes) { [weak self] in
+                                                           self?.actionsSubject.send(.presentFeedbackScreen)
+                                                       })
         }
     }
     
@@ -520,8 +520,8 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
                                                          title: L10n.leaveRoomAlertSelectNewOwnerTitle,
                                                          message: L10n.leaveRoomAlertSelectNewOwnerSubtitle,
                                                          primaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil),
-                                                         secondaryButton: .init(title: L10n.leaveRoomAlertSelectNewOwnerAction, role: .destructive) {
-                                                             self.actionsSubject.send(.transferOwnership(roomIdentifier: roomID))
+                                                         secondaryButton: .init(title: L10n.leaveRoomAlertSelectNewOwnerAction, role: .destructive) { [weak self] in
+                                                             self?.actionsSubject.send(.transferOwnership(roomIdentifier: roomID))
                                                          })
                         return
                     }

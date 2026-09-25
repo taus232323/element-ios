@@ -81,7 +81,7 @@ struct PasswordResetScreen: View {
         case .email:
             ArcanaLocalization.passwordResetEmailStepSubtitle(homeserver: context.viewState.homeserverAddress)
         case .verificationCode:
-            ArcanaLocalization.passwordResetCodeStepSubtitle(email: context.viewState.bindings.email)
+            ArcanaLocalization.passwordResetCodeStepSubtitle(email: context.viewState.resolvedMailboxEmail)
         case .credentials:
             ArcanaLocalization.passwordResetCredentialsStepSubtitle(homeserver: context.viewState.homeserverAddress)
         }
@@ -108,7 +108,7 @@ struct PasswordResetScreen: View {
                 .submitLabel(.done)
                 .onSubmit(submit)
             case .verificationCode:
-                Text(ArcanaLocalization.passwordResetCodeStepBody(email: context.viewState.bindings.email))
+                Text(ArcanaLocalization.passwordResetCodeStepBody(email: context.viewState.resolvedMailboxEmail))
                     .font(.compound.bodyMD)
                     .foregroundColor(.compound.textPrimary)
                     .padding(.bottom, 16)

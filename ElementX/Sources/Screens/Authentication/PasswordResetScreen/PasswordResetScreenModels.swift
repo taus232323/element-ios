@@ -43,6 +43,11 @@ struct PasswordResetScreenViewState: BindableState {
     var canResendVerificationCode: Bool {
         pendingPasswordReset != nil && !isLoading
     }
+
+    /// Mailbox the server sent the code to (may differ from the typed login).
+    var resolvedMailboxEmail: String {
+        pendingPasswordReset?.email ?? bindings.email
+    }
 }
 
 struct PasswordResetScreenBindings {

@@ -158,9 +158,7 @@ struct PreviewsWrapperView: View {
                 .timeout(.seconds(1), scheduler: DispatchQueue.main)
                 .values.first { $0 == true }
         case .sequence(let sequence):
-            for await value in sequence where value {
-                break
-            }
+            _ = await sequence.first { $0 == true }
         case .none:
             break
         }

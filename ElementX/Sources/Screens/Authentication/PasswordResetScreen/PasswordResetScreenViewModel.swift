@@ -54,8 +54,7 @@ final class PasswordResetScreenViewModel: PasswordResetScreenViewModelType, Pass
                 switch await authenticationService.startNativePasswordReset(email: state.bindings.email) {
                 case .success(let pendingPasswordReset):
                     state.pendingPasswordReset = pendingPasswordReset
-                    // Server may have resolved a login → linked mailbox.
-                    state.bindings.email = pendingPasswordReset.email
+                    // Keep the user's typed login/email in the field; show resolved mailbox on the code step via pending.
                     state.step = .verificationCode
                     state.bindings.verificationCode = ""
                 case .failure(let error):
@@ -101,8 +100,8 @@ final class PasswordResetScreenViewModel: PasswordResetScreenViewModelType, Pass
                     state.bindings.alertInfo = AlertInfo(id: .successAlert,
                                                          title: ArcanaLocalization.passwordResetSuccessTitle,
                                                          message: ArcanaLocalization.passwordResetSuccessMessage,
-                                                         primaryButton: .init(title: L10n.actionOk) {
-                                                             self.actionsSubject.send(.complete)
+                                                         primaryButton: .init(title: L10n.actionOk) { [weak self] in
+                                                             self?.actionsSubject.send(.complete)
                                                          })
                 case .failure(let error):
                     handleError(error)
