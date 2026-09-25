@@ -264,7 +264,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                 case .signedIn(let userSession):
                     stateMachine.tryEvent(.signedIn, userInfo: userSession)
                 case .cancel:
-                    stateMachine.tryEvent(.cancelledPasswordLogin(previousState: fromState))
+                    navigationStackCoordinator.pop()
                 case .forgotPassword(let initialEmail):
                     self.showPasswordResetScreen(initialEmail: initialEmail)
                 }
@@ -309,7 +309,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                 case .signedIn(let userSession):
                     stateMachine.tryEvent(.signedIn, userInfo: userSession)
                 case .cancel:
-                    stateMachine.tryEvent(.cancelledNativeRegistration(previousState: fromState))
+                    navigationStackCoordinator.pop()
                 }
             }
             .store(in: &cancellables)

@@ -403,6 +403,15 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
+
+    /// Public entry used by login/registration screens after the session exists.
+    func bootstrapNativeDeviceIdentity(password: String) async -> Result<Void, AuthenticationServiceError> {
+        guard let client else {
+            return .failure(.deviceIdentityBootstrapFailed)
+        }
+        let succeeded = await ensureDeviceIdentityVerified(client: client, password: password)
+        return succeeded ? .success(()) : .failure(.deviceIdentityBootstrapFailed)
+    }
 }
 
 private extension AuthenticationService {
@@ -434,15 +443,6 @@ private extension AuthenticationService {
             _ = identityBootstrapPassword
         }
         return sessionResult
-    }
-
-    /// Public entry used by login/registration screens after the session exists.
-    func bootstrapNativeDeviceIdentity(password: String) async -> Result<Void, AuthenticationServiceError> {
-        guard let client else {
-            return .failure(.deviceIdentityBootstrapFailed)
-        }
-        let succeeded = await ensureDeviceIdentityVerified(client: client, password: password)
-        return succeeded ? .success(()) : .failure(.deviceIdentityBootstrapFailed)
     }
 
     private static let identityBootstrapAttempts = 3
@@ -586,7 +586,10 @@ private extension AuthenticationService {
         case "M_THREEPID_IN_USE":
             return .emailAlreadyInUse
         case "M_THREEPID_DENIED", "M_THREEPID_NOT_FOUND":
-            // Password reset returns NOT_FOUND when the email is not linked to an account.
+            // Password reset returns NOT_FOUND when the email/login is not linked to an account.
+            return .invalidEmail
+        case "M_INVALID_PARAM":
+            // Arcana password-reset / login identifier validation ("Email or login not recognized").
             return .invalidEmail
         case "M_THREEPID_AUTH_FAILED":
             return .invalidVerificationCode

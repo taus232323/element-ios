@@ -13,6 +13,7 @@ import MatrixRustSDK
 class TimelineItemProvider: TimelineItemProviderProtocol {
     private var cancellables = Set<AnyCancellable>()
     private let serialDispatchQueue: DispatchQueue
+    private let timeline: Timeline
     
     private var roomTimelineObservationToken: TaskHandle?
 
@@ -49,6 +50,7 @@ class TimelineItemProvider: TimelineItemProviderProtocol {
     init(timeline: Timeline, kind: TimelineKind, paginationStatePublisher: AnyPublisher<TimelinePaginationState, Never>) {
         serialDispatchQueue = DispatchQueue(label: "io.element.elementx.timeline_item_provider", qos: .utility)
         itemProxiesSubject = CurrentValueSubject<[TimelineItemProxy], Never>([])
+        self.timeline = timeline
         self.kind = kind
         
         paginationStatePublisher
