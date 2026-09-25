@@ -98,7 +98,7 @@ class KnockRequestsListScreenViewModel: KnockRequestsListScreenViewModelType, Kn
                 state.bindings.alertInfo = .init(id: .acceptFailed,
                                                  title: L10n.screenKnockRequestsListAcceptFailedAlertTitle,
                                                  message: L10n.screenKnockRequestsListAcceptFailedAlertDescription,
-                                                 primaryButton: .init(title: L10n.actionYesTryAgain) { [weak self] in self?.accept(request: request) },
+                                                 primaryButton: .init(title: L10n.actionYesTryAgain) { self.accept(request: request) },
                                                  secondaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil))
             }
         }
@@ -120,7 +120,7 @@ class KnockRequestsListScreenViewModel: KnockRequestsListScreenViewModelType, Kn
                 state.bindings.alertInfo = .init(id: .declineFailed,
                                                  title: L10n.screenKnockRequestsListDeclineFailedAlertTitle,
                                                  message: L10n.screenKnockRequestsListDeclineFailedAlertDescription,
-                                                 primaryButton: .init(title: L10n.actionYesTryAgain) { [weak self] in self?.decline(request: request) },
+                                                 primaryButton: .init(title: L10n.actionYesTryAgain) { self.decline(request: request) },
                                                  secondaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil))
             }
         }
@@ -142,7 +142,7 @@ class KnockRequestsListScreenViewModel: KnockRequestsListScreenViewModelType, Kn
                 state.bindings.alertInfo = .init(id: .declineFailed,
                                                  title: L10n.screenKnockRequestsListDeclineFailedAlertTitle,
                                                  message: L10n.screenKnockRequestsListDeclineFailedAlertDescription,
-                                                 primaryButton: .init(title: L10n.actionYesTryAgain) { [weak self] in self?.declineAndBan(request: request) },
+                                                 primaryButton: .init(title: L10n.actionYesTryAgain) { self.declineAndBan(request: request) },
                                                  secondaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil))
             }
         }
@@ -176,7 +176,7 @@ class KnockRequestsListScreenViewModel: KnockRequestsListScreenViewModelType, Kn
                 state.bindings.alertInfo = .init(id: .acceptAllFailed,
                                                  title: L10n.screenKnockRequestsListAcceptAllFailedAlertTitle,
                                                  message: L10n.screenKnockRequestsListAcceptAllFailedAlertDescription,
-                                                 primaryButton: .init(title: L10n.actionYesTryAgain) { [weak self] in self?.acceptAll() },
+                                                 primaryButton: .init(title: L10n.actionYesTryAgain) { self.acceptAll() },
                                                  secondaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil))
             }
         }

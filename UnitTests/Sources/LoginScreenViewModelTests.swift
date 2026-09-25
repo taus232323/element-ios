@@ -180,6 +180,10 @@ final class LoginScreenAuthenticationServiceStub: AuthenticationServiceProtocol 
         .failure(.failedLoggingIn)
     }
 
+    func bootstrapNativeDeviceIdentity(password: String) async -> Result<Void, AuthenticationServiceError> {
+        .success(())
+    }
+
     func startNativePasswordReset(email: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
         .failure(.failedLoggingIn)
     }

@@ -48,6 +48,12 @@ internal enum UntranslatedL10n {
   internal static var screenLoginCredentialsSubtitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_credentials_subtitle_ios") }
   /// Sign in
   internal static var screenLoginCredentialsTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_credentials_title_ios") }
+  /// This usually takes a few seconds. Please keep the app open.
+  internal static var screenLoginDeviceSecurityBodyIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_device_security_body_ios") }
+  /// Confirming this device for secure chats.
+  internal static var screenLoginDeviceSecuritySubtitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_device_security_subtitle_ios") }
+  /// Setting up encryption
+  internal static var screenLoginDeviceSecurityTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_device_security_title_ios") }
   /// Login or email
   internal static var screenLoginEmail: String { return UntranslatedL10n.tr("Untranslated", "screen_login_email") }
   /// We sent a code to %1$@. Enter it below to continue.
@@ -56,6 +62,8 @@ internal enum UntranslatedL10n {
   }
   /// Verify your email
   internal static var screenLoginEmailVerificationTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_email_verification_title_ios") }
+  /// Couldn't set up encryption on this device. Try again — secure chats may not work until this succeeds.
+  internal static var screenLoginErrorDeviceSecurityFailedIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_error_device_security_failed_ios") }
   /// That email address is already in use.
   internal static var screenLoginErrorEmailAlreadyInUseIos: String { return UntranslatedL10n.tr("Untranslated", "screen_login_error_email_already_in_use_ios") }
   /// Email verification is not available for this account.
@@ -150,9 +158,9 @@ internal enum UntranslatedL10n {
   }
   /// Choose a new password
   internal static var screenPasswordResetCredentialsStepTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_credentials_step_title_ios") }
-  /// We will send a code to your email before you can choose a new password.
+  /// You can use either your login or email — the code goes to the linked mailbox.
   internal static var screenPasswordResetEmailStepBodyIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_email_step_body_ios") }
-  /// Enter the email address for your account on %1$@ and we'll send a code to continue.
+  /// Enter your login or email for the account on %1$@ and we'll send a code to the linked mailbox.
   internal static func screenPasswordResetEmailStepSubtitleIos(_ p1: Any) -> String {
     return UntranslatedL10n.tr("Untranslated", "screen_password_reset_email_step_subtitle_ios", String(describing: p1))
   }
@@ -160,7 +168,7 @@ internal enum UntranslatedL10n {
   internal static var screenPasswordResetEmailStepTitleIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_email_step_title_ios") }
   /// That code is not valid. Try again or resend a new code.
   internal static var screenPasswordResetErrorInvalidCodeIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_error_invalid_code_ios") }
-  /// This email address cannot be used for password reset.
+  /// No account found for this login or email.
   internal static var screenPasswordResetErrorInvalidEmailIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_error_invalid_email_ios") }
   /// The passwords do not match.
   internal static var screenPasswordResetErrorPasswordMismatchIos: String { return UntranslatedL10n.tr("Untranslated", "screen_password_reset_error_password_mismatch_ios") }

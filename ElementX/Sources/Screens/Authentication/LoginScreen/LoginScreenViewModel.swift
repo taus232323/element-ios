@@ -15,6 +15,10 @@ typealias LoginScreenViewModelType = StateStoreViewModelV2<LoginScreenViewState,
 class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtocol {
     private let authenticationService: AuthenticationServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
+
+    /// Session produced after OTP success; signed-in is only emitted after encryption bootstrap.
+    private var completedUserSession: UserSessionProtocol?
+    private var identityBootstrapPassword: String?
     
     private var actionsSubject: PassthroughSubject<LoginScreenViewModelAction, Never> = .init()
     var actions: AnyPublisher<LoginScreenViewModelAction, Never> {
@@ -51,6 +55,8 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
         case .forgotPassword:
             let email = state.bindings.email.trimmingCharacters(in: .whitespacesAndNewlines)
             actionsSubject.send(.forgotPassword(initialEmail: email))
+        case .retryDeviceSecurity:
+            Task { await finalizeDeviceSecurity() }
         }
     }
     
@@ -92,12 +98,43 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
                                                                        initialDeviceName: UIDevice.current.initialDeviceName,
                                                                        deviceID: nil) {
                 case .success(let userSession):
-                    actionsSubject.send(.signedIn(userSession))
+                    stopLoading()
+                    completedUserSession = userSession
+                    identityBootstrapPassword = pendingLogin.password
+                    state.step = .securingDevice
+                    await finalizeDeviceSecurity()
                 case .failure(let error):
                     handleError(error)
+                    stopLoading()
                 }
+            case .securingDevice:
                 stopLoading()
+                await finalizeDeviceSecurity()
             }
+        }
+    }
+
+    private func finalizeDeviceSecurity() async {
+        guard let password = identityBootstrapPassword, completedUserSession != nil else {
+            state.step = .credentials
+            return
+        }
+
+        state.isLoading = true
+        switch await authenticationService.bootstrapNativeDeviceIdentity(password: password) {
+        case .success:
+            state.isLoading = false
+            if let userSession = completedUserSession {
+                actionsSubject.send(.signedIn(userSession))
+            }
+        case .failure:
+            state.isLoading = false
+            state.bindings.alertInfo = AlertInfo(id: .deviceSecurityAlert,
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginDeviceSecurityFailed,
+                                                 primaryButton: .init(title: L10n.actionRetry) { [weak self] in
+                                                     self?.process(viewAction: .retryDeviceSecurity)
+                                                 })
         }
     }
 
@@ -124,6 +161,8 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
         case .verificationCode:
             state.step = .credentials
             state.bindings.verificationCode = ""
+        case .securingDevice:
+            break
         }
     }
     
@@ -202,6 +241,13 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
             state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
                                                  title: ArcanaLocalization.errorTitle,
                                                  message: ArcanaLocalization.loginInvalidRegistrationToken)
+        case .deviceIdentityBootstrapFailed:
+            state.bindings.alertInfo = AlertInfo(id: .deviceSecurityAlert,
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginDeviceSecurityFailed,
+                                                 primaryButton: .init(title: L10n.actionRetry) { [weak self] in
+                                                     self?.process(viewAction: .retryDeviceSecurity)
+                                                 })
         default:
             state.bindings.alertInfo = AlertInfo(id: .unknown)
         }

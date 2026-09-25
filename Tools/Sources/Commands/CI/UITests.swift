@@ -6,9 +6,9 @@ struct UITests: AsyncParsableCommand {
                                                     abstract: "Runs the UI test CI workflow for a specific device type.",
                                                     discussion: """
                                                     Examples:
-                                                      swift run tools ci ui-tests --device-type iPhone
-                                                      swift run tools ci ui-tests --device-type iPad
-                                                      swift run tools ci ui-tests --device-type iPhone --test-name "ClassName/testName"
+                                                      swift run --package-path Tools tools ci ui-tests --device-type iPhone
+                                                      swift run --package-path Tools tools ci ui-tests --device-type iPad
+                                                      swift run --package-path Tools tools ci ui-tests --device-type iPhone --test-name "ClassName/testName"
                                                     """)
 
     enum DeviceType: String, CaseIterable, ExpressibleByArgument {

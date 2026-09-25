@@ -42,10 +42,14 @@ final class RoomDirectorySearchProxy: RoomDirectorySearchProxyProtocol {
             .store(in: &cancellables)
         
         Task {
-            searchEntriesSubscription = await roomDirectorySearch.results(listener: SDKListener { [weak self] updates in
-                self?.diffsPublisher.send(updates)
-            })
+            await subscribeToSearchResults()
         }
+    }
+    
+    private func subscribeToSearchResults() async {
+        searchEntriesSubscription = await roomDirectorySearch.results(listener: SDKListener { [weak self] updates in
+            self?.diffsPublisher.send(updates)
+        })
     }
     
     func search(query: String?) async -> Result<Void, RoomDirectorySearchError> {

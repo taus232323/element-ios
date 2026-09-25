@@ -20,6 +20,8 @@ enum LoginScreenViewModelAction {
 enum LoginScreenStep: Equatable {
     case credentials
     case verificationCode
+    /// Cross-signing bootstrap after a successful email OTP login.
+    case securingDevice
 }
 
 struct LoginScreenViewState: BindableState {
@@ -46,6 +48,8 @@ struct LoginScreenViewState: BindableState {
             !bindings.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !bindings.password.isEmpty
         case .verificationCode:
             !bindings.verificationCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .securingDevice:
+            false
         }
     }
     
@@ -79,6 +83,8 @@ enum LoginScreenViewAction {
     case resendVerificationCode
     /// Start the password reset flow.
     case forgotPassword
+    /// Retry cross-signing bootstrap after a failure on the securing-device step.
+    case retryDeviceSecurity
 }
 
 enum LoginScreenErrorType: Hashable {
@@ -102,6 +108,8 @@ enum LoginScreenErrorType: Hashable {
     case rateLimitedAlert(String)
     /// An alert that informs the user that the email verification flow is unavailable.
     case emailVerificationUnavailableAlert
+    /// Device identity / encryption bootstrap failed.
+    case deviceSecurityAlert
     /// The response from the homeserver was unexpected.
     case unknown
 }

@@ -16,6 +16,7 @@ enum NativeRegistrationScreenStep: Equatable {
     case email
     case verificationCode
     case credentials
+    case securingDevice
 }
 
 struct NativeRegistrationScreenViewState: BindableState {
@@ -32,6 +33,8 @@ struct NativeRegistrationScreenViewState: BindableState {
             !bindings.verificationCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .credentials:
             !bindings.username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !bindings.password.isEmpty
+        case .securingDevice:
+            false
         }
     }
 
@@ -56,6 +59,7 @@ enum NativeRegistrationScreenViewAction {
     case next
     case back
     case resendVerificationCode
+    case retryDeviceSecurity
 }
 
 enum NativeRegistrationScreenErrorType: Hashable {
@@ -66,5 +70,6 @@ enum NativeRegistrationScreenErrorType: Hashable {
     case invalidUsernameAlert
     case usernameInUseAlert
     case invalidRegistrationTokenAlert
+    case deviceSecurityAlert
     case unknown
 }

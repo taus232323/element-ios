@@ -30,7 +30,7 @@ struct RoomInviterDetails: Equatable {
             displayName
         } else {
             // `@alice` without leading @ for the bold name part when no display name.
-            String(displayableID.drop(while: { $0 == "@" }))
+            String(displayableID.drop(while:) { $0 == "@" })
         }
         
         // Pre-compute the attributed string.

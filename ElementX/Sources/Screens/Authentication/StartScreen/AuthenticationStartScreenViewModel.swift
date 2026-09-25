@@ -66,7 +66,7 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
         let termsPlaceholder = "{terms}"
         let privacyPlaceholder = "{privacy}"
         var notice = AttributedString(ArcanaLocalization.authenticationLegalNotice(termsPlaceholder: termsPlaceholder,
-                                                                                    privacyPlaceholder: privacyPlaceholder))
+                                                                                   privacyPlaceholder: privacyPlaceholder))
         
         var termsLink = AttributedString(ArcanaLocalization.authenticationLegalTermsLink)
         termsLink.link = termsURL

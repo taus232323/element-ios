@@ -58,9 +58,9 @@ PRs must meet these rules. Prefer Xcode MCP tools over terminal commands.
 
 ### Build System
 
-Initial setup: `swift run tools setup-project`
+Initial setup: `swift run --package-path Tools tools setup-project`
 
-**Git hooks** are installed by `swift run tools setup-project` and run SwiftLint/SwiftFormat on commit — if a hook fails, **do not abandon your changes**, fix the reported issues and recommit.
+**Git hooks** are installed by `swift run --package-path Tools tools setup-project` and run SwiftLint/SwiftFormat on commit — if a hook fails, **do not abandon your changes**, fix the reported issues and recommit.
 
 | Tool | Command | Notes |
 |------|---------|-------|
@@ -71,8 +71,8 @@ Initial setup: `swift run tools setup-project`
 | **SwiftFormat** | `swiftformat .` | Run from project root only. Auto-runs in lint mode on ElementX build. |
 
 CI test commands:
-- Unit tests: `swift run tools ci unit-tests`
-- CI help: `swift run tools ci --help`
+- Unit tests: `swift run --package-path Tools tools ci unit-tests`
+- CI help: `swift run --package-path Tools tools ci --help`
 - Fastlane: `bundle exec fastlane lanes`
 
 ### Targets & Layout
@@ -370,7 +370,7 @@ Same pattern for publishers.
 | `.swiftlint.yml` | SwiftLint rules |
 | `.swiftformat` | SwiftFormat rules |
 | `Dangerfile.swift` | Danger PR checks |
-| `Package.swift` | SPM manifest (Tools CLI) |
+| `Tools/Package.swift` | SPM manifest (Tools CLI; kept out of the repo root so Xcode does not build it for iOS) |
 | `Gemfile` | Ruby deps (Fastlane, Danger) |
 | `localazy.json` | Localazy translation config |
 | `codecov.yml` | Codecov config |

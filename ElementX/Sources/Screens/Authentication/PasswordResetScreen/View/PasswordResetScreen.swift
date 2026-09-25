@@ -97,12 +97,12 @@ struct PasswordResetScreen: View {
                     .padding(.bottom, 16)
 
                 TextField(text: $context.email) {
-                    Text(ArcanaLocalization.nativeRegistrationEmailLabel).foregroundColor(.compound.textSecondary)
+                    Text(ArcanaLocalization.loginEmailLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isEmailFocused)
                 .textFieldStyle(.element(accessibilityIdentifier: "passwordResetEmail"))
                 .disableAutocorrection(true)
-                .textContentType(.emailAddress)
+                .textContentType(.username)
                 .autocapitalization(.none)
                 .keyboardType(.emailAddress)
                 .submitLabel(.done)

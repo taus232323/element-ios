@@ -16,7 +16,7 @@ import SwiftUI
 import Version
 
 // Arcana invite helpers push this slightly over the upstream limit.
-// swiftlint:disable type_body_length
+// swiftlint:disable:next type_body_length
 class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDelegate, NotificationManagerDelegate, SecureWindowManagerDelegate {
     private let stateMachine: AppCoordinatorStateMachine
     private let navigationRootCoordinator: NavigationRootCoordinator
@@ -385,15 +385,17 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
             return
         }
 
-        let coordinator = InviteScreenCoordinator(parameters: .init(token: token,
-                                                                    webURL: webURL,
-                                                                    clientProxy: userSession?.clientProxy) { [weak self] roomID in
+        let onOpenRoom: (String) -> Void = { [weak self] roomID in
             guard let self else { return }
             if let userSession {
                 userSession.clientProxy.roomsToAwait.insert(roomID)
             }
             handleAppRoute(.room(roomID: roomID, via: []), windowType: nil)
-        })
+        }
+        let coordinator = InviteScreenCoordinator(parameters: .init(token: token,
+                                                                    webURL: webURL,
+                                                                    clientProxy: userSession?.clientProxy,
+                                                                    onOpenRoom: onOpenRoom))
         navigationRootCoordinator.setSheetCoordinator(coordinator, animated: true)
     }
 
@@ -436,8 +438,10 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
     
     func authenticationFlowCoordinator(didLoginWithSession userSession: UserSessionProtocol) {
         self.userSession = userSession
-        authenticationFlowCoordinator = nil
+        // Switch to the signed-in UI before tearing down auth, otherwise the auth stack
+        // dismissal can race and leave the user on the login/registration screen.
         stateMachine.processEvent(.createdUserSession)
+        authenticationFlowCoordinator = nil
     }
     
     // MARK: - WindowManagerDelegate
@@ -778,42 +782,44 @@ class AppCoordinator: AppCoordinatorProtocol, AuthenticationFlowCoordinatorDeleg
         }
         
         Task {
-            let credentials = SoftLogoutScreenCredentials(userID: userSession.clientProxy.userID,
-                                                          homeserverName: userSession.clientProxy.homeserver,
-                                                          userDisplayName: userSession.clientProxy.userDisplayNamePublisher.value ?? "",
-                                                          deviceID: userSession.clientProxy.deviceID)
-            
-            let authenticationService = AuthenticationService(userSessionStore: userSessionStore,
-                                                              encryptionKeyProvider: EncryptionKeyProvider(),
-                                                              appSettings: appSettings,
-                                                              appHooks: appHooks)
-            _ = await authenticationService.configure(for: userSession.clientProxy.homeserver, flow: .login)
-            
-            let parameters = SoftLogoutScreenCoordinatorParameters(authenticationService: authenticationService,
-                                                                   credentials: credentials,
-                                                                   keyBackupNeeded: false,
-                                                                   appSettings: appSettings,
-                                                                   userIndicatorController: ServiceLocator.shared.userIndicatorController)
-            let coordinator = SoftLogoutScreenCoordinator(parameters: parameters)
-            self.softLogoutCoordinator = coordinator
-            coordinator.actions
-                .sink { [weak self] action in
-                    guard let self else { return }
-                    
-                    switch action {
-                    case .signedIn(let session):
-                        self.userSession = session
-                        self.softLogoutCoordinator = nil
-                        stateMachine.processEvent(.createdUserSession)
-                    case .clearAllData:
-                        self.softLogoutCoordinator = nil
-                        stateMachine.processEvent(.signOut(isSoft: false, disableAppLock: false))
-                    }
-                }
-                .store(in: &cancellables)
-            
-            navigationRootCoordinator.setRootCoordinator(coordinator)
+            await configureSoftLogout(credentials: SoftLogoutScreenCredentials(userID: userSession.clientProxy.userID,
+                                                                               homeserverName: userSession.clientProxy.homeserver,
+                                                                               userDisplayName: userSession.clientProxy.userDisplayNamePublisher.value ?? "",
+                                                                               deviceID: userSession.clientProxy.deviceID))
         }
+    }
+
+    private func configureSoftLogout(credentials: SoftLogoutScreenCredentials) async {
+        let authenticationService = AuthenticationService(userSessionStore: userSessionStore,
+                                                          encryptionKeyProvider: EncryptionKeyProvider(),
+                                                          appSettings: appSettings,
+                                                          appHooks: appHooks)
+        _ = await authenticationService.configure(for: credentials.homeserverName, flow: .login)
+        
+        let parameters = SoftLogoutScreenCoordinatorParameters(authenticationService: authenticationService,
+                                                               credentials: credentials,
+                                                               keyBackupNeeded: false,
+                                                               appSettings: appSettings,
+                                                               userIndicatorController: ServiceLocator.shared.userIndicatorController)
+        let coordinator = SoftLogoutScreenCoordinator(parameters: parameters)
+        softLogoutCoordinator = coordinator
+        coordinator.actions
+            .sink { [weak self] action in
+                guard let self else { return }
+                
+                switch action {
+                case .signedIn(let session):
+                    userSession = session
+                    softLogoutCoordinator = nil
+                    stateMachine.processEvent(.createdUserSession)
+                case .clearAllData:
+                    softLogoutCoordinator = nil
+                    stateMachine.processEvent(.signOut(isSoft: false, disableAppLock: false))
+                }
+            }
+            .store(in: &cancellables)
+        
+        navigationRootCoordinator.setRootCoordinator(coordinator)
     }
     
     private func setupUserSession(isNewLogin: Bool) {

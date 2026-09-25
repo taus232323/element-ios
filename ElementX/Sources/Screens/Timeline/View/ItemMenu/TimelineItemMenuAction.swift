@@ -143,6 +143,7 @@ enum TimelineItemMenuAction: Identifiable, Hashable {
     }
     
     /// The action's label.
+    @MainActor
     @ViewBuilder
     var label: some View {
         switch self {

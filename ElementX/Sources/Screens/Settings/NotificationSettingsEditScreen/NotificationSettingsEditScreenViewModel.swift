@@ -175,17 +175,19 @@ class NotificationSettingsEditScreenViewModel: NotificationSettingsEditScreenVie
                 try await notificationSettingsProxy.setDefaultRoomNotificationMode(isEncrypted: true, isOneToOne: isOneToOne, mode: roomNotificationModeProxy)
                 try await notificationSettingsProxy.setDefaultRoomNotificationMode(isEncrypted: false, isOneToOne: isOneToOne, mode: roomNotificationModeProxy)
             } catch {
-                // In case of failure, we let the user retry
-                let retryAction: () -> Void = { [weak self] in
-                    self?.setMode(mode)
-                }
-                state.bindings.alertInfo = AlertInfo(id: .setModeFailed,
-                                                     title: L10n.commonError,
-                                                     message: L10n.screenNotificationSettingsEditFailedUpdatingDefaultMode,
-                                                     primaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil),
-                                                     secondaryButton: .init(title: L10n.actionRetry, action: retryAction))
+                presentSetModeFailedAlert(mode: mode)
             }
             state.pendingMode = nil
         }
+    }
+
+    private func presentSetModeFailedAlert(mode: NotificationSettingsEditScreenDefaultMode) {
+        state.bindings.alertInfo = AlertInfo(id: .setModeFailed,
+                                             title: L10n.commonError,
+                                             message: L10n.screenNotificationSettingsEditFailedUpdatingDefaultMode,
+                                             primaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil),
+                                             secondaryButton: .init(title: L10n.actionRetry) { [weak self] in
+                                                 self?.setMode(mode)
+                                             })
     }
 }

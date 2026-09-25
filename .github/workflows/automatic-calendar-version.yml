@@ -28,7 +28,7 @@ jobs:
         run: source ci_scripts/ci_common.sh && setup_github_actions_environment
 
       - name: Bump the CalVer if needed
-        run: swift run -q tools bump-calendar-version
+        run: swift run --package-path Tools -q tools bump-calendar-version
 
       - name: Create a PR for the new version
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1

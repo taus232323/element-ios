@@ -58,15 +58,19 @@ class TimelineItemProvider: TimelineItemProviderProtocol {
             .store(in: &cancellables)
         
         Task {
-            roomTimelineObservationToken = await timeline.addListener(listener: SDKListener { [weak self] timelineDiffs in
-                self?.serialDispatchQueue.sync {
-                    self?.updateItemsWithDiffs(timelineDiffs)
-                }
-            })
+            await addTimelineListener()
         }
     }
     
     // MARK: - Private
+    
+    private func addTimelineListener() async {
+        roomTimelineObservationToken = await timeline.addListener(listener: SDKListener { [weak self] timelineDiffs in
+            self?.serialDispatchQueue.sync {
+                self?.updateItemsWithDiffs(timelineDiffs)
+            }
+        })
+    }
     
     private func updateItemsWithDiffs(_ diffs: [TimelineDiff]) {
         let span = MXLog.createSpan("process_timeline_list_diffs:\(kind)")

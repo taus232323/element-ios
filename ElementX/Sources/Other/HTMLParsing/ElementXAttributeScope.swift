@@ -7,6 +7,8 @@
 //
 
 import Foundation
+import SwiftUI
+import UIKit
 
 enum BlockquoteAttribute: AttributedStringKey {
     typealias Value = Bool

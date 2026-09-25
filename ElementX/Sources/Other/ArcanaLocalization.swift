@@ -64,6 +64,22 @@ enum ArcanaLocalization {
         isRussian ? "Для этого аккаунта подтверждение по email недоступно." : UntranslatedL10n.screenLoginErrorEmailVerificationUnavailableIos
     }
 
+    static var loginDeviceSecurityTitle: String {
+        isRussian ? "Настраиваем шифрование" : UntranslatedL10n.screenLoginDeviceSecurityTitleIos
+    }
+
+    static var loginDeviceSecuritySubtitle: String {
+        isRussian ? "Подтверждаем это устройство для защищённых чатов." : UntranslatedL10n.screenLoginDeviceSecuritySubtitleIos
+    }
+
+    static var loginDeviceSecurityBody: String {
+        isRussian ? "Обычно это занимает несколько секунд. Не закрывайте приложение." : UntranslatedL10n.screenLoginDeviceSecurityBodyIos
+    }
+
+    static var loginDeviceSecurityFailed: String {
+        isRussian ? "Не удалось настроить шифрование на этом устройстве. Повторите попытку — без этого защищённые чаты могут быть недоступны." : UntranslatedL10n.screenLoginErrorDeviceSecurityFailedIos
+    }
+
     static var loginInvalidEmail: String {
         isRussian ? "Введите корректный адрес почты." : UntranslatedL10n.screenLoginErrorInvalidEmailIos
     }
@@ -270,14 +286,14 @@ enum ArcanaLocalization {
 
     static func passwordResetEmailStepSubtitle(homeserver: String) -> String {
         if isRussian {
-            return "Введите адрес электронной почты для аккаунта на \(homeserver), и мы вышлем код для продолжения."
+            return "Введите логин или email аккаунта на \(homeserver), и мы вышлем код на привязанную почту."
         } else {
             return UntranslatedL10n.screenPasswordResetEmailStepSubtitleIos(homeserver)
         }
     }
 
     static var passwordResetEmailStepBody: String {
-        isRussian ? "Мы отправим код на вашу почту, прежде чем вы сможете выбрать новый пароль." : UntranslatedL10n.screenPasswordResetEmailStepBodyIos
+        isRussian ? "Можно указать логин или email — код придёт на привязанную почту." : UntranslatedL10n.screenPasswordResetEmailStepBodyIos
     }
 
     static var passwordResetCodeStepTitle: String {
@@ -349,7 +365,7 @@ enum ArcanaLocalization {
     }
 
     static var passwordResetInvalidEmail: String {
-        isRussian ? "Этот адрес электронной почты нельзя использовать для сброса пароля." : UntranslatedL10n.screenPasswordResetErrorInvalidEmailIos
+        isRussian ? "Аккаунт с таким логином или email не найден." : UntranslatedL10n.screenPasswordResetErrorInvalidEmailIos
     }
 
     static var passwordResetInvalidCode: String {

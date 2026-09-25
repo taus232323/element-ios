@@ -11,7 +11,9 @@ import UIKit
 
 public extension UIColor {
     /// The colours used by Element as defined in Compound Design Tokens.
-    static let compound = CompoundUIColors()
+    ///
+    /// Marked `nonisolated(unsafe)` so attributed-string builders can read tokens off the main actor.
+    nonisolated(unsafe) static let compound = CompoundUIColors()
 }
 
 /// The colours used by Element as defined in Compound Design Tokens.
@@ -27,10 +29,11 @@ public final nonisolated class CompoundUIColors {
     /// access for temporary tokens while waiting for official ones to be formalised.
     private static let coreTokens = CompoundCoreUIColorTokens.self
     /// The main semantic tokens generated from the Style Dictionary.
-    // nonisolated(unsafe): readable from attributed-string builders off the main actor.
-    nonisolated(unsafe) private let tokens = CompoundUIColorTokens()
+    ///
+    /// `nonisolated(unsafe)` so attributed-string builders can read off the main actor.
+    private nonisolated(unsafe) let tokens = CompoundUIColorTokens()
     /// Runtime overrides for the `tokens` property.
-    nonisolated private var overrides = [KeyPath<CompoundUIColorTokens, UIColor>: UIColor]()
+    private nonisolated var overrides = [KeyPath<CompoundUIColorTokens, UIColor>: UIColor]()
     
     public nonisolated subscript(dynamicMember keyPath: KeyPath<CompoundUIColorTokens, UIColor>) -> UIColor {
         overrides[keyPath] ?? tokens[keyPath: keyPath]

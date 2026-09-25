@@ -271,8 +271,8 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
             self.state.bindings.alertInfo = AlertInfo(id: UUID(),
                                                       title: L10n.crashDetectionDialogContent(InfoPlistReader.main.bundleDisplayName),
                                                       primaryButton: .init(title: L10n.actionNo, action: nil),
-                                                      secondaryButton: .init(title: L10n.actionYes) { [weak self] in
-                                                          self?.actionsSubject.send(.presentFeedbackScreen)
+                                                      secondaryButton: .init(title: L10n.actionYes) {
+                                                          self.actionsSubject.send(.presentFeedbackScreen)
                                                       })
         }
     }
@@ -520,8 +520,8 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
                                                          title: L10n.leaveRoomAlertSelectNewOwnerTitle,
                                                          message: L10n.leaveRoomAlertSelectNewOwnerSubtitle,
                                                          primaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil),
-                                                         secondaryButton: .init(title: L10n.leaveRoomAlertSelectNewOwnerAction, role: .destructive) { [weak self] in
-                                                             self?.actionsSubject.send(.transferOwnership(roomIdentifier: roomID))
+                                                         secondaryButton: .init(title: L10n.leaveRoomAlertSelectNewOwnerAction, role: .destructive) {
+                                                             self.actionsSubject.send(.transferOwnership(roomIdentifier: roomID))
                                                          })
                         return
                     }

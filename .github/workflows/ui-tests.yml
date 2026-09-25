@@ -41,7 +41,7 @@ jobs:
           if [[ -n "${GITHUB_EVENT_INPUTS_TEST_NAME}" ]]; then
             args+=( --test-name "${GITHUB_EVENT_INPUTS_TEST_NAME}")
           fi
-          swift run -q tools ci ui-tests "${args[@]}"
+          swift run --package-path Tools -q tools ci ui-tests "${args[@]}"
         env:
           GITHUB_EVENT_INPUTS_TEST_NAME: ${{ github.event.inputs.test_name }}
 

@@ -36,10 +36,12 @@ struct NativeRegistrationScreen: View {
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    context.send(viewAction: .back)
-                } label: {
-                    Image(systemName: "chevron.left")
+                if context.viewState.step != .securingDevice {
+                    Button {
+                        context.send(viewAction: .back)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
                 }
             }
         }
@@ -73,6 +75,8 @@ struct NativeRegistrationScreen: View {
             ArcanaLocalization.nativeRegistrationCodeStepTitle
         case .credentials:
             ArcanaLocalization.nativeRegistrationCredentialsStepTitle
+        case .securingDevice:
+            ArcanaLocalization.loginDeviceSecurityTitle
         }
     }
 
@@ -84,6 +88,8 @@ struct NativeRegistrationScreen: View {
             ArcanaLocalization.nativeRegistrationCodeStepSubtitle(email: context.viewState.bindings.email)
         case .credentials:
             ArcanaLocalization.nativeRegistrationCredentialsStepSubtitle
+        case .securingDevice:
+            ArcanaLocalization.loginDeviceSecuritySubtitle
         }
     }
 
@@ -145,15 +151,31 @@ struct NativeRegistrationScreen: View {
                 .textContentType(.newPassword)
                 .submitLabel(.done)
                 .onSubmit(submit)
+            case .securingDevice:
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .controlSize(.large)
+                    Spacer()
+                }
+                .padding(.vertical, 32)
+
+                Text(ArcanaLocalization.loginDeviceSecurityBody)
+                    .font(.compound.bodyMD)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.compound.textSecondary)
+                    .frame(maxWidth: .infinity)
             }
 
-            Spacer().frame(height: 24)
+            if context.viewState.step != .securingDevice {
+                Spacer().frame(height: 24)
 
-            Button(action: submit) {
-                Text(context.viewState.step == .credentials ? ArcanaLocalization.nativeRegistrationCreateAccount : ArcanaLocalization.continueAction)
+                Button(action: submit) {
+                    Text(context.viewState.step == .credentials ? ArcanaLocalization.nativeRegistrationCreateAccount : ArcanaLocalization.continueAction)
+                }
+                .buttonStyle(.compound(.primary))
+                .disabled(!context.viewState.canSubmit)
             }
-            .buttonStyle(.compound(.primary))
-            .disabled(!context.viewState.canSubmit)
         }
     }
 

@@ -17,6 +17,7 @@ extension Label {
     ///   - iconAsset: The asset to use as the custom Compound icon.
     ///
     /// The supplied asset should have a square frame or it may end up distorted.
+    @MainActor
     init(_ title: some StringProtocol, iconAsset: ImageAsset) where Title == Text, Icon == CompoundIcon {
         self.init {
             Text(title)
@@ -33,6 +34,7 @@ extension Label {
     ///   - font: The font that the icon will scale relative to for Dynamic Type.
     ///
     /// The supplied asset should have a square frame or it may end up distorted.
+    @MainActor
     init(_ title: some StringProtocol,
          iconAsset: ImageAsset,
          iconSize: CompoundIcon.Size,

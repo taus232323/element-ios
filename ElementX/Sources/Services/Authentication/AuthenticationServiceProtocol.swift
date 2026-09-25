@@ -44,6 +44,8 @@ enum AuthenticationServiceError: Error, Equatable {
     case usernameInUse
     case emailVerificationUnavailable
     case invalidRegistrationToken
+    /// Cross-signing / device identity bootstrap failed after native email auth.
+    case deviceIdentityBootstrapFailed
 }
 
 struct PendingNativeLogin: Equatable {
@@ -109,6 +111,9 @@ protocol AuthenticationServiceProtocol: QRCodeLoginServiceProtocol {
 
     /// Resends the native registration verification code.
     func resendNativeRegistrationEmail(_ pendingRegistration: PendingNativeRegistration) async -> Result<PendingNativeRegistration, AuthenticationServiceError>
+
+    /// After native login/registration, bootstrap cross-signing so this device is verified.
+    func bootstrapNativeDeviceIdentity(password: String) async -> Result<Void, AuthenticationServiceError>
 
     /// Starts the native password reset flow.
     func startNativePasswordReset(email: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError>

@@ -50,10 +50,12 @@ struct LoginScreen: View {
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    context.send(viewAction: .back)
-                } label: {
-                    Image(systemName: "chevron.left")
+                if context.viewState.step != .securingDevice {
+                    Button {
+                        context.send(viewAction: .back)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
                 }
             }
         }
@@ -86,6 +88,8 @@ struct LoginScreen: View {
             ArcanaLocalization.loginCredentialsTitle
         case .verificationCode:
             ArcanaLocalization.loginEmailVerificationTitle
+        case .securingDevice:
+            ArcanaLocalization.loginDeviceSecurityTitle
         }
     }
     
@@ -95,13 +99,16 @@ struct LoginScreen: View {
             ArcanaLocalization.loginCredentialsSubtitle
         case .verificationCode:
             ArcanaLocalization.loginEmailVerificationSubtitle(email: context.viewState.bindings.email)
+        case .securingDevice:
+            ArcanaLocalization.loginDeviceSecuritySubtitle
         }
     }
 
     /// The form with text fields for the current step, along with a submit button.
     var loginContent: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if context.viewState.step == .credentials {
+            switch context.viewState.step {
+            case .credentials:
                 TextField(text: $context.email) {
                     Text(ArcanaLocalization.loginEmailLabel).foregroundColor(.compound.textSecondary)
                 }
@@ -132,7 +139,17 @@ struct LoginScreen: View {
                 }
                 .buttonStyle(.compound(.textLink))
                 .accessibilityIdentifier(A11yIdentifiers.loginScreen.forgotPassword)
-            } else {
+
+                Spacer().frame(height: 24)
+
+                Button(action: submit) {
+                    Text(ArcanaLocalization.continueAction)
+                }
+                .buttonStyle(.compound(.primary))
+                .disabled(!context.viewState.canSubmit)
+                .accessibilityIdentifier(A11yIdentifiers.loginScreen.continue)
+
+            case .verificationCode:
                 TextField(text: $context.verificationCode) {
                     Text(ArcanaLocalization.loginVerificationCodeLabel).foregroundColor(.compound.textSecondary)
                 }
@@ -155,16 +172,31 @@ struct LoginScreen: View {
                 })
                 .buttonStyle(.compound(.textLink))
                 .disabled(!context.viewState.canResendVerificationCode)
-            }
-            
-            Spacer().frame(height: 24)
 
-            Button(action: submit) {
-                Text(context.viewState.step == .credentials ? ArcanaLocalization.continueAction : ArcanaLocalization.confirmAction)
+                Spacer().frame(height: 24)
+
+                Button(action: submit) {
+                    Text(ArcanaLocalization.confirmAction)
+                }
+                .buttonStyle(.compound(.primary))
+                .disabled(!context.viewState.canSubmit)
+                .accessibilityIdentifier(A11yIdentifiers.loginScreen.continue)
+
+            case .securingDevice:
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .controlSize(.large)
+                    Spacer()
+                }
+                .padding(.vertical, 32)
+
+                Text(ArcanaLocalization.loginDeviceSecurityBody)
+                    .font(.compound.bodyMD)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.compound.textSecondary)
+                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.compound(.primary))
-            .disabled(!context.viewState.canSubmit)
-            .accessibilityIdentifier(A11yIdentifiers.loginScreen.continue)
         }
     }
     

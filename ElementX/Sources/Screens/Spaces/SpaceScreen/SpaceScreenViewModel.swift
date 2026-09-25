@@ -73,33 +73,38 @@ class SpaceScreenViewModel: SpaceScreenViewModelType, SpaceScreenViewModelProtoc
             .store(in: &cancellables)
         
         Task {
-            if case let .joined(roomProxy) = await userSession.clientProxy.roomForIdentifier(spaceRoomListProxy.id) {
-                // Required to listen for membership updates in the members flow
-                await roomProxy.subscribeForUpdates()
-                state.roomProxy = roomProxy
-                if case let .success(permalinkURL) = await roomProxy.matrixToPermalink() {
-                    state.permalink = permalinkURL
-                }
-                
-                roomProxy.infoPublisher
-                    .sink { [weak self] roomInfo in
-                        guard let self else { return }
-                        guard let powerLevels = roomInfo.powerLevels else {
-                            state.canEditBaseInfo = false
-                            state.canEditRolesAndPermissions = false
-                            state.canEditSecurityAndPrivacy = false
-                            state.canEditChildren = false
-                            return
-                        }
-                        state.canEditBaseInfo = powerLevels.canOwnUserEditBaseInfo()
-                        state.canEditRolesAndPermissions = powerLevels.canOwnUserEditRolesAndPermissions()
-                        state.canEditSecurityAndPrivacy = powerLevels.canOwnUserEditSecurityAndPrivacy(isSpace: roomInfo.isSpace,
-                                                                                                       joinRule: roomInfo.joinRule)
-                        state.canEditChildren = powerLevels.canOwnUser(sendStateEvent: .spaceChild)
-                    }
-                    .store(in: &cancellables)
-            }
+            await configureJoinedSpaceRoom()
         }
+    }
+
+    private func configureJoinedSpaceRoom() async {
+        guard case let .joined(roomProxy) = await userSession.clientProxy.roomForIdentifier(spaceRoomListProxy.id) else {
+            return
+        }
+        // Required to listen for membership updates in the members flow
+        await roomProxy.subscribeForUpdates()
+        state.roomProxy = roomProxy
+        if case let .success(permalinkURL) = await roomProxy.matrixToPermalink() {
+            state.permalink = permalinkURL
+        }
+        
+        roomProxy.infoPublisher
+            .sink { [weak self] roomInfo in
+                guard let self else { return }
+                guard let powerLevels = roomInfo.powerLevels else {
+                    state.canEditBaseInfo = false
+                    state.canEditRolesAndPermissions = false
+                    state.canEditSecurityAndPrivacy = false
+                    state.canEditChildren = false
+                    return
+                }
+                state.canEditBaseInfo = powerLevels.canOwnUserEditBaseInfo()
+                state.canEditRolesAndPermissions = powerLevels.canOwnUserEditRolesAndPermissions()
+                state.canEditSecurityAndPrivacy = powerLevels.canOwnUserEditSecurityAndPrivacy(isSpace: roomInfo.isSpace,
+                                                                                               joinRule: roomInfo.joinRule)
+                state.canEditChildren = powerLevels.canOwnUser(sendStateEvent: .spaceChild)
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Public

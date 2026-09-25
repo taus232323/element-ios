@@ -8,9 +8,9 @@ struct RunTests: AsyncParsableCommand {
                                                     failing tests instead of re-running the entire suite.
                                                     
                                                     Examples:
-                                                      swift run tools run-tests --scheme UnitTests
-                                                      swift run tools run-tests --scheme UITests --device iPhone --os-version 26.4
-                                                      swift run tools run-tests --scheme PreviewTests --create-simulator-name "iPhone SE (3rd generation)" \
+                                                      swift run --package-path Tools tools run-tests --scheme UnitTests
+                                                      swift run --package-path Tools tools run-tests --scheme UITests --device iPhone --os-version 26.4
+                                                      swift run --package-path Tools tools run-tests --scheme PreviewTests --create-simulator-name "iPhone SE (3rd generation)" \
                                                         --create-simulator-type com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation
                                                     """)
     

@@ -15,6 +15,9 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
     private let authenticationService: AuthenticationServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
 
+    private var completedUserSession: UserSessionProtocol?
+    private var identityBootstrapPassword: String?
+
     private var actionsSubject: PassthroughSubject<NativeRegistrationScreenViewModelAction, Never> = .init()
     var actionsPublisher: AnyPublisher<NativeRegistrationScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
@@ -37,6 +40,8 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
             goBack()
         case .resendVerificationCode:
             resendVerificationCode()
+        case .retryDeviceSecurity:
+            Task { await finalizeDeviceSecurity() }
         }
     }
 
@@ -81,18 +86,50 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
                     state.step = .email
                     return
                 }
+                let password = state.bindings.password
                 switch await authenticationService.finishNativeRegistration(pendingRegistration,
                                                                             username: state.bindings.username,
-                                                                            password: state.bindings.password,
+                                                                            password: password,
                                                                             initialDeviceName: UIDevice.current.initialDeviceName,
                                                                             deviceID: nil) {
                 case .success(let userSession):
-                    actionsSubject.send(.signedIn(userSession))
+                    stopLoading()
+                    completedUserSession = userSession
+                    identityBootstrapPassword = password
+                    state.step = .securingDevice
+                    await finalizeDeviceSecurity()
                 case .failure(let error):
                     handleError(error)
+                    stopLoading()
                 }
+            case .securingDevice:
                 stopLoading()
+                await finalizeDeviceSecurity()
             }
+        }
+    }
+
+    private func finalizeDeviceSecurity() async {
+        guard let password = identityBootstrapPassword, completedUserSession != nil else {
+            state.step = .credentials
+            return
+        }
+
+        state.isLoading = true
+        switch await authenticationService.bootstrapNativeDeviceIdentity(password: password) {
+        case .success:
+            state.isLoading = false
+            if let userSession = completedUserSession {
+                actionsSubject.send(.signedIn(userSession))
+            }
+        case .failure:
+            state.isLoading = false
+            state.bindings.alertInfo = AlertInfo(id: .deviceSecurityAlert,
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginDeviceSecurityFailed,
+                                                 primaryButton: .init(title: L10n.actionRetry) { [weak self] in
+                                                     self?.process(viewAction: .retryDeviceSecurity)
+                                                 })
         }
     }
 
@@ -120,6 +157,8 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
             state.bindings.verificationCode = ""
         case .credentials:
             state.step = .verificationCode
+        case .securingDevice:
+            break
         }
     }
 
@@ -166,6 +205,13 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
             state.bindings.alertInfo = AlertInfo(id: .invalidRegistrationTokenAlert,
                                                  title: ArcanaLocalization.errorTitle,
                                                  message: ArcanaLocalization.nativeRegistrationInvalidRegistrationToken)
+        case .deviceIdentityBootstrapFailed:
+            state.bindings.alertInfo = AlertInfo(id: .deviceSecurityAlert,
+                                                 title: ArcanaLocalization.errorTitle,
+                                                 message: ArcanaLocalization.loginDeviceSecurityFailed,
+                                                 primaryButton: .init(title: L10n.actionRetry) { [weak self] in
+                                                     self?.process(viewAction: .retryDeviceSecurity)
+                                                 })
         default:
             state.bindings.alertInfo = AlertInfo(id: .unknown)
         }

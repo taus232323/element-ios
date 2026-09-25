@@ -329,22 +329,23 @@ extension AuthenticationService {
 
     func startNativePasswordReset(email: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
         guard let homeserverURL = nativeAuthHomeserverURL else { return .failure(.failedLoggingIn) }
-        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedEmail.isEmpty else {
+        let trimmedIdentifier = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedIdentifier.isEmpty else {
             return .failure(.invalidEmail)
         }
 
         let pendingPasswordReset = PendingNativePasswordReset(homeserverUrl: homeserverURL,
-                                                              email: trimmedEmail,
+                                                              email: trimmedIdentifier,
                                                               clientSecret: UUID().uuidString,
                                                               sendAttempt: 1,
                                                               sid: nil)
         do {
-            let response: NativeAuthSidOnlyResponse = try await performNativeAuthRequest(path: "_matrix/client/v3/account/password/email/requestToken",
-                                                                                         body: NativeAuthRegistrationEmailRequest(clientSecret: pendingPasswordReset.clientSecret,
-                                                                                                                                  email: pendingPasswordReset.email,
-                                                                                                                                  sendAttempt: pendingPasswordReset.sendAttempt))
-            return .success(pendingPasswordReset.with(sid: response.sid))
+            // Arcana extends requestToken with a resolved `email` when the client sent a login.
+            let response: NativeAuthSidResponse = try await performNativeAuthRequest(path: "_matrix/client/v3/account/password/email/requestToken",
+                                                                                     body: NativeAuthRegistrationEmailRequest(clientSecret: pendingPasswordReset.clientSecret,
+                                                                                                                              email: pendingPasswordReset.email,
+                                                                                                                              sendAttempt: pendingPasswordReset.sendAttempt))
+            return .success(pendingPasswordReset.with(sid: response.sid, email: response.email ?? trimmedIdentifier))
         } catch let error as NativeAuthFailure {
             return .failure(error.serviceError)
         } catch {
@@ -389,12 +390,12 @@ extension AuthenticationService {
     func resendNativePasswordResetEmail(_ pendingPasswordReset: PendingNativePasswordReset) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
         let updated = pendingPasswordReset.resending()
         do {
-            let response: NativeAuthSidOnlyResponse = try await performNativeAuthRequest(baseURL: updated.homeserverUrl,
-                                                                                         path: "_matrix/client/v3/account/password/email/requestToken",
-                                                                                         body: NativeAuthRegistrationEmailRequest(clientSecret: updated.clientSecret,
-                                                                                                                                  email: updated.email,
-                                                                                                                                  sendAttempt: updated.sendAttempt))
-            return .success(updated.with(sid: response.sid))
+            let response: NativeAuthSidResponse = try await performNativeAuthRequest(baseURL: updated.homeserverUrl,
+                                                                                     path: "_matrix/client/v3/account/password/email/requestToken",
+                                                                                     body: NativeAuthRegistrationEmailRequest(clientSecret: updated.clientSecret,
+                                                                                                                              email: updated.email,
+                                                                                                                              sendAttempt: updated.sendAttempt))
+            return .success(updated.with(sid: response.sid, email: response.email ?? updated.email))
         } catch let error as NativeAuthFailure {
             return .failure(error.serviceError)
         } catch {
@@ -423,50 +424,93 @@ private extension AuthenticationService {
         try await client.restoreSession(session: session)
     }
 
-    /// Restore is done; start sync then bootstrap identity. Cross-signing reset requires E2EE
-    /// initialisation, which only happens after the first sync.
+    /// Restore is done and sync started. Cross-signing bootstrap is a separate step
+    /// (`bootstrapNativeDeviceIdentity`) shown as an explicit "Setting up encryption" UI.
     func completeNativeSession(client: ClientProtocol, identityBootstrapPassword: String) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
         let sessionResult = await userSession(for: client)
         if case .success(let userSession) = sessionResult {
             userSession.clientProxy.startSync()
-            await ensureDeviceIdentityVerified(client: client, password: identityBootstrapPassword)
+            // Password is used by the caller for the dedicated encryption bootstrap step.
+            _ = identityBootstrapPassword
         }
         return sessionResult
     }
 
+    /// Public entry used by login/registration screens after the session exists.
+    func bootstrapNativeDeviceIdentity(password: String) async -> Result<Void, AuthenticationServiceError> {
+        guard let client else {
+            return .failure(.deviceIdentityBootstrapFailed)
+        }
+        let succeeded = await ensureDeviceIdentityVerified(client: client, password: password)
+        return succeeded ? .success(()) : .failure(.deviceIdentityBootstrapFailed)
+    }
+
+    private static let identityBootstrapAttempts = 3
+
     /// If the session is not cross-signed yet, reset identity with the account password so this
     /// device becomes the verified owner device (Arcana email-login trust model).
     ///
-    /// Must run after sync has started. Do not wait for `.verified` after the reset — that status
-    /// can lag until a later sync and previously hung the email-confirm spinner.
-    func ensureDeviceIdentityVerified(client: ClientProtocol, password: String) async {
+    /// Must run after sync has started. Retries when E2EE is not ready yet.
+    /// - Returns: `true` when the device is verified or identity reset completed successfully.
+    @discardableResult
+    func ensureDeviceIdentityVerified(client: ClientProtocol, password: String) async -> Bool {
         let encryption = client.encryption()
         await waitForE2eeInitialization(encryption)
         guard encryption.verificationState() != .verified else {
             MXLog.info("Session already verified, skipping identity bootstrap")
-            return
+            return true
         }
-        MXLog.info("Bootstrapping crypto identity after email auth")
+
+        for attempt in 1...Self.identityBootstrapAttempts {
+            if encryption.verificationState() == .verified { return true }
+            MXLog.info("Bootstrapping crypto identity after email auth (attempt \(attempt)/\(Self.identityBootstrapAttempts))")
+            let succeeded = await bootstrapIdentityOnce(client: client, encryption: encryption, password: password)
+            if succeeded {
+                // Best-effort: let verified status catch up.
+                for _ in 0..<20 {
+                    if encryption.verificationState() == .verified {
+                        MXLog.info("Session verified after identity bootstrap")
+                        return true
+                    }
+                    try? await Task.sleep(for: .milliseconds(250))
+                }
+                // Keys were uploaded; treat as success even if status lags a sync cycle.
+                MXLog.warning("Identity bootstrap finished but verified status not yet observed")
+                return true
+            }
+            if attempt < Self.identityBootstrapAttempts {
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+        MXLog.error("Identity bootstrap failed after \(Self.identityBootstrapAttempts) attempts — device may remain unverified")
+        return false
+    }
+
+    /// - Returns: `true` when identity reset completed (with or without UIAA).
+    func bootstrapIdentityOnce(client: ClientProtocol, encryption: Encryption, password: String) async -> Bool {
         do {
             guard let handle = try await encryption.resetIdentity() else {
                 MXLog.info("Identity reset completed without interactive auth")
-                return
+                return true
             }
             switch handle.authType() {
             case .uiaa:
                 let userID = try client.userId()
                 try await handle.reset(auth: .password(passwordDetails: .init(identifier: userID, password: password)))
                 MXLog.info("Identity bootstrap with password succeeded")
+                return true
             case .oidc:
                 MXLog.warning("Identity reset requires OIDC — cannot auto-bootstrap for Arcana email login")
                 await handle.cancel()
+                return false
             }
         } catch {
             MXLog.error("Failed bootstrapping identity after email auth: \(error)")
+            return false
         }
     }
 
-    /// Wait until Olm is ready, or 15s. Status stays `.unknown` until E2EE init after sync.
+    /// Wait until Olm is ready, or ~15s. Status stays `.unknown` until E2EE init after sync.
     func waitForE2eeInitialization(_ encryption: Encryption) async {
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
@@ -541,8 +585,11 @@ private extension AuthenticationService {
             return .rateLimited(retryAfterMs: payload?.retryAfterMs)
         case "M_THREEPID_IN_USE":
             return .emailAlreadyInUse
-        case "M_THREEPID_DENIED":
+        case "M_THREEPID_DENIED", "M_THREEPID_NOT_FOUND":
+            // Password reset returns NOT_FOUND when the email is not linked to an account.
             return .invalidEmail
+        case "M_THREEPID_AUTH_FAILED":
+            return .invalidVerificationCode
         case "M_INVALID_USERNAME":
             return .invalidUsername
         case "M_USER_IN_USE":
@@ -678,9 +725,9 @@ private extension PendingNativeRegistration {
 }
 
 private extension PendingNativePasswordReset {
-    func with(sid: String) -> PendingNativePasswordReset {
+    func with(sid: String, email: String? = nil) -> PendingNativePasswordReset {
         .init(homeserverUrl: homeserverUrl,
-              email: email,
+              email: email ?? self.email,
               clientSecret: clientSecret,
               sendAttempt: sendAttempt,
               sid: sid)

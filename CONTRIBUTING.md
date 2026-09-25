@@ -24,7 +24,7 @@ Only once all of the above is met should you open a PR with your proposed change
 It's mandatory to have [homebrew](https://brew.sh/) installed on your mac, and run after the checkout:
 
 ```
-swift run tools setup-project
+swift run --package-path Tools tools setup-project
 ```
 
 This will:
@@ -47,24 +47,24 @@ Dependencies will be automatically fetched through the Swift Package Manager, in
 To setup the RustSDK in local development mode run the following command
 
 ```
-swift run tools build-sdk
+swift run --package-path Tools tools build-sdk
 ```
 
 This will clone a copy of the SDK if needed, build it for all supported architectures and configure Element X to use the built framework. To learn about additional options run
 
 ```
-swift run tools build-sdk --help
+swift run --package-path Tools tools build-sdk --help
 ```
 
 ### Tools
 
-The project depends on some tools for the build process which are normally installed through `swift run tools setup-project`. Installing them manually though is as easy as copying what the [script does](https://github.com/element-hq/element-x-ios/blob/develop/Tools/Sources/SetupProject.swift)
+The project depends on some tools for the build process which are normally installed through `swift run --package-path Tools tools setup-project`. Installing them manually though is as easy as copying what the [script does](https://github.com/element-hq/element-x-ios/blob/develop/Tools/Sources/SetupProject.swift)
 
 ```
 brew install [...]
 ```
 
-Git LFS is used to store UI and Preview test snapshots. `swift run tools setup-project` will already install it, however it can also be installed after a checkout by running:
+Git LFS is used to store UI and Preview test snapshots. `swift run --package-path Tools tools setup-project` will already install it, however it can also be installed after a checkout by running:
 
 ```
 git lfs install
@@ -76,7 +76,7 @@ If you make changes to the UI you may cause existing UI and Preview test snapsho
 
 ### Githooks
 
-The project uses its own shared githooks stored in the .githooks folder, you will need to configure git to use such folder, this is already done if you have run the setup tool with `swift run tools setup-project` otherwise you would need to run:
+The project uses its own shared githooks stored in the .githooks folder, you will need to configure git to use such folder, this is already done if you have run the setup tool with `swift run --package-path Tools tools setup-project` otherwise you would need to run:
 
 ```
 git config core.hooksPath .githooks
@@ -90,13 +90,13 @@ Please read the [Android docs](https://github.com/element-hq/element-x-android/b
 
 Please do **not** manually edit the `Localizable.strings`, `Localizable.stringsdict` or `InfoPlist.strings` files! If your PR requires new strings to be added, add the `en` values to `Untranslated.strings`/`Untranslated.stringsdict` and one of the team will transfer them over to Localazy for you.
 
-Once the strings have been added to Localazy, they can be downloaded by running `swift run tools download-strings`.
+Once the strings have been added to Localazy, they can be downloaded by running `swift run --package-path Tools tools download-strings`.
 
 ### Continuous Integration
 
 Element X uses a suite of Swift command line tools for running actions on the CI and tries to keep the configuration confined to [Tools/Sources](Tools/Sources) alongside the project's [xcodegen](project.yml) configuration.
 
-Please run `swift run tools ci --help` to see available options.
+Please run `swift run --package-path Tools tools ci --help` to see available options.
 
 Note: We are in the process of converting our Fastlane lanes to Swift and so long-term are intending to remove Fastlane from the project all together.
 

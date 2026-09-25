@@ -13,8 +13,8 @@ var dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/apple/swift-log", .upToNextMinor(from: "1.10.1"))
 ]
 
-if FileManager.default.fileExists(atPath: "Enterprise/Pipeline/Package.swift") {
-    dependencies.append(.package(path: "./enterprise/pipeline"))
+if FileManager.default.fileExists(atPath: "../Enterprise/Pipeline/Package.swift") {
+    dependencies.append(.package(path: "../enterprise/pipeline"))
 }
 
 let package = Package(
@@ -35,6 +35,6 @@ let package = Package(
                             .product(name: "Yams", package: "Yams"),
                             .product(name: "Logging", package: "swift-log")
                           ],
-                          path: "Tools/Sources")
+                          path: "Sources")
     ]
 )

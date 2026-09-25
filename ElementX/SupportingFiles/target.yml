@@ -170,7 +170,7 @@ targets:
         if which sourcery >/dev/null; then
             sourcery --config Tools/Sourcery/AutoMockableConfig.yml
         else
-            echo "warning: Sourcery not installed, run swift run tools setup-project"
+            echo "warning: Sourcery not installed, run swift run --package-path Tools tools setup-project"
         fi
 
     - name: 🧙 Sourcery - Generate preview tests
@@ -182,7 +182,7 @@ targets:
         if which sourcery >/dev/null; then
             sourcery --config Tools/Sourcery/PreviewTestsConfig.yml
         else
-            echo "warning: Sourcery not installed, run swift run tools setup-project"
+            echo "warning: Sourcery not installed, run swift run --package-path Tools tools setup-project"
         fi
         
     - name: 🧙 Sourcery - Generate Accessibility Tests
@@ -195,7 +195,7 @@ targets:
             sourcery --config Tools/Sourcery/TestablePreviewsDictionary.yml
             sourcery --config Tools/Sourcery/AccessibilityTests.yml
         else
-            echo "warning: Sourcery not installed, run swift run tools setup-project"
+            echo "warning: Sourcery not installed, run swift run --package-path Tools tools setup-project"
         fi
 
     postBuildScripts:

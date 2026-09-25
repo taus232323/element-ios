@@ -43,7 +43,7 @@ jobs:
         run: source ci_scripts/ci_common.sh && setup_github_actions_environment
 
       - name: Run preview tests in recording mode
-        run: swift run -q tools ci preview-tests --record
+        run: swift run --package-path Tools -q tools ci preview-tests --record
 
       - name: Commit and push updated snapshots
         run: |
