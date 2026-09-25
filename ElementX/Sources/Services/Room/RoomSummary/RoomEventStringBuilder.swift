@@ -21,7 +21,7 @@ struct RoomEventStringBuilder {
     }
     
     func buildAttributedString(for content: TimelineItemContent, sender: TimelineItemSender, isOutgoing: Bool) -> AttributedString? {
-        let displayName = sender.disambiguatedDisplayName ?? sender.id
+        let displayName = sender.disambiguatedDisplayName ?? sender.displayableID
         
         switch content {
         case .msgLike(let messageLikeContent):

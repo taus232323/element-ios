@@ -26,7 +26,7 @@ struct RoomStateEventStringBuilder {
         let senderIsYou = isOutgoing
         let memberIsYou = memberUserID == userID
         let member = memberDisplayName ?? memberUserID
-        let senderDisplayName = sender.disambiguatedDisplayName ?? sender.id
+        let senderDisplayName = sender.disambiguatedDisplayName ?? sender.displayableID
         
         switch change {
         case .joined:
@@ -133,7 +133,7 @@ struct RoomStateEventStringBuilder {
     }
     
     func buildString(for state: OtherState, sender: TimelineItemSender, isOutgoing: Bool) -> String? {
-        let displayName = sender.disambiguatedDisplayName ?? sender.id
+        let displayName = sender.disambiguatedDisplayName ?? sender.displayableID
         
         switch state {
         case .roomAvatar(let url):

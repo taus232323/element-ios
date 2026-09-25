@@ -152,7 +152,7 @@ struct NativeRegistrationScreen: View {
                 .submitLabel(.done)
                 .onSubmit(submit)
             case .securingDevice:
-                HStack {
+                HStack(spacing: 0) {
                     Spacer()
                     ProgressView()
                         .controlSize(.large)

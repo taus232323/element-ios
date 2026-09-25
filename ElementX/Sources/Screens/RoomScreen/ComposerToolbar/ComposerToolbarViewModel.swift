@@ -414,7 +414,7 @@ final class ComposerToolbarViewModel: ComposerToolbarViewModelType, ComposerTool
                 
                 if let userID = attributedString.attribute(.MatrixUserID, at: range.location, effectiveRange: nil) as? String {
                     let displayName = attributedString.attribute(.MatrixUserDisplayName, at: range.location, effectiveRange: nil)
-                    attributedString.replaceCharacters(in: range, with: "[\(displayName ?? userID)](\(value))")
+                    attributedString.replaceCharacters(in: range, with: "[\(displayName ?? userID.matrixDisplayNameWithAt)](\(value))")
                     userIDs.insert(userID)
                     stop.pointee = true
                 } else if let roomAlias = attributedString.attribute(.MatrixRoomAlias, at: range.location, effectiveRange: nil) as? String {

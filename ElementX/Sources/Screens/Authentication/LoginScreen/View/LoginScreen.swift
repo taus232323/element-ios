@@ -183,7 +183,7 @@ struct LoginScreen: View {
                 .accessibilityIdentifier(A11yIdentifiers.loginScreen.continue)
 
             case .securingDevice:
-                HStack {
+                HStack(spacing: 0) {
                     Spacer()
                     ProgressView()
                         .controlSize(.large)

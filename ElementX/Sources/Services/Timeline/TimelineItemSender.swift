@@ -39,11 +39,16 @@ struct TimelineItemSender: Identifiable, Hashable {
         }
     }
         
+    /// User ID shown in the UI without the homeserver suffix (`@alice:celesteai.ru` → `@alice`).
+    var displayableID: String {
+        id.matrixDisplayNameWithAt
+    }
+    
     var disambiguatedDisplayName: String? {
         guard let displayName else {
             return nil
         }
         
-        return isDisplayNameAmbiguous ? "\(displayName) (\(id))" : displayName
+        return isDisplayNameAmbiguous ? "\(displayName) (\(displayableID))" : displayName
     }
 }

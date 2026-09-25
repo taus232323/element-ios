@@ -633,7 +633,7 @@ struct RoomTimelineItemFactory: RoomTimelineItemFactoryProtocol {
     }
     
     private func buildEmoteTimelineItemContent(senderDisplayName: String?, senderID: String, messageContent: EmoteMessageContent) -> EmoteRoomTimelineItemContent {
-        let name = senderDisplayName ?? senderID
+        let name = senderDisplayName ?? senderID.matrixDisplayNameWithAt
         
         let htmlBody = messageContent.formatted?.format == .html ? messageContent.formatted?.body : nil
 

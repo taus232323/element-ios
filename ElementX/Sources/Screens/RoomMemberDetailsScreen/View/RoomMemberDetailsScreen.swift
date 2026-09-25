@@ -69,11 +69,11 @@ struct RoomMemberDetailsScreen: View {
     private var withdrawVerificationSection: some View {
         VStack(spacing: 16) {
             if let memberDetails = context.viewState.memberDetails {
-                Text(L10n.cryptoIdentityChangeProfilePinViolation(memberDetails.name ?? memberDetails.id))
+                Text(L10n.cryptoIdentityChangeProfilePinViolation(memberDetails.name ?? memberDetails.id.matrixDisplayNameWithAt))
                     .foregroundStyle(.compound.textCriticalPrimary)
                     .font(.compound.bodyMDSemibold)
             } else {
-                Text(L10n.cryptoIdentityChangeProfilePinViolation(context.viewState.userID))
+                Text(L10n.cryptoIdentityChangeProfilePinViolation(context.viewState.userID.matrixDisplayNameWithAt))
                     .foregroundStyle(.compound.textCriticalPrimary)
                     .font(.compound.bodyMDSemibold)
             }

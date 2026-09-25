@@ -29,7 +29,7 @@ final class RoomMemberProxy: RoomMemberProxyProtocol, @unchecked Sendable {
             return nil
         }
         
-        return member.isNameAmbiguous ? "\(displayName) (\(userID))" : displayName
+        return member.isNameAmbiguous ? "\(displayName) (\(userID.matrixDisplayNameWithAt))" : displayName
     }
     
     var avatarURL: URL? {

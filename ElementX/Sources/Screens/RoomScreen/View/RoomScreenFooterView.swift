@@ -121,7 +121,7 @@ struct RoomScreenFooterView: View {
         let displayName = displayName ?? fallbackDisplayName(userID)
         var description = AttributedString(L10n.cryptoIdentityChangePinViolationNew(displayName, userIDPlaceholder, linkPlaceholder))
         
-        var userIDString = AttributedString(L10n.cryptoIdentityChangePinViolationNewUserId(userID))
+        var userIDString = AttributedString(L10n.cryptoIdentityChangePinViolationNewUserId(userID.matrixDisplayNameWithAt))
         userIDString.bold()
         description.replace(userIDPlaceholder, with: userIDString)
         
@@ -138,7 +138,7 @@ struct RoomScreenFooterView: View {
         let displayName = displayName ?? fallbackDisplayName(userID)
         var description = AttributedString(L10n.cryptoIdentityChangeVerificationViolationNew(displayName, userIDPlaceholder, linkPlaceholder))
         
-        var userIDString = AttributedString(L10n.cryptoIdentityChangePinViolationNewUserId(userID))
+        var userIDString = AttributedString(L10n.cryptoIdentityChangePinViolationNewUserId(userID.matrixDisplayNameWithAt))
         userIDString.bold()
         description.replace(userIDPlaceholder, with: userIDString)
         

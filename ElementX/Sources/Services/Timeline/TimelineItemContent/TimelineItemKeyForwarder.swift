@@ -30,9 +30,9 @@ struct TimelineItemKeyForwarder: Identifiable, Hashable {
     
     var message: String {
         if let displayName {
-            L10n.cryptoEventKeyForwardedKnownProfileDialogContent(displayName, id)
+            L10n.cryptoEventKeyForwardedKnownProfileDialogContent(displayName, id.matrixDisplayNameWithAt)
         } else {
-            L10n.cryptoEventKeyForwardedUnknownProfileDialogContent(id)
+            L10n.cryptoEventKeyForwardedUnknownProfileDialogContent(id.matrixDisplayNameWithAt)
         }
     }
 }

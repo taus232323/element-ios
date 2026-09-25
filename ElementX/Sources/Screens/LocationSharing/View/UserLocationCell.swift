@@ -23,7 +23,7 @@ struct UserLocationCell: View {
     }
     
     private var name: String {
-        isOwnUser ? L10n.commonYou : profile.displayName ?? profile.userID
+        isOwnUser ? L10n.commonYou : profile.displayName ?? profile.displayableUserID
     }
     
     var body: some View {

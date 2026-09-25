@@ -133,7 +133,7 @@ private struct MultipleKnockRequestsBannerContent: View {
             return ""
         }
         
-        let string = first.displayName ?? first.userID
+        let string = first.displayName ?? first.userID.matrixDisplayNameWithAt
         return L10n.tr("Localizable", "screen_room_multiple_knock_requests_title", string, avatars.count - 1)
     }
     

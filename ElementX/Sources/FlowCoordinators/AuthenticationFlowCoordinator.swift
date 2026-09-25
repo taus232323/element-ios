@@ -264,7 +264,11 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                 case .signedIn(let userSession):
                     stateMachine.tryEvent(.signedIn, userInfo: userSession)
                 case .cancel:
+                    // Pop first so the UI returns immediately; dismissal callback (or this event)
+                    // keeps the state machine in sync. Guard in handlePasswordLoginDismissal
+                    // prevents a double transition if both paths run.
                     navigationStackCoordinator.pop()
+                    stateMachine.tryEvent(.cancelledPasswordLogin(previousState: fromState))
                 case .forgotPassword(let initialEmail):
                     self.showPasswordResetScreen(initialEmail: initialEmail)
                 }
@@ -310,6 +314,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                     stateMachine.tryEvent(.signedIn, userInfo: userSession)
                 case .cancel:
                     navigationStackCoordinator.pop()
+                    stateMachine.tryEvent(.cancelledNativeRegistration(previousState: fromState))
                 }
             }
             .store(in: &cancellables)

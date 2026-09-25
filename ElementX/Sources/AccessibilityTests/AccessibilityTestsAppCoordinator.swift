@@ -158,7 +158,11 @@ struct PreviewsWrapperView: View {
                 .timeout(.seconds(1), scheduler: DispatchQueue.main)
                 .values.first { $0 == true }
         case .sequence(let sequence):
-            _ = await sequence.first { $0 == true }
+            // Iterate instead of `.first` — existential AsyncSequence conformance may be
+            // actor-isolated and cannot be passed into the stdlib `@concurrent` first(where:).
+            for await value in sequence where value {
+                break
+            }
         case .none:
             break
         }

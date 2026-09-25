@@ -41,7 +41,7 @@ extension RoomMemberProxyProtocol {
     /// it exists otherwise it will be the userID with the leading `@` removed.
     var sortingName: String {
         // If there isn't a displayname we sort by the userID without the @.
-        (displayName ?? String(userID.dropFirst())).lowercased()
+        (displayName ?? userID.matrixDisplayNameWithAt).lowercased()
     }
 }
 

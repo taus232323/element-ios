@@ -30,7 +30,7 @@ struct RoomChangeRolesScreenSelectedItem: View {
         VStack(spacing: 4) {
             avatar
             
-            Text(member.name ?? member.id)
+            Text(member.name ?? member.id.matrixDisplayNameWithAt)
                 .font(.compound.bodyMD)
                 .foregroundColor(.compound.textPrimary)
                 .lineLimit(1)

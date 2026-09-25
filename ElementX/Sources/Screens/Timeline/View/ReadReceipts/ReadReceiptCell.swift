@@ -14,7 +14,7 @@ struct ReadReceiptCell: View {
     let mediaProvider: MediaProviderProtocol?
     
     private var title: String {
-        memberState?.displayName ?? readReceipt.userID
+        memberState?.displayName ?? readReceipt.userID.matrixDisplayNameWithAt
     }
     
     private var subtitle: String {

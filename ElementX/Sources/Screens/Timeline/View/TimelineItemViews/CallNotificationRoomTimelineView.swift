@@ -18,14 +18,14 @@ struct CallNotificationRoomTimelineView: View {
     var body: some View {
         HStack(spacing: 12) {
             LoadableAvatarImage(url: timelineItem.sender.avatarURL,
-                                name: timelineItem.sender.displayName ?? timelineItem.sender.id,
+                                name: timelineItem.sender.displayName ?? timelineItem.sender.displayableID,
                                 contentID: timelineItem.sender.id,
                                 avatarSize: .user(on: .timeline),
                                 mediaProvider: context?.mediaProvider)
                 .accessibilityHidden(true)
             
             VStack(alignment: .leading, spacing: 0) {
-                Text(timelineItem.sender.disambiguatedDisplayName ?? timelineItem.sender.id)
+                Text(timelineItem.sender.disambiguatedDisplayName ?? timelineItem.sender.displayableID)
                     .font(.compound.bodyLGSemibold)
                     .foregroundColor(.compound.textPrimary)
                     .lineLimit(1)

@@ -254,7 +254,7 @@ class JoinRoomScreenViewModel: JoinRoomScreenViewModelType, JoinRoomScreenViewMo
             case .knocked:
                 state.mode = .knocked
             case .banned:
-                state.mode = .banned(sender: membershipDetails?.senderRoomMember?.displayName ?? membershipDetails?.senderRoomMember?.userID,
+                state.mode = .banned(sender: membershipDetails?.senderRoomMember?.displayName ?? membershipDetails?.senderRoomMember?.userID.matrixDisplayNameWithAt,
                                      reason: membershipDetails?.ownRoomMember.membershipChangeReason)
             default:
                 switch roomPreview.info.joinRule {

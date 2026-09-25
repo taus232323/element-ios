@@ -86,7 +86,7 @@ class ManageRoomMemberSheetViewModel: ManageRoomMemberSheetViewModelType, Manage
     }
     
     private func kickMember(id: String, name: String?, reason: String?) async {
-        let indicatorTitle = L10n.screenBottomSheetManageRoomMemberRemovingUser(name ?? id)
+        let indicatorTitle = L10n.screenBottomSheetManageRoomMemberRemovingUser(name ?? id.matrixDisplayNameWithAt)
         showManageMemberIndicator(title: indicatorTitle)
         
         switch await roomProxy.kickUser(id, reason: reason) {
@@ -100,7 +100,7 @@ class ManageRoomMemberSheetViewModel: ManageRoomMemberSheetViewModelType, Manage
     }
     
     private func banMember(id: String, name: String?, reason: String?) async {
-        let indicatorTitle = L10n.screenBottomSheetManageRoomMemberBanningUser(name ?? id)
+        let indicatorTitle = L10n.screenBottomSheetManageRoomMemberBanningUser(name ?? id.matrixDisplayNameWithAt)
         showManageMemberIndicator(title: indicatorTitle)
         
         switch await roomProxy.banUser(id, reason: reason) {
@@ -114,7 +114,7 @@ class ManageRoomMemberSheetViewModel: ManageRoomMemberSheetViewModelType, Manage
     }
     
     private func unbanMember(id: String, name: String?) async {
-        let indicatorTitle = L10n.screenBottomSheetManageRoomMemberUnbanningUser(name ?? id)
+        let indicatorTitle = L10n.screenBottomSheetManageRoomMemberUnbanningUser(name ?? id.matrixDisplayNameWithAt)
         showManageMemberIndicator(title: indicatorTitle)
         
         switch await roomProxy.unbanUser(id) {
