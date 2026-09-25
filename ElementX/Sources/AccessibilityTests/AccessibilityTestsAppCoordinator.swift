@@ -158,10 +158,21 @@ struct PreviewsWrapperView: View {
                 .timeout(.seconds(1), scheduler: DispatchQueue.main)
                 .values.first { $0 == true }
         case .sequence(let sequence):
-            // Iterate instead of `.first` — existential AsyncSequence conformance may be
-            // actor-isolated and cannot be passed into the stdlib `@concurrent` first(where:).
-            for await value in sequence where value {
-                break
+            // Avoid AsyncSequence.first(where:) — existential conformance may be actor-isolated
+            // and fails against the stdlib `@concurrent` first(where:). A for-await loop is
+            // equivalent; add the same 1s timeout as the publisher path so we don't hang if
+            // the sequence never emits `true`.
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { @MainActor in
+                    for await value in sequence where value {
+                        return
+                    }
+                }
+                group.addTask {
+                    try? await Task.sleep(for: .seconds(1))
+                }
+                _ = await group.next()
+                group.cancelAll()
             }
         case .none:
             break

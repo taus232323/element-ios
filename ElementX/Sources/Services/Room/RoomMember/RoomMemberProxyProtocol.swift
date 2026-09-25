@@ -40,8 +40,14 @@ extension RoomMemberProxyProtocol {
     /// The name used for sorting the member alphabetically. This will be the displayname if,
     /// it exists otherwise it will be the userID with the leading `@` removed.
     var sortingName: String {
-        // If there isn't a displayname we sort by the userID without the @.
-        (displayName ?? userID.matrixDisplayNameWithAt).lowercased()
+        if let displayName {
+            return displayName.lowercased()
+        }
+        
+        // Sort by localpart without `@` and without the homeserver suffix.
+        let localpartWithAt = userID.matrixDisplayNameWithAt
+        let localpart = localpartWithAt.hasPrefix("@") ? String(localpartWithAt.dropFirst()) : localpartWithAt
+        return localpart.lowercased()
     }
 }
 
