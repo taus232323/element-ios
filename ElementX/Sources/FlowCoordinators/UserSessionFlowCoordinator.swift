@@ -320,7 +320,11 @@ class UserSessionFlowCoordinator: FlowCoordinatorProtocol {
             case .clearCache:
                 actionsSubject.send(.clearCache)
             case .runLogoutFlow:
-                Task {
+                Task { [weak self] in
+                    guard let self else {
+                        MXLog.error("Logout flow skipped: UserSessionFlowCoordinator was deallocated")
+                        return
+                    }
                     navigationTabCoordinator.setSheetCoordinator(nil)
                     
                     // The sheet needs to be dismissed before the alert can be shown.

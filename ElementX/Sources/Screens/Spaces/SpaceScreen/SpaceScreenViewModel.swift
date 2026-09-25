@@ -78,7 +78,7 @@ class SpaceScreenViewModel: SpaceScreenViewModelType, SpaceScreenViewModelProtoc
     }
 
     private func configureJoinedSpaceRoom() async {
-        guard case let .joined(roomProxy) = await userSession.clientProxy.roomForIdentifier(spaceRoomListProxy.id) else {
+        guard case let .joined(roomProxy) = await clientProxy.roomForIdentifier(spaceRoomListProxy.id) else {
             MXLog.error("Joined room proxy unavailable for space \(spaceRoomListProxy.id)")
             return
         }
