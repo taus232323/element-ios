@@ -172,6 +172,11 @@ final class AppSettings: @unchecked Sendable {
         self.bugReportApplicationID = bugReportApplicationID
         self.analyticsTermsURL = analyticsTermsURL
         self.mapTilerConfiguration = mapTilerConfiguration
+        
+        // Live location requires UIBackgroundModes location / Always authorization.
+        // Disabled for App Store compliance (Guideline 2.5.4); static pin sharing remains.
+        liveLocationSharingEnabled = false
+        liveLocationSharingTimeoutDatesByRoomID.removeAll()
     }
     
     // MARK: - Application

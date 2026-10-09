@@ -1168,7 +1168,7 @@ class RoomFlowCoordinator: FlowCoordinatorProtocol {
         
         let params = LocationSharingScreenCoordinatorParameters(interactionMode: interactionMode,
                                                                 mapURLBuilder: flowParameters.appSettings.mapTilerConfiguration,
-                                                                liveLocationSharingEnabled: flowParameters.appSettings.liveLocationSharingEnabled,
+                                                                liveLocationSharingEnabled: false,
                                                                 roomProxy: roomProxy,
                                                                 timelineController: timelineController,
                                                                 liveLocationManager: flowParameters.userSession.liveLocationManager,

@@ -204,6 +204,8 @@ final class LiveLocationManagerTests {
     
     private func setUp(accuracyAuthorization: CLAccuracyAuthorization = .fullAccuracy) {
         appSettings = AppSettings()
+        // AppSettings forces this off for App Store builds; re-enable for manager unit tests.
+        appSettings.liveLocationSharingEnabled = true
         clientProxy = ClientProxyMock(.init())
         locationManagerMock = CLLocationManagerMock(.init(accuracyAuthorization: accuracyAuthorization))
         manager = LiveLocationManager(clientProxy: clientProxy, appSettings: appSettings, locationManager: locationManagerMock)

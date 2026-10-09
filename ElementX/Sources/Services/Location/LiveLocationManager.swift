@@ -44,18 +44,20 @@ class LiveLocationManager: NSObject, LiveLocationManagerProtocol, CLLocationMana
         
         super.init()
         
-        // Configure CLLocationManager for continuous background tracking.
+        // Live location sharing is disabled for App Store builds (no UIBackgroundModes location).
+        // Keep CLLocationManager foreground-only so we never claim persistent background location.
         self.locationManager.delegate = self
-        self.locationManager.allowsBackgroundLocationUpdates = true
-        self.locationManager.showsBackgroundLocationIndicator = true
-        
-        // Since unpausing location updates is not trivial, let's always keep the location updates running
-        // The distance filtering will already take care of not sending updates when not required.
-        // https://developer.apple.com/documentation/corelocation/cllocationmanager/pauseslocationupdatesautomatically
-        self.locationManager.pausesLocationUpdatesAutomatically = false
+        self.locationManager.allowsBackgroundLocationUpdates = false
+        self.locationManager.showsBackgroundLocationIndicator = false
+        self.locationManager.pausesLocationUpdatesAutomatically = true
         
         setupMinimumDistanceUpdatesAndAccuracy(minimumDistance: appSettings.liveLocationMinimumDistanceUpdate)
         setupSubscriptions()
+        
+        // Ensure any previously enabled sessions are cleared.
+        if !appSettings.liveLocationSharingEnabled {
+            appSettings.liveLocationSharingTimeoutDatesByRoomID.removeAll()
+        }
     }
 
     // MARK: - LiveLocationManagerProtocol
@@ -71,13 +73,16 @@ class LiveLocationManager: NSObject, LiveLocationManagerProtocol, CLLocationMana
     
     @discardableResult
     func requestAlwaysAuthorizationIfPossible() -> Bool {
-        guard !appSettings.hasRequestedLocationAlwaysLocationAuthorization else { return false }
-        appSettings.hasRequestedLocationAlwaysLocationAuthorization = true
-        locationManager.requestAlwaysAuthorization()
-        return true
+        // Always authorization / background location is not shipped.
+        false
     }
     
     func startLiveLocation(roomID: String, duration: Duration) async -> Result<Void, LiveLocationManagerError> {
+        guard appSettings.liveLocationSharingEnabled else {
+            MXLog.error("Live location sharing is disabled")
+            return .failure(.startFailed)
+        }
+        
         // Stop any existing session for this room first
         var didAlreadyStopLocalSession = false
         if appSettings.liveLocationSharingTimeoutDatesByRoomID[roomID] != nil {
