@@ -447,43 +447,112 @@ private extension AuthenticationService {
 
     private static let identityBootstrapAttempts = 3
 
-    /// If the session is not cross-signed yet, reset identity with the account password so this
-    /// device becomes the verified owner device (Arcana email-login trust model).
+    /// Opens an existing key backup with the account password, or creates one on the first device.
+    ///
+    /// A server backup must never be replaced by `resetIdentity()`: that backup holds the Megolm
+    /// keys for historical messages, and a new cross-signing identity cannot read it. The account
+    /// password is the recovery passphrase so a later device can call `recoverAndFixBackup` without
+    /// a separate recovery key.
     ///
     /// Must run after sync has started. Retries when E2EE is not ready yet.
-    /// - Returns: `true` when the device is verified or identity reset completed successfully.
+    /// - Returns: `true` when this device can read history, or there was no history to restore and a password backup was created.
     @discardableResult
     func ensureDeviceIdentityVerified(client: ClientProtocol, password: String) async -> Bool {
         let encryption = client.encryption()
         await waitForE2eeInitialization(encryption)
-        guard encryption.verificationState() != .verified else {
-            MXLog.info("Session already verified, skipping identity bootstrap")
-            return true
-        }
 
         for attempt in 1...Self.identityBootstrapAttempts {
-            if encryption.verificationState() == .verified { return true }
-            MXLog.info("Bootstrapping crypto identity after email auth (attempt \(attempt)/\(Self.identityBootstrapAttempts))")
-            let succeeded = await bootstrapIdentityOnce(client: client, encryption: encryption, password: password)
-            if succeeded {
-                // Best-effort: let verified status catch up.
-                for _ in 0..<20 {
-                    if encryption.verificationState() == .verified {
-                        MXLog.info("Session verified after identity bootstrap")
-                        return true
-                    }
-                    try? await Task.sleep(for: .milliseconds(250))
-                }
-                // Keys were uploaded; treat as success even if status lags a sync cycle.
-                MXLog.warning("Identity bootstrap finished but verified status not yet observed")
+            if await secureHistoryBackup(client: client, encryption: encryption, password: password) {
                 return true
             }
             if attempt < Self.identityBootstrapAttempts {
                 try? await Task.sleep(for: .seconds(2))
             }
         }
-        MXLog.error("Identity bootstrap failed after \(Self.identityBootstrapAttempts) attempts — device may remain unverified")
+        MXLog.error("Identity bootstrap failed after \(Self.identityBootstrapAttempts) attempts — historical messages may stay unavailable")
         return false
+    }
+
+    /// - Returns: `true` when the backup was opened or a new password backup was created.
+    func secureHistoryBackup(client: ClientProtocol, encryption: Encryption, password: String) async -> Bool {
+        if encryption.verificationState() == .verified, encryption.recoveryState() == .enabled {
+            MXLog.info("Session already verified and recovery is enabled")
+            return true
+        }
+
+        switch await existingKeyBackup(encryption) {
+        case .present:
+            if await recoverExistingBackup(encryption: encryption, password: password) {
+                return true
+            }
+            // This device already trusts the identity and holds room keys locally, but recovery
+            // was never wrapped with the account password. Publishing it does not discard keys
+            // this device has. An unverified device must not create a new backup over the old one.
+            if encryption.verificationState() == .verified, encryption.recoveryState() == .disabled {
+                MXLog.info("Account password did not open the backup; publishing password recovery from this verified device")
+                return await enablePasswordRecovery(encryption: encryption, password: password)
+            }
+            MXLog.error("Existing key backup could not be opened with the account password. Identity was not reset")
+            return false
+        case .unknown:
+            MXLog.error("Key backup state is unknown, refusing to reset identity")
+            return false
+        case .absent:
+            if encryption.verificationState() == .verified {
+                return await enablePasswordRecovery(encryption: encryption, password: password)
+            }
+            MXLog.info("No key backup on the server, creating a new identity and password recovery")
+            guard await bootstrapIdentityOnce(client: client, encryption: encryption, password: password) else {
+                return false
+            }
+            return await enablePasswordRecovery(encryption: encryption, password: password)
+        }
+    }
+
+    func recoverExistingBackup(encryption: Encryption, password: String) async -> Bool {
+        do {
+            try await encryption.recoverAndFixBackup(recoveryKey: password)
+            MXLog.info("Recovered key backup with the account password")
+            return true
+        } catch {
+            MXLog.error("Failed recovering key backup: \(error)")
+            return false
+        }
+    }
+
+    func enablePasswordRecovery(encryption: Encryption, password: String) async -> Bool {
+        do {
+            let listener = SDKListener<EnableRecoveryProgress> { _ in }
+            _ = try await encryption.enableRecovery(waitForBackupsToUpload: false,
+                                                    passphrase: password,
+                                                    progressListener: listener)
+            MXLog.info("Password recovery enabled")
+            return true
+        } catch {
+            MXLog.error("Failed enabling password recovery: \(error)")
+            return false
+        }
+    }
+
+    enum ExistingKeyBackup {
+        case present
+        case absent
+        case unknown
+    }
+
+    func existingKeyBackup(_ encryption: Encryption) async -> ExistingKeyBackup {
+        switch encryption.recoveryState() {
+        case .enabled, .incomplete:
+            return .present
+        case .disabled, .unknown:
+            break
+        }
+        do {
+            return try await encryption.backupExistsOnServer() ? .present : .absent
+        } catch {
+            MXLog.error("Failed checking whether a key backup exists: \(error)")
+            return .unknown
+        }
     }
 
     /// - Returns: `true` when identity reset completed (with or without UIAA).
