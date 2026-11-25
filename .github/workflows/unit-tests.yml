@@ -15,6 +15,9 @@ jobs:
     name: Tests
     runs-on: xcode-27
     timeout-minutes: 80
+    permissions:
+      contents: read
+      actions: write
 
     concurrency:
       # Only allow a single run of this workflow on each branch, automatically cancelling older runs.
@@ -24,6 +27,8 @@ jobs:
     steps:
       - uses: nschloe/action-cached-lfs-checkout@385a8ecc719e50b8c71af6ab01a624b486b7c3bc # v1.2.5
         with:
+          # Passed from the workflow: the action's own github.token default is empty under permissions: {}.
+          token: ${{ github.token }}
           persist-credentials: false
 
       - name: Setup environment

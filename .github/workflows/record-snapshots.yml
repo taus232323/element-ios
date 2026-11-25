@@ -37,6 +37,7 @@ jobs:
         with:
           # Check out the PR head commit (not the base branch).
           ref: ${{ github.event.pull_request.head.sha }}
+          token: ${{ github.token }}
           persist-credentials: true
 
       - name: Setup environment

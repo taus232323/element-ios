@@ -22,6 +22,9 @@ jobs:
   tests:
     runs-on: xcode-27
     timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: write
 
     concurrency:
       # When running on develop, use the sha to allow all runs of this workflow to run concurrently.
@@ -32,6 +35,7 @@ jobs:
     steps:
       - uses: nschloe/action-cached-lfs-checkout@385a8ecc719e50b8c71af6ab01a624b486b7c3bc # v1.2.5
         with:
+          token: ${{ github.token }}
           persist-credentials: false
 
       - name: Configure Xcode 27
