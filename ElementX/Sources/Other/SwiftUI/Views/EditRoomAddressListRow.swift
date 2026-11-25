@@ -35,10 +35,6 @@ struct EditRoomAddressListRow: View {
                     .padding(.horizontal, 8)
                     .accessibilityLabel(L10n.a11yAddress)
                     .accessibilityHint(L10n.a11yEditRoomAddressHint(fullAddress))
-                Text(":\(serverName)")
-                    .font(.compound.bodyLG)
-                    .foregroundStyle(.compound.textSecondary)
-                    .accessibilityHidden(true)
             }
             .padding(ListRowPadding.textFieldInsets)
             .environment(\.layoutDirection, .leftToRight)

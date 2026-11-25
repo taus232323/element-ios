@@ -229,8 +229,9 @@ class CreateRoomScreenViewModel: CreateRoomScreenViewModelType, CreateRoomScreen
                 state.aliasErrors = [.alreadyExists]
                 return
             case .failure:
-                state.bindings.alertInfo = AlertInfo(id: .unknown)
-                return
+                // Directory lookup can fail for an alias that does not exist yet.
+                // Android treats that as available and lets the homeserver reject a duplicate.
+                MXLog.error("Alias availability check failed, continuing with room creation")
             }
         }
         
@@ -268,6 +269,7 @@ class CreateRoomScreenViewModel: CreateRoomScreenViewModelType, CreateRoomScreen
                                                         avatarURL: avatarURL,
                                                         aliasLocalPart: state.roomAccessType.isVisibilityPrivate ? nil : state.aliasLocalPart) {
         case .success(let roomID):
+            userSession.clientProxy.roomsToAwait.insert(roomID)
             guard case let .joined(roomProxy) = await userSession.clientProxy.roomForIdentifier(roomID) else {
                 state.bindings.alertInfo = AlertInfo(id: .failedCreatingRoom,
                                                      title: L10n.commonError,
