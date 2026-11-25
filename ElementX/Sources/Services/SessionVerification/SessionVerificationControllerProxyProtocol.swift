@@ -31,7 +31,7 @@ enum SessionVerificationControllerProxyAction: Equatable {
 }
 
 struct SessionVerificationRequestDetails: Equatable {
-    let senderProfile: UserProfileProxy
+    let senderProfile: UserProfile
     let flowID: String
     let deviceID: String
     let deviceDisplayName: String?
@@ -39,11 +39,13 @@ struct SessionVerificationRequestDetails: Equatable {
 }
 
 struct SessionVerificationEmoji: Hashable {
+    /// The emoji's index in the spec's SAS emoji table.
+    let index: Int
     let symbol: String
     let description: String
     
     var localizedDescription: String {
-        SASL10n.localizedDescription(for: description.lowercased())
+        SASL10n.localizedDescription(for: index) ?? description
     }
 }
 
@@ -54,7 +56,7 @@ protocol SessionVerificationControllerProxyProtocol {
     func acknowledgeVerificationRequest(details: SessionVerificationRequestDetails) async -> Result<Void, SessionVerificationControllerProxyError>
     
     func acceptVerificationRequest() async -> Result<Void, SessionVerificationControllerProxyError>
-        
+    
     func requestDeviceVerification() async -> Result<Void, SessionVerificationControllerProxyError>
     
     func requestUserVerification(_ userID: String) async -> Result<Void, SessionVerificationControllerProxyError>

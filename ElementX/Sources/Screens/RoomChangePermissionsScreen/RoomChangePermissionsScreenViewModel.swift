@@ -15,7 +15,7 @@ typealias RoomChangePermissionsScreenViewModelType = StateStoreViewModelV2<RoomC
 class RoomChangePermissionsScreenViewModel: RoomChangePermissionsScreenViewModelType, RoomChangePermissionsScreenViewModelProtocol {
     private let roomProxy: JoinedRoomProxyProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
-    private let analytics: AnalyticsService
+    private let analytics: AnalyticsServiceProtocol
     
     private var actionsSubject: PassthroughSubject<RoomChangePermissionsScreenViewModelAction, Never> = .init()
     var actionsPublisher: AnyPublisher<RoomChangePermissionsScreenViewModelAction, Never> {
@@ -26,7 +26,7 @@ class RoomChangePermissionsScreenViewModel: RoomChangePermissionsScreenViewModel
          ownPowerLevel: RoomPowerLevel,
          roomProxy: JoinedRoomProxyProtocol,
          userIndicatorController: UserIndicatorControllerProtocol,
-         analytics: AnalyticsService) {
+         analytics: AnalyticsServiceProtocol) {
         self.roomProxy = roomProxy
         self.userIndicatorController = userIndicatorController
         self.analytics = analytics
@@ -67,7 +67,9 @@ class RoomChangePermissionsScreenViewModel: RoomChangePermissionsScreenViewModel
             .flatMap { $0 }
             .filter { state.currentPermissions[keyPath: $0.keyPath] != $0.value }
         for setting in changedSettings {
-            changes[keyPath: setting.rustKeyPath] = setting.value
+            for keyPath in setting.rustKeyPaths {
+                changes[keyPath: keyPath] = setting.value
+            }
         }
         
         switch await roomProxy.applyPowerLevelChanges(changes) {

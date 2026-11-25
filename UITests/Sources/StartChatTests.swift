@@ -14,7 +14,6 @@ class StartChatTests: XCTestCase {
         static let startChat = 1
         static let startChatWithResults = 2
         static let createRoom = 3
-        static let createRoomAvatarPicker = 4
         static let createRoomFilled = 5
         static let inviteUsers = 6
         static let inviteUsersWithResults = 7
@@ -34,11 +33,15 @@ class StartChatTests: XCTestCase {
         
         startChatSearchField.clearAndTypeText("\n", app: app)
         app.buttons[A11yIdentifiers.startChatScreen.createRoom].firstMatch.tap()
+        // On iPad the search field keeps focus on iOS 27, so the first tap can be swallowed while it resigns.
+        if !app.textFields[A11yIdentifiers.createRoomScreen.roomName].waitForExistence(timeout: 2.0) {
+            app.buttons[A11yIdentifiers.startChatScreen.createRoom].firstMatch.tap()
+        }
         XCTAssertTrue(app.textFields[A11yIdentifiers.createRoomScreen.roomName].waitForExistence(timeout: 1.0))
         try await app.assertScreenshot(step: Step.createRoom)
         
         app.buttons[A11yIdentifiers.createRoomScreen.roomAvatar].tap()
-        app.popovers.buttons.element(boundBy: 2).tap() // There are 2 buttons with the accessibility identifier, so use the index to get the right one.
+        app.popovers.buttons.element(boundBy: 3).tap() // There are 3 buttons with the accessibility identifier, so use the index to get the right one.
         let cancelButton = app.buttons["Cancel"]
         // The system UI snapshot is unreliable, instead lets just assert something.
         // XCTAssertTrue(cancelButton.waitForExistence(timeout: 1.0))
@@ -59,8 +62,14 @@ class StartChatTests: XCTestCase {
         
         let inviteUsersSearchField = app.searchFields.firstMatch
         inviteUsersSearchField.clearAndTypeText("Bob\n", app: app)
+        
         let cells = app.collectionViews.firstMatch.cells
-        XCTAssertEqual(cells.count, 2)
+        // The update of the cells is not immediate, and may take a bunch of milliseconds
+        // so let's await it.
+        let predicate = NSPredicate(format: "count == 2")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: cells)
+        await fulfillment(of: [expectation], timeout: 5.0)
+        
         try await app.assertScreenshot(step: Step.inviteUsersWithResults)
         
         cells.element(boundBy: 0).tap()

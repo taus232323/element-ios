@@ -22,21 +22,21 @@ final class NativeRegistrationScreenCoordinator: CoordinatorProtocol {
     private let viewModel: NativeRegistrationScreenViewModelProtocol
     private let actionsSubject: PassthroughSubject<NativeRegistrationScreenCoordinatorAction, Never> = .init()
     private var cancellables = Set<AnyCancellable>()
-
+    
     var actions: AnyPublisher<NativeRegistrationScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(parameters: NativeRegistrationScreenCoordinatorParameters) {
         viewModel = NativeRegistrationScreenViewModel(authenticationService: parameters.authenticationService,
                                                       userIndicatorController: parameters.userIndicatorController)
     }
-
+    
     func start() {
         viewModel.actionsPublisher
             .sink { [weak self] action in
                 guard let self else { return }
-
+                
                 switch action {
                 case .signedIn(let userSession):
                     actionsSubject.send(.signedIn(userSession))
@@ -46,11 +46,11 @@ final class NativeRegistrationScreenCoordinator: CoordinatorProtocol {
             }
             .store(in: &cancellables)
     }
-
+    
     func stop() {
         viewModel.stopLoading()
     }
-
+    
     func toPresentable() -> AnyView {
         AnyView(NativeRegistrationScreen(context: viewModel.context))
     }

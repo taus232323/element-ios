@@ -12,8 +12,13 @@ import MatrixRustSDK
 // MARK: - Routes
 
 enum AppRoute: Hashable {
+    /// The root of the authentication flow.
+    case authentication
     /// An account provisioning link generated externally.
     case accountProvisioningLink(AccountProvisioningParameters)
+    /// An external callback used to complete login with OAuth. This is only used when authentication
+    /// requires an external app so cannot be handled directly by the web authentication session.
+    case oAuthCallback(url: URL)
     
     /// The app's home screen.
     case roomList
@@ -41,10 +46,8 @@ enum AppRoute: Hashable {
     case childEventOnRoomAlias(eventID: String, alias: String)
     /// The profile of a matrix user (outside of a room).
     case userProfile(userID: String)
-    /// An Arcana call running in a particular room
-    case call(roomID: String, isVoiceCall: Bool)
-    /// A call link generated outside of a chat room.
-    case genericCallLink(url: URL)
+    /// A call running in a particular room.
+    case call(roomID: String, isVoiceCall: Bool, answeredFromCallKit: Bool)
     /// The settings screen.
     case settings
     /// The setting screen for key backup.
@@ -55,13 +58,14 @@ enum AppRoute: Hashable {
     case transferOwnership(roomID: String)
     /// A thread within a room, only to be used to handle tap on notification for threaded events.
     case thread(roomID: String, threadRootEventID: String, focusEventID: String?)
-    /// The global search screen
-    case globalSearch
+    /// The search screen
+    case search
     
     /// Whether or not the route should be handled by the authentication flow.
     var isAuthenticationRoute: Bool {
         switch self {
         case .accountProvisioningLink: true
+        case .oAuthCallback: true
         default: false
         }
     }
@@ -88,7 +92,7 @@ struct AppRouteURLParser {
             MatrixPermalinkParser(),
             ElementWebURLParser(domains: appSettings.elementWebHosts),
             AccountProvisioningURLParser(domain: appSettings.accountProvisioningHost),
-            ElementCallURLParser()
+            OAuthCallbackURLParser(redirectURL: appSettings.oAuthRedirectURL)
         ]
     }
     
@@ -136,73 +140,31 @@ private struct AppGroupURLParser: URLParser {
     }
 }
 
-/// The parser for call deep links (Arcana Call / Element Call widget scheme).
-private struct ElementCallURLParser: URLParser {
-    private let knownHosts = ["call.celesteai.ru"]
-    private let customSchemeURLQueryParameterName = "url"
-    
-    func route(from url: URL) -> AppRoute? {
-        // Element Call not supported, WebRTC not available
-        // https://github.com/element-hq/element-x-ios/issues/1794
-        if ProcessInfo.processInfo.isiOSAppOnMac {
-            return nil
-        }
-        
-        // First try processing URLs with custom schemes
-        if let scheme = url.scheme,
-           scheme == InfoPlistReader.app.elementCallScheme {
-            guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-                return nil
-            }
-            
-            guard let encodedURLString = components.queryItems?.first(where: { $0.name == customSchemeURLQueryParameterName })?.value,
-                  let callURL = URL(string: encodedURLString),
-                  callURL.scheme == "https" // Don't allow URLs from potentially unsafe domains
-            else {
-                MXLog.error("Invalid custom scheme call parameters: \(url)")
-                return nil
-            }
-            
-            return .genericCallLink(url: callURL)
-        }
-        
-        // Otherwise try to interpret it as an universal link
-        guard let host = url.host, knownHosts.contains(host) else {
-            return nil
-        }
-        
-        return .genericCallLink(url: url)
-    }
-}
-
 private struct ArcanaInviteURLParser: URLParser {
     private let pathComponent = "invite"
     private let webQueryItemName = "web"
-
+    
     func route(from url: URL) -> AppRoute? {
         if let scheme = url.scheme,
            scheme == InfoPlistReader.app.arcanaInviteDeepLinkURL?.scheme {
             return parseInviteURL(url, expectHostAsToken: true)
         }
-
+        
         guard url.host == InfoPlistReader.app.arcanaInviteWebHost else {
             return nil
         }
-
+        
         return parseInviteURL(url, expectHostAsToken: false)
     }
-
+    
     private func parseInviteURL(_ url: URL, expectHostAsToken: Bool) -> AppRoute? {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             return nil
         }
-
+        
         let token: String?
         if expectHostAsToken {
-            guard url.host == pathComponent else {
-                return nil
-            }
-            guard url.pathComponents.count == 2 else {
+            guard url.host == pathComponent, url.pathComponents.count == 2 else {
                 return nil
             }
             token = url.pathComponents.dropFirst().first
@@ -213,15 +175,15 @@ private struct ArcanaInviteURLParser: URLParser {
             }
             token = url.pathComponents[2]
         }
-
+        
         guard let token, !token.isEmpty else {
             return nil
         }
         let decodedToken = token.removingPercentEncoding ?? token
-
+        
         let webURL = components.queryItems?.first { $0.name == webQueryItemName }?.value.flatMap { URL(string: $0) }
             ?? URL(string: "https://\(InfoPlistReader.app.arcanaInviteWebHost)/invite/\(token)")
-
+        
         return .invite(token: decodedToken, webURL: webURL)
     }
 }
@@ -280,9 +242,8 @@ private struct AccountProvisioningURLParser: URLParser {
     let domain: String
     
     func route(from url: URL) -> AppRoute? {
-        guard url.host() == domain else { return nil }
-        
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+        guard url.host() == domain,
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let serverName = components.queryItems?.first(where: { $0.name == AccountProvisioningParameters.CodingKeys.accountProvider.rawValue })?.value else {
             return nil
         }
@@ -290,5 +251,15 @@ private struct AccountProvisioningURLParser: URLParser {
         let loginHint = components.queryItems?.first { $0.name == AccountProvisioningParameters.CodingKeys.loginHint.rawValue }?.value
         
         return .accountProvisioningLink(.init(accountProvider: serverName, loginHint: loginHint))
+    }
+}
+
+/// The parser for the OAuth callback URL. This always returns an `.oAuthCallback`.
+struct OAuthCallbackURLParser: URLParser {
+    let redirectURL: URL
+    
+    func route(from url: URL) -> AppRoute? {
+        guard url.absoluteString.starts(with: redirectURL.absoluteString) else { return nil }
+        return .oAuthCallback(url: url)
     }
 }

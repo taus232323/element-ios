@@ -236,7 +236,7 @@ struct ComposerToolbar: View {
         // sending e.g. accepting current autocorrection.
         // Fixes https://github.com/element-hq/element-x-ios/issues/3216
         context.presendCallback?()
-
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             context.send(viewAction: .sendMessage)
         }
@@ -282,12 +282,14 @@ struct ComposerToolbar: View {
                 voiceMessageTrashButton
                     .scaledPadding(.vertical, buttonVerticalPadding, relativeTo: .compound.headingLG)
                 VoiceMessageRecordingComposer(recorderState: state)
+                    .modifier(VoiceMessageComposerStyleModifier(context: context))
             }
         case .previewVoiceMessage(let state, let waveform, let isUploading):
             topBarLayout {
                 voiceMessageTrashButton
                     .scaledPadding(.vertical, buttonVerticalPadding, relativeTo: .compound.headingLG)
                 voiceMessagePreviewComposer(audioPlayerState: state, waveform: waveform)
+                    .modifier(VoiceMessageComposerStyleModifier(context: context))
             }
             .disabled(isUploading)
         default:
@@ -376,13 +378,30 @@ struct ComposerToolbarButtonStyle: ButtonStyle {
     }
 }
 
+/// Wraps the voice message composer in the same box as the text composer, with the reply header when replying.
+private struct VoiceMessageComposerStyleModifier: ViewModifier {
+    let context: ComposerToolbarViewModel.Context
+    
+    func body(content: Content) -> some View {
+        content
+            .messageComposerStyle(header: header, contentIncludesPadding: true)
+    }
+    
+    private var header: MessageComposerReplyHeader? {
+        context.viewState.voiceMessageReply.map { reply in
+            MessageComposerReplyHeader(replyDetails: reply.replyDetails) {
+                context.send(viewAction: .cancelReply)
+            }
+        }
+    }
+}
+
 // MARK: - Previews
 
 struct ComposerToolbar_Previews: PreviewProvider, TestablePreview {
     static let timelineViewModel = TimelineViewModel.mock
     
     static let viewModel = ComposerToolbarViewModel.mock()
-    static let focusedViewModel = ComposerToolbarViewModel.mock(focused: true, message: "Hello, World!")
     static let editingViewModel = ComposerToolbarViewModel.mock(message: "Hello, Wrold!", mockMode: .editing)
     static let multiLineViewModel = ComposerToolbarViewModel.mock(message: "Hello, World! This is a loooong message that wraps onto multiple lines.")
     static let voiceMessageRecordingViewModel = ComposerToolbarViewModel.mock(mockMode: .recordVoiceMessage)
@@ -390,13 +409,14 @@ struct ComposerToolbar_Previews: PreviewProvider, TestablePreview {
     static let voiceMessageUploadingViewModel = ComposerToolbarViewModel.mock(mockMode: .previewVoiceMessage(isUploading: true))
     static let replyLoadingViewModel = ComposerToolbarViewModel.mock(mockMode: .reply(isLoading: true))
     static let replyLoadedViewModel = ComposerToolbarViewModel.mock(mockMode: .reply(isLoading: false))
+    static let voiceMessageReplyViewModel = ComposerToolbarViewModel.mock(mockMode: .previewVoiceMessage(isUploading: false, isReplying: true))
+    
     static let suggestionsViewModel = ComposerToolbarViewModel.mock(hasSuggestions: true)
     static let disabledViewModel = ComposerToolbarViewModel.mock(canSend: false)
     
     static var previews: some View {
         VStack(spacing: 8) {
             ComposerToolbar(context: viewModel.context)
-            ComposerToolbar(context: focusedViewModel.context)
             ComposerToolbar(context: editingViewModel.context)
             ComposerToolbar(context: multiLineViewModel.context)
                 .padding(.bottom)
@@ -418,6 +438,7 @@ struct ComposerToolbar_Previews: PreviewProvider, TestablePreview {
         VStack(spacing: 8) {
             ComposerToolbar(context: replyLoadingViewModel.context)
             ComposerToolbar(context: replyLoadedViewModel.context)
+            ComposerToolbar(context: voiceMessageReplyViewModel.context)
         }
         .environmentObject(timelineViewModel.context)
         .previewDisplayName("Reply")

@@ -36,17 +36,24 @@ struct BlockedUsersScreen: View {
                     ListRow(label: .avatar(title: user.displayName ?? user.displayableUserID,
                                            description: user.displayName != nil ? user.displayableUserID : nil,
                                            icon: avatar(for: user)),
-                            details: .isWaiting(context.viewState.processingUserID == user.userID),
+                            details: .isWaiting(context.viewState.processingUserID == user.id),
                             kind: .button { context.send(viewAction: .unblockUser(user)) })
+                        .contextMenu {
+                            Button {
+                                context.send(viewAction: .copyUserID(user))
+                            } label: {
+                                Label(L10n.actionCopy, icon: \.copy)
+                            }
+                        }
                 }
             }
         }
     }
     
-    private func avatar(for user: UserProfileProxy) -> some View {
+    private func avatar(for user: UserProfile) -> some View {
         LoadableAvatarImage(url: user.avatarURL,
                             name: user.displayName,
-                            contentID: user.userID,
+                            contentID: user.id,
                             avatarSize: .user(on: .blockedUsers),
                             mediaProvider: context.mediaProvider)
             .accessibilityHidden(true)

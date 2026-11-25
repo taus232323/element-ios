@@ -18,14 +18,13 @@ struct SessionVerificationViewModelTests {
     var sessionVerificationController: SessionVerificationControllerProxyMock!
     
     init() throws {
-        sessionVerificationController = SessionVerificationControllerProxyMock.configureMock()
+        sessionVerificationController = SessionVerificationControllerProxyMock.configureMock(requestDelay: .milliseconds(500))
         viewModel = SessionVerificationScreenViewModel(sessionVerificationControllerProxy: sessionVerificationController,
                                                        flow: .deviceInitiator,
-                                                       appSettings: AppSettings(),
-                                                       mediaProvider: MediaProviderMock(configuration: .init()))
+                                                       userSession: UserSessionMock(.init()))
         context = viewModel.context
     }
-
+    
     @Test
     func requestVerification() async throws {
         #expect(context.viewState.verificationState == .initial)
@@ -58,7 +57,7 @@ struct SessionVerificationViewModelTests {
         context.send(viewAction: .restart)
         
         #expect(context.viewState.verificationState == .initial)
-
+        
         #expect(sessionVerificationController.requestDeviceVerificationCallsCount == 1)
         #expect(sessionVerificationController.cancelVerificationCallsCount == 1)
     }
@@ -74,7 +73,9 @@ struct SessionVerificationViewModelTests {
         
         let deferred = deferFulfillment(sessionVerificationController.actions
             .delay(for: .seconds(0.1), scheduler: DispatchQueue.main)) { callback in
-                if case .finished = callback { return true }
+                if case .finished = callback {
+                    return true
+                }
                 return false
             }
         
@@ -92,7 +93,9 @@ struct SessionVerificationViewModelTests {
         
         let deferred = deferFulfillment(sessionVerificationController.actions
             .delay(for: .seconds(0.1), scheduler: DispatchQueue.main)) { callback in
-                if case .cancelled = callback { return true }
+                if case .cancelled = callback {
+                    return true
+                }
                 return false
             }
         
@@ -108,12 +111,6 @@ struct SessionVerificationViewModelTests {
     
     private mutating func setupChallengeReceived() async throws {
         let actionsPublisher = sessionVerificationController.actions.delay(for: .seconds(0.1), scheduler: DispatchQueue.main)
-        let cancellable = actionsPublisher
-            .sink { [sessionVerificationController] action in
-                if case .acceptedVerificationRequest = action {
-                    Task { await sessionVerificationController?.startSasVerification() }
-                }
-            }
         
         let deferred = deferFulfillment(actionsPublisher,
                                         keyPath: \.self,
@@ -126,7 +123,5 @@ struct SessionVerificationViewModelTests {
         #expect(context.viewState.verificationState == .showingChallenge(emojis: SessionVerificationControllerProxyMock.emojis))
         #expect(sessionVerificationController.requestDeviceVerificationCallsCount == 1)
         #expect(sessionVerificationController.startSasVerificationCallsCount == 1)
-        
-        cancellable.cancel()
     }
 }

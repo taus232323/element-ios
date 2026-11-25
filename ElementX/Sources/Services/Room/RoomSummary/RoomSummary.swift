@@ -10,7 +10,7 @@ import Foundation
 import MatrixRustSDK
 
 /// A quick summary of a Room, useful to describe and give quick informations for the room list
-struct RoomSummary {
+nonisolated struct RoomSummary {
     enum JoinRequestType {
         case invite(inviter: RoomMemberProxyProtocol?)
         case knock
@@ -21,29 +21,23 @@ struct RoomSummary {
             default: false
             }
         }
-        
-        var isKnock: Bool {
-            switch self {
-            case .knock: true
-            default: false
-            }
-        }
     }
     
     enum LastMessageState { case sending, failed }
-
+    
     let room: Room
     
     let id: String
     
     let joinRequestType: JoinRequestType?
+    let isJoined: Bool
     
     let name: String
     let isDirect: Bool
     let isSpace: Bool
     let avatarURL: URL?
     
-    let heroes: [UserProfileProxy]
+    let heroes: [UserProfile]
     let activeMembersCount: UInt
     
     let lastMessage: AttributedString?
@@ -66,21 +60,21 @@ struct RoomSummary {
     var hasUnreadMessages: Bool {
         unreadMessagesCount > 0
     }
-
+    
     var hasUnreadMentions: Bool {
         unreadMentionsCount > 0
     }
-
+    
     var hasUnreadNotifications: Bool {
         unreadNotificationsCount > 0
     }
-
+    
     var isMuted: Bool {
         notificationMode == .mute
     }
 }
 
-extension RoomSummary: CustomStringConvertible {
+nonisolated extension RoomSummary: CustomStringConvertible {
     var description: String {
         """
         RoomSummary: - id: \(id) \
@@ -103,7 +97,7 @@ extension RoomSummary: CustomStringConvertible {
             return alias
         }
         
-        guard heroes.count > 0 else {
+        guard !heroes.isEmpty else {
             return ""
         }
         
@@ -118,7 +112,36 @@ extension RoomSummary: CustomStringConvertible {
     }
 }
 
-extension RoomSummary {
+nonisolated extension RoomSummary {
+    /// An empty summary used when the room info is momentarily unavailable (e.g. while the client tears
+    /// down on logout). Keeps the diff indices aligned with the SDK instead of crashing.
+    nonisolated static func placeholder(room: Room) -> RoomSummary {
+        RoomSummary(room: room,
+                    id: room.id(),
+                    joinRequestType: nil,
+                    isJoined: false,
+                    name: room.id(),
+                    isDirect: false,
+                    isSpace: false,
+                    avatarURL: nil,
+                    heroes: [],
+                    activeMembersCount: 0,
+                    lastMessage: nil,
+                    lastMessageDate: nil,
+                    lastMessageState: nil,
+                    unreadMessagesCount: 0,
+                    unreadMentionsCount: 0,
+                    unreadNotificationsCount: 0,
+                    notificationMode: nil,
+                    canonicalAlias: nil,
+                    alternativeAliases: [],
+                    hasOngoingCall: false,
+                    activeCallIntent: nil,
+                    isMarkedUnread: false,
+                    isFavourite: false,
+                    isTombstoned: false)
+    }
+    
     init(room: Room, id: String, settingsMode: RoomNotificationModeProxy, hasUnreadMessages: Bool, hasUnreadMentions: Bool, hasUnreadNotifications: Bool) {
         self.room = room
         self.id = id
@@ -144,6 +167,7 @@ extension RoomSummary {
         activeCallIntent = nil
         
         joinRequestType = nil
+        isJoined = true
         isMarkedUnread = false
         isFavourite = false
         isTombstoned = false
@@ -162,5 +186,10 @@ extension RoomSummary {
         } else {
             return .room(id: id, name: name, avatarURL: avatarURL)
         }
+    }
+    
+    var statusEmoji: Character? {
+        guard case let .heroes(heroes) = avatar else { return nil }
+        return heroes.first?.status.displayed?.emoji
     }
 }

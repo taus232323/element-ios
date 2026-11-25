@@ -8,22 +8,22 @@
 @testable import Arcana
 import Dynamic
 import MatrixRustSDK
+import MatrixRustSDKMocks
 import Testing
 import UserNotifications
 
-struct NotificationContentBuilderTests {
+nonisolated struct NotificationContentBuilderTests {
     var notificationContentBuilder: NotificationContentBuilder
     var mediaProvider: MediaProviderMock
     var notificationContent: UNMutableNotificationContent
     
-    init() {
+    init() async {
         notificationContent = .init()
-        let stringBuilder = RoomMessageEventStringBuilder(attributedStringBuilder: AttributedStringBuilder(mentionBuilder: PlainMentionBuilder()),
+        let stringBuilder = RoomMessageEventStringBuilder(attributedStringBuilder: AttributedStringBuilder(mentionBuilder: PlainMentionBuilder(), rendersEmoticonsAsImages: false),
                                                           style: .plain)
-        mediaProvider = MediaProviderMock(configuration: .init())
-        notificationContentBuilder = NotificationContentBuilder(messageEventStringBuilder: stringBuilder,
-                                                                notificationSoundName: UNNotificationSoundName("message.caf"),
-                                                                userSession: NSEUserSessionMock(.init()))
+        mediaProvider = MediaProviderMock(.init())
+        notificationContentBuilder = await NotificationContentBuilder(messageEventStringBuilder: stringBuilder,
+                                                                      userSession: NSEUserSessionMock(.init()))
     }
     
     @Test
@@ -139,7 +139,7 @@ struct NotificationContentBuilderTests {
         #expect(notificationContent.threadIdentifier == "bob:matrix.org!test:matrix.orgthread")
         #expect(notificationContent.attachments == [])
     }
-
+    
     @Test
     mutating func roomMessageNotification() async {
         let notificationItem = NotificationItemProxyMock(.init(roomID: "!testroom:matrix.org",
@@ -193,7 +193,7 @@ struct NotificationContentBuilderTests {
         #expect(notificationContent.threadIdentifier == "bob:matrix.org!testroom:matrix.org")
         #expect(notificationContent.attachments == [])
     }
-
+    
     @Test
     mutating func roomMessageNotificationWithThread() async {
         let notificationItem = NotificationItemProxyMock(.init(roomID: "!testroom:matrix.org",
@@ -220,7 +220,59 @@ struct NotificationContentBuilderTests {
         #expect(notificationContent.threadIdentifier == "bob:matrix.org!testroom:matrix.orgthread123")
         #expect(notificationContent.attachments == [])
     }
-
+    
+    @Test
+    mutating func liveLocationStartNotification() async {
+        let event = TimelineEventSDKMock()
+        event.eventIdReturnValue = UUID().uuidString
+        event.timestampReturnValue = 0
+        event.contentReturnValue = .state(content: .beaconInfo)
+        
+        let notificationItem = NotificationItemProxyMock(.init(event: .timeline(event: event),
+                                                               roomID: "!test:matrix.org",
+                                                               receiverID: "@bob:matrix.org",
+                                                               senderDisplayName: "Alice",
+                                                               roomDisplayName: "Alice",
+                                                               roomJoinedMembers: 2,
+                                                               isRoomDirect: true,
+                                                               isRoomPrivate: true,
+                                                               isNoisy: true))
+        
+        await notificationContentBuilder.process(notificationContent: &notificationContent,
+                                                 notificationItem: notificationItem,
+                                                 mediaProvider: mediaProvider)
+        
+        let communicationContext = Dynamic(notificationContent, memberName: "communicationContext")
+        #expect(communicationContext.sender.displayName == "Alice")
+        #expect(notificationContent.body == L10n.notificationLiveLocationStartedBody)
+        #expect(notificationContent.categoryIdentifier == NotificationConstants.Category.message)
+        #expect(notificationContent.sound != nil)
+    }
+    
+    @Test
+    mutating func otherStateEventNotification() async {
+        let event = TimelineEventSDKMock()
+        event.eventIdReturnValue = UUID().uuidString
+        event.timestampReturnValue = 0
+        event.contentReturnValue = .state(content: .roomName)
+        
+        let notificationItem = NotificationItemProxyMock(.init(event: .timeline(event: event),
+                                                               roomID: "!test:matrix.org",
+                                                               receiverID: "@bob:matrix.org",
+                                                               senderDisplayName: "Alice",
+                                                               roomDisplayName: "Alice",
+                                                               roomJoinedMembers: 2,
+                                                               isRoomDirect: true,
+                                                               isRoomPrivate: true,
+                                                               isNoisy: true))
+        
+        await notificationContentBuilder.process(notificationContent: &notificationContent,
+                                                 notificationItem: notificationItem,
+                                                 mediaProvider: mediaProvider)
+        
+        #expect(notificationContent.body == L10n.notification)
+    }
+    
     @Test
     mutating func roomMessageNotificationWithThreadAndMention() async {
         let notificationItem = NotificationItemProxyMock(.init(roomID: "!testroom:matrix.org",

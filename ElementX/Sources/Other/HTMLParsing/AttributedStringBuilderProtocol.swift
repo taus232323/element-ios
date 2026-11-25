@@ -8,19 +8,21 @@
 
 import Foundation
 
-struct AttributedStringBuilderComponent: Hashable, Identifiable {
-    enum ComponentType {
+nonisolated struct AttributedStringBuilderComponent: Hashable, Identifiable {
+    enum ComponentType: Hashable {
         case plainText
         case blockquote
         case codeBlock
+        case details(summary: String)
     }
     
+    /// Identifier for the `Identifiable` conformance, allows edits to the `FormattedBodyText` to animate seamlessly
     let id: String
     let attributedString: AttributedString
     let type: ComponentType
 }
 
-protocol AttributedStringBuilderProtocol {
+nonisolated protocol AttributedStringBuilderProtocol: Sendable {
     func fromPlain(_ string: String?) -> AttributedString?
     
     func fromHTML(_ htmlString: String?) -> AttributedString?

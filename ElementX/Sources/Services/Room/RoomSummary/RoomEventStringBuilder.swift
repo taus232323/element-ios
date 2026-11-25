@@ -9,7 +9,7 @@
 import Foundation
 import MatrixRustSDK
 
-struct RoomEventStringBuilder {
+nonisolated struct RoomEventStringBuilder {
     let stateEventStringBuilder: RoomStateEventStringBuilder
     let messageEventStringBuilder: RoomMessageEventStringBuilder
     let shouldPrefixSenderName: Bool
@@ -76,7 +76,8 @@ struct RoomEventStringBuilder {
                                           previousDisplayName: prevDisplayName,
                                           avatarURLString: avatarUrl,
                                           previousAvatarURLString: prevAvatarUrl,
-                                          member: sender.id,
+                                          memberID: sender.id,
+                                          memberDisplayName: sender.disambiguatedDisplayName ?? sender.id,
                                           memberIsYou: isOutgoing)
                 .map(AttributedString.init)
         case .callInvite:
@@ -101,14 +102,15 @@ struct RoomEventStringBuilder {
     
     static func pinnedEventStringBuilder(userID: String) -> Self {
         RoomEventStringBuilder(stateEventStringBuilder: .init(userID: userID),
-                               messageEventStringBuilder: .init(attributedStringBuilder: AttributedStringBuilder(cacheKey: "pinnedEvents", mentionBuilder: PlainMentionBuilder()),
+                               messageEventStringBuilder: .init(attributedStringBuilder: AttributedStringBuilder(cacheKey: "pinnedEvents", mentionBuilder: PlainMentionBuilder(), rendersEmoticonsAsImages: false),
                                                                 style: .typeBolded),
                                shouldPrefixSenderName: false)
     }
     
+    // periphery:ignore - might be useful to have
     static func threadListEventStringBuilder(userID: String) -> Self {
         RoomEventStringBuilder(stateEventStringBuilder: .init(userID: userID),
-                               messageEventStringBuilder: .init(attributedStringBuilder: AttributedStringBuilder(cacheKey: "threadList", mentionBuilder: PlainMentionBuilder()),
+                               messageEventStringBuilder: .init(attributedStringBuilder: AttributedStringBuilder(cacheKey: "threadList", mentionBuilder: PlainMentionBuilder(), rendersEmoticonsAsImages: false),
                                                                 style: .plain),
                                shouldPrefixSenderName: false)
     }

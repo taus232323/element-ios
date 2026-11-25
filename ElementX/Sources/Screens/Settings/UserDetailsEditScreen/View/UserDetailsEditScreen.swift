@@ -12,13 +12,13 @@ import SwiftUI
 struct UserDetailsEditScreen: View {
     @Bindable var context: UserDetailsEditScreenViewModel.Context
     @FocusState private var focus: Bool
-        
+    
     var body: some View {
         Form {
             Section {
                 avatar
             } footer: {
-                Text(context.viewState.userID.matrixDisplayNameWithAt)
+                Text(context.viewState.currentUserProfile.displayableUserID)
                     .frame(maxWidth: .infinity)
                     .font(.compound.bodyLG)
                     .foregroundColor(.compound.textPrimary)
@@ -55,15 +55,15 @@ struct UserDetailsEditScreen: View {
             .disabled(!context.viewState.canSave)
         }
     }
-
+    
     private var avatar: some View {
         Button {
             context.send(viewAction: .presentMediaSource)
         } label: {
             OverridableAvatarImage(overrideURL: context.viewState.localMedia?.thumbnailURL,
                                    url: context.viewState.selectedAvatarURL,
-                                   name: context.viewState.currentDisplayName,
-                                   contentID: context.viewState.userID,
+                                   name: context.viewState.currentUserProfile.displayName,
+                                   contentID: context.viewState.currentUserProfile.id,
                                    shape: .circle,
                                    avatarSize: .user(on: .editUserDetails),
                                    mediaProvider: context.mediaProvider)
@@ -73,10 +73,11 @@ struct UserDetailsEditScreen: View {
         }
         .buttonStyle(EditAvatarButtonStyle())
         .disabled(!context.viewState.canEditAvatar)
+        .accessibilityLabel(L10n.a11yEditAvatar)
         .frame(maxWidth: .infinity, alignment: .center)
         .listRowBackground(Color.clear)
     }
-
+    
     private var nameSection: some View {
         Section {
             ListRow(label: .plain(title: L10n.screenEditProfileDisplayNamePlaceholder),
@@ -96,10 +97,17 @@ struct UserDetailsEditScreen: View {
         } label: {
             Text(L10n.actionTakePhoto)
         }
+        
         Button {
             context.send(viewAction: .displayMediaPicker)
         } label: {
             Text(L10n.actionChoosePhoto)
+        }
+        
+        Button {
+            context.send(viewAction: .displayFilePicker)
+        } label: {
+            Text(L10n.actionChooseFile)
         }
         
         if context.viewState.showDeleteImageAction {
@@ -131,10 +139,14 @@ struct UserDetailsEditScreen_Previews: PreviewProvider, TestablePreview {
     }
     
     static func makeViewModel(canChangeProfile: Bool = true) -> UserDetailsEditScreenViewModel {
-        UserDetailsEditScreenViewModel(userSession: UserSessionMock(.init(clientProxy: ClientProxyMock(.init(userID: "@stefan:matrix.org",
-                                                                                                             canChangeAvatar: canChangeProfile,
-                                                                                                             canChangeDisplayName: canChangeProfile)))),
-        mediaUploadingPreprocessor: .init(appSettings: ServiceLocator.shared.settings),
-        userIndicatorController: UserIndicatorControllerMock.default)
+        let userSession = UserSessionMock(.init(clientProxy: ClientProxyMock(.init(userID: "@stefan:matrix.org",
+                                                                                   displayName: "Stefan",
+                                                                                   canChangeAvatar: canChangeProfile,
+                                                                                   canChangeDisplayName: canChangeProfile))))
+        
+        return UserDetailsEditScreenViewModel(userSession: userSession,
+                                              mediaUploadingPreprocessor: .init(userSettings: .mock()),
+                                              appMediator: AppMediatorMock(.init()),
+                                              userIndicatorController: UserIndicatorControllerMock())
     }
 }

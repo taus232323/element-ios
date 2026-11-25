@@ -12,7 +12,7 @@ import SwiftUI
 /// The Arcana mark used on onboarding and authentication splash screens.
 struct ArcanaMark: View {
     let size: CGFloat
-
+    
     var body: some View {
         Image("images/arcana-mark")
             .resizable()
@@ -31,7 +31,7 @@ struct AuthenticationStartLogo: View {
     let hideBrandChrome: Bool
     /// Kept for compatibility with existing call sites.
     let isOnGradient: Bool
-
+    
     var body: some View {
         ArcanaMark(size: size ?? 158)
     }

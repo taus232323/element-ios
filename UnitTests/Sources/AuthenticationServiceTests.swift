@@ -8,6 +8,7 @@
 
 @testable import Arcana
 import Foundation
+import MatrixRustSDK
 import MatrixRustSDKMocks
 import Testing
 
@@ -15,13 +16,15 @@ import Testing
 struct AuthenticationServiceTests {
     var client: ClientSDKMock!
     var encryption: EncryptionSDKMock!
-    var userSessionStore: UserSessionStoreMock!
+    var userSessionManager: UserSessionManagerMock!
     var encryptionKeyProvider: MockEncryptionKeyProvider!
+    var appSettings: AppSettings!
+    var targetContext: Target.Context!
     var service: AuthenticationService!
     
-    @Test
+    @Test("A server without OAuth can be logged in to with a password")
     mutating func passwordLogin() async throws {
-        try await setup(serverAddress: "example.com")
+        try await setup(serverNameOrBaseURL: "example.com")
         
         switch await service.configure(for: "example.com", flow: .login) {
         case .success:
@@ -36,52 +39,97 @@ struct AuthenticationServiceTests {
         switch await service.login(username: "alice", password: "12345678", initialDeviceName: nil, deviceID: nil) {
         case .success:
             #expect(client.loginUsernamePasswordInitialDeviceNameDeviceIdCallsCount == 1)
-            #expect(userSessionStore.userSessionForSessionDirectoriesPassphraseCallsCount == 1)
-            #expect(userSessionStore.userSessionForSessionDirectoriesPassphraseReceivedArguments?.passphrase ==
-                encryptionKeyProvider.generateKey().base64EncodedString())
+            #expect(userSessionManager.userSessionForSessionDirectoriesPassphraseCallsCount == 1)
+            #expect(userSessionManager.userSessionForSessionDirectoriesPassphraseReceivedArguments?.passphrase == encryptionKeyProvider.generateKey())
         case .failure(let error):
             Issue.record("Unexpected failure: \(error)")
         }
     }
     
-    @Test
-    mutating func configureLoginWithOIDC() async throws {
+    @Test("Logging in with a password to an account that is already logged in fails and logs out the new session")
+    mutating func passwordLoginWithExistingAccount() async throws {
+        try await setup(serverNameOrBaseURL: "example.com")
+        userSessionManager.userIDs = ["@alice:example.com"]
+        try await service.configure(for: "example.com", flow: .login).get()
+        
+        let result = await service.login(username: "alice", password: "12345678", initialDeviceName: nil, deviceID: nil)
+        
+        #expect(throws: AuthenticationServiceError.accountAlreadyLoggedIn(userID: "@alice:example.com")) { try result.get() }
+        #expect(client.logoutCallsCount == 1)
+        #expect(!userSessionManager.userSessionForSessionDirectoriesPassphraseCalled)
+    }
+    
+    @Test("Logging in with OAuth to an account that is already logged in fails and logs out the new session")
+    mutating func oAuthLoginWithExistingAccount() async throws {
+        try await setup()
+        userSessionManager.userIDs = ["@alice:matrix.org"]
+        client.userIdReturnValue = "@alice:matrix.org"
+        try await service.configure(for: "matrix.org", flow: .login).get()
+        
+        let result = await service.loginWithOAuthCallback("https://example.com/callback")
+        
+        #expect(throws: AuthenticationServiceError.accountAlreadyLoggedIn(userID: "@alice:matrix.org")) { try result.get() }
+        #expect(client.logoutCallsCount == 1)
+        #expect(!userSessionManager.userSessionForSessionDirectoriesPassphraseCalled)
+    }
+    
+    @Test("Configuring a server forces native password login")
+    mutating func configureLoginWithPassword() async throws {
         try await setup()
         
         try await service.configure(for: "matrix.org", flow: .login).get()
         
         #expect(service.flow == .login)
-        #expect(service.homeserver.value == .init(address: "matrix.org", loginMode: .password))
+        #expect(service.homeserver.value == LoginHomeserver(accountProvider: .generic("matrix.org"), loginMode: .password))
     }
     
-    @Test
-    mutating func configureRegisterWithOIDC() async throws {
+    @Test("Configuring a server for registration keeps native password mode")
+    mutating func configureRegisterWithPassword() async throws {
         try await setup()
         
         try await service.configure(for: "matrix.org", flow: .register).get()
         
         #expect(service.flow == .register)
-        #expect(service.homeserver.value == .init(address: "matrix.org", loginMode: .password))
+        #expect(service.homeserver.value == LoginHomeserver(accountProvider: .generic("matrix.org"), loginMode: .password))
+    }
+    
+    @Test("Resetting the service restores the default login state")
+    mutating func reset() async throws {
+        try await setup(serverNameOrBaseURL: "company.com")
+        try await service.configure(for: "company.com", flow: .register).get()
+        
+        #expect(service.flow == .register)
+        #expect(service.homeserver.value.loginMode == .password)
+        #expect(targetContext.statePublisher.value.authenticationHomeserver == .discovered("https://matrix.company.com"))
+        
+        service.reset()
+        
+        #expect(service.flow == .login)
+        #expect(service.homeserver.value == LoginHomeserver(accountProvider: appSettings.defaultAccountProvider, loginMode: .unknown))
+        #expect(targetContext.statePublisher.value.authenticationHomeserver == .undiscovered)
     }
     
     // MARK: - Helpers
     
-    private mutating func setup(serverAddress: String = "matrix.org") async throws {
-        let configuration: AuthenticationClientFactoryMock.Configuration = .init()
-        let clientFactory = AuthenticationClientFactoryMock(configuration: configuration)
+    private mutating func setup(serverNameOrBaseURL: String = "matrix.org") async throws {
+        let configuration = ClientFactoryMock.Configuration()
+        let clientFactory = ClientFactoryMock(configuration)
         
-        client = configuration.homeserverClients[serverAddress]
+        client = try #require(configuration.homeserverClients[serverNameOrBaseURL])
         encryption = EncryptionSDKMock()
         client.encryptionReturnValue = encryption
         
-        userSessionStore = UserSessionStoreMock(configuration: .init())
+        userSessionManager = UserSessionManagerMock(.init())
         encryptionKeyProvider = MockEncryptionKeyProvider()
+        appSettings = .volatile()
+        targetContext = .mock
         
-        service = AuthenticationService(userSessionStore: userSessionStore,
+        service = AuthenticationService(userSessionManager: userSessionManager,
                                         encryptionKeyProvider: encryptionKeyProvider,
                                         clientFactory: clientFactory,
-                                        appSettings: ServiceLocator.shared.settings,
-                                        appHooks: AppHooks())
+                                        appSettings: appSettings,
+                                        appHooks: AppHooks(),
+                                        targetContext: targetContext)
     }
 }
 

@@ -15,7 +15,7 @@ enum Avatars {
         case room(on: RoomAvatarSizeOnScreen)
         ///  custom
         case custom(CGFloat)
-
+        
         /// Value in UIKit points
         var value: CGFloat {
             switch self {
@@ -27,13 +27,13 @@ enum Avatars {
                 return val
             }
         }
-
+        
         /// Value in pixels by using the scale of the main screen
-        var scaledValue: CGFloat {
+        @MainActor var scaledValue: CGFloat {
             value * UIScreen.main.scale
         }
         
-        var scaledSize: CGSize {
+        @MainActor var scaledSize: CGSize {
             CGSize(width: scaledValue, height: scaledValue)
         }
     }
@@ -61,9 +61,14 @@ enum Avatars {
 
 enum UserAvatarSizeOnScreen {
     case chats
+    case chatsCompact
     case spaces
+    case spacesCompact
     case timeline
     case settings
+    case settingsOtherAccount
+    case settingsOtherAccountsStack
+    case accountInfoCard
     case roomDetails
     case roomMembersList
     case roomChangeRoles
@@ -82,14 +87,16 @@ enum UserAvatarSizeOnScreen {
     case knockingUserList
     case mediaPreviewDetails
     case sendInviteConfirmation
-    case sessionVerification
     case threadList
     case threadSummary
     case map
-
+    case search
+    /// The native call's large avatar: a one-to-one call, the spotlight and the ringing screen.
+    case call
+    
     var value: CGFloat {
         switch self {
-        case .readReceipt:
+        case .readReceipt, .settingsOtherAccountsStack:
             16
         case .spaceHeader:
             20
@@ -97,17 +104,18 @@ enum UserAvatarSizeOnScreen {
             24
         case .knockingUsersBannerStack:
             28
-        case .chats, .spaces, .map,
+        case .chatsCompact, .spacesCompact, .accountInfoCard, .map,
              .timeline, .readReceiptSheet, .completionSuggestions,
-             .blockedUsers, .roomMembersList, .knockingUserBanner,
-             .mediaPreviewDetails:
+             .blockedUsers, .roomMembersList, .knockingUserBanner, .settingsOtherAccount:
             32
         case .startChat:
             36
+        case .chats, .spaces:
+            40
         case .roomDetails:
             44
-        case .inviteUsers, .knockingUserList, .sessionVerification,
-             .settings, .threadList:
+        case .settings, .inviteUsers, .knockingUserList,
+             .threadList, .mediaPreviewDetails, .search:
             52
         case .roomChangeRoles:
             56
@@ -117,6 +125,8 @@ enum UserAvatarSizeOnScreen {
             75
         case .memberDetails, .editUserDetails:
             96
+        case .call:
+            140
         }
     }
 }
@@ -130,7 +140,8 @@ enum RoomAvatarSizeOnScreen {
     case timeline
     case leaveSpace
     case messageForwarding
-    case globalSearch
+    case search
+    case searchHistory
     case roomSelection
     case details
     case editRoomDetails
@@ -143,20 +154,18 @@ enum RoomAvatarSizeOnScreen {
     case spaceAddRoomsSelected
     case completionSuggestions
     case createRoomSelectSpace
-
+    
     var value: CGFloat {
         switch self {
-        case .notificationSettings:
-            30
-        case .timeline, .leaveSpace, .roomDirectorySearch,
+        case .timeline, .leaveSpace, .notificationSettings, .roomDirectorySearch,
              .completionSuggestions, .authorizedSpaces, .createRoomSelectSpace,
-             .spaceFilters:
+             .spaceFilters, .searchHistory:
             32
-        case .messageForwarding, .globalSearch, .roomSelection,
+        case .messageForwarding, .roomSelection,
              .spaceAddRooms:
             36
         case .chats, .spaces, .spaceSettings,
-             .spaceAddRoomsSelected:
+             .spaceAddRoomsSelected, .search:
             52
         case .joinRoom, .spaceHeader, .editSpaceDetails:
             64

@@ -14,14 +14,15 @@ import UIKit
 class JoinedRoomProxy: JoinedRoomProxyProtocol {
     private let roomListService: RoomListServiceProtocol
     private let room: RoomProtocol
-    private let appSettings: AppSettings
-    private let analyticsService: AnalyticsService
+    private let userSettings: UserSettings
+    private let analyticsService: AnalyticsServiceProtocol
     private let eventStringBuilder: RoomEventStringBuilder
     
-    // periphery:ignore - required for instance retention in the rust codebase
     private var roomInfoObservationToken: TaskHandle?
     // periphery:ignore - required for instance retention in the rust codebase
     private var typingNotificationObservationToken: TaskHandle?
+    // periphery:ignore - required for instance retention in the rust codebase
+    private var memberChangesObservationToken: TaskHandle?
     // periphery:ignore - required for instance retention in the rust codebase
     private var identityStatusChangesObservationToken: TaskHandle?
     // periphery:ignore - required for instance retention in the rust codebase
@@ -29,6 +30,9 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     
     private var innerPinnedEventsTimeline: TimelineProxyProtocol?
     private var innerPinnedEventsTimelineTask: Task<Result<TimelineProxyProtocol, RoomProxyError>, Never>?
+    
+    private var reloadMembersTask: Task<Void, Never>?
+    private var needsMembersReload = false
     
     private var subscribedForUpdates = false
     
@@ -43,19 +47,14 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     /// The predecessor is set on room creation and never changes, so we lazily store it.
     lazy var predecessorRoom = room.predecessorRoom()
     
-    /// The successor may change over time, so we access it dynamically.
-    /// It's suggested to observe it through the `infoPublisher`
-    var successorRoom: SuccessorRoom? {
-        room.successorRoom()
-    }
-    
     let timeline: TimelineProxyProtocol
     
     private let infoSubject: CurrentValueSubject<RoomInfoProxyProtocol, Never>
     var infoPublisher: CurrentValuePublisher<RoomInfoProxyProtocol, Never> {
         infoSubject.asCurrentValuePublisher()
     }
-
+    
+    private var publishedMembers = [RoomMember]()
     private let membersSubject = CurrentValueSubject<[RoomMemberProxyProtocol], Never>([])
     var membersPublisher: CurrentValuePublisher<[RoomMemberProxyProtocol], Never> {
         membersSubject.asCurrentValuePublisher()
@@ -78,20 +77,20 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     
     init(roomListService: RoomListServiceProtocol,
          room: RoomProtocol,
-         appSettings: AppSettings,
-         analyticsService: AnalyticsService,
+         userSettings: UserSettings,
+         analyticsService: AnalyticsServiceProtocol,
          eventStringBuilder: RoomEventStringBuilder) async throws {
         self.roomListService = roomListService
         self.room = room
-        self.appSettings = appSettings
+        self.userSettings = userSettings
         self.analyticsService = analyticsService
         self.eventStringBuilder = eventStringBuilder
         
         infoSubject = try await .init(RoomInfoProxy(roomInfo: room.roomInfo()))
         
         let openRoomSpan = analyticsService.signpost.addSpan(.timelineLoad, toTransaction: .openRoom)
-        timeline = try await TimelineProxy(timeline: room.timelineWithConfiguration(configuration: .init(focus: .live(hideThreadedEvents: appSettings.threadsEnabled),
-                                                                                                         filter: .eventFilter(filter: Self.excludedEventsFilter(appSettings: appSettings)),
+        timeline = try await TimelineProxy(timeline: room.timelineWithConfiguration(configuration: .init(focus: .live(hideThreadedEvents: userSettings.app.threadsEnabled),
+                                                                                                         filter: .eventFilter(filter: Self.excludedEventsFilter),
                                                                                                          internalIdPrefix: nil,
                                                                                                          dateDividerMode: .daily,
                                                                                                          trackReadReceipts: .messageLikeEvents,
@@ -119,9 +118,9 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
         }
         
         subscribedForUpdates = true
-
+        
         do {
-            try await roomListService.subscribeToRooms(roomIds: [id])
+            try await roomListService.setRoomSubscriptions(roomIds: [id])
         } catch {
             MXLog.error("Failed subscribing to room with error: \(error)")
         }
@@ -130,6 +129,8 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
         
         Task {
             subscribeToRoomInfoUpdates()
+            
+            subscribeToMemberChanges()
             
             subscribeToTypingNotifications()
             
@@ -146,7 +147,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             return
         }
         
-        roomInfoObservationToken = room.subscribeToRoomInfoUpdates(listener: SDKListener { [weak self] roomInfo in
+        roomInfoObservationToken = room.subscribeToRoomInfoUpdates(listener: SDKListener.onMainActor { [weak self] roomInfo in
             MXLog.info("Received room info update")
             self?.infoSubject.send(RoomInfoProxy(roomInfo: roomInfo))
         })
@@ -157,7 +158,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             let openRoomSpan = analyticsService.signpost.addSpan(.timelineLoad, toTransaction: .notificationToMessage)
             let sdkTimeline = try await room.timelineWithConfiguration(configuration: .init(focus: .event(eventId: eventID,
                                                                                                           numContextEvents: numberOfEvents,
-                                                                                                          threadMode: .automatic(hideThreadedEvents: appSettings.threadsEnabled)),
+                                                                                                          threadMode: .automatic(hideThreadedEvents: userSettings.app.threadsEnabled)),
                                                                                             filter: .all,
                                                                                             internalIdPrefix: UUID().uuidString,
                                                                                             dateDividerMode: .daily,
@@ -234,6 +235,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
                 case .file: .file
                 case .image: .image
                 case .video: .video
+                case .gallery: .gallery
                 }
             }
             
@@ -301,16 +303,6 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
         }
     }
     
-    func redact(_ eventID: String) async -> Result<Void, RoomProxyError> {
-        do {
-            try await room.redact(eventId: eventID, reason: nil)
-            return .success(())
-        } catch {
-            MXLog.error("Failed redacting eventID: \(eventID) with error: \(error)")
-            return .failure(.sdkError(error))
-        }
-    }
-    
     func reportContent(_ eventID: String, reason: String?) async -> Result<Void, RoomProxyError> {
         do {
             try await room.reportContent(eventId: eventID, reason: reason)
@@ -334,28 +326,21 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     func updateMembers() async {
         // We always update members first using the no sync API in case internet is not readily available
         // To get the members stored on disk first, this API call is very fast.
-        do {
-            let membersNoSyncIterator = try await room.membersNoSync()
-            if let members = membersNoSyncIterator.nextChunk(chunkSize: membersNoSyncIterator.len()) {
-                membersSubject.value = members.map(RoomMemberProxy.init)
-            }
-        } catch {
-            MXLog.error("Failed updating members using no sync API: \(error)")
-        }
+        await reloadMembersFromStore()
         
         do {
             // Then we update members using the sync API, this is slower but will get us the latest members
-            let membersIterator = try await room.members()
-            if let members = membersIterator.nextChunk(chunkSize: membersIterator.len()) {
-                membersSubject.value = members.map(RoomMemberProxy.init)
+            let membersIterator = try await room.membersFetchingGlobalProfiles()
+            if let members = await Self.changedMembers(in: membersIterator, from: publishedMembers) {
+                publishMembers(members)
             }
         } catch {
             MXLog.error("Failed updating members using sync API: \(error)")
         }
     }
-
+    
     func getMember(userID: String) async -> Result<RoomMemberProxyProtocol, RoomProxyError> {
-        if let member = membersPublisher.value.filter({ $0.userID == userID }).first {
+        if let member = membersPublisher.value.first(where: { $0.userID == userID }) {
             return .success(member)
         }
         
@@ -396,7 +381,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             return .failure(.sdkError(error))
         }
     }
-
+    
     func setTopic(_ topic: String) async -> Result<Void, RoomProxyError> {
         do {
             return try await .success(room.setTopic(topic: topic))
@@ -420,7 +405,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             MXLog.error("Failed uploading avatar, invalid media: \(media)")
             return .failure(.invalidMedia)
         }
-
+        
         do {
             let data = try Data(contentsOf: imageURL)
             return try await .success(room.uploadAvatar(mimeType: mimeType, data: data, mediaInfo: nil))
@@ -439,16 +424,6 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             .failure(.sdkError(error))
         case .failure(let error):
             .failure(.timelineError(error))
-        }
-    }
-    
-    func edit(eventID: String, newContent: RoomMessageEventContentWithoutRelation) async -> Result<Void, RoomProxyError> {
-        do {
-            try await room.edit(eventId: eventID, newContent: newContent)
-            return .success(())
-        } catch {
-            MXLog.error("Failed editing event id \(eventID), in room \(id) with error: \(error)")
-            return .failure(.sdkError(error))
         }
     }
     
@@ -581,15 +556,6 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     
     // MARK: - Power Levels
     
-    func powerLevels() async -> Result<RoomPowerLevelsProxyProtocol?, RoomProxyError> {
-        do {
-            return try await .success(RoomPowerLevelsProxy(room.getPowerLevels()))
-        } catch {
-            MXLog.error("Failed building the current power level settings: \(error)")
-            return .failure(.sdkError(error))
-        }
-    }
-    
     func applyPowerLevelChanges(_ changes: RoomPowerLevelChanges) async -> Result<Void, RoomProxyError> {
         do {
             return try await .success(room.applyPowerLevelChanges(changes: changes))
@@ -605,15 +571,6 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             return .success(())
         } catch {
             MXLog.error("Failed resetting the power levels: \(error)")
-            return .failure(.sdkError(error))
-        }
-    }
-    
-    func suggestedRole(for userID: String) async -> Result<RoomMemberRole, RoomProxyError> {
-        do {
-            return try await .success(room.suggestedRoleForUser(userId: userID))
-        } catch {
-            MXLog.error("Failed getting a user's role: \(error)")
             return .failure(.sdkError(error))
         }
     }
@@ -758,10 +715,10 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
         await RoomLiveLocationService(liveLocationsObserver: room.liveLocationsObserver())
     }
     
-    func startLiveLocationShare(duration: Duration) async -> Result<Void, RoomProxyError> {
+    func startLiveLocationShare(duration: Duration) async -> Result<String, RoomProxyError> {
         do {
-            try await room.startLiveLocationShare(durationMillis: UInt64(duration.seconds * 1000))
-            return .success(())
+            let eventID = try await room.startLiveLocationShare(durationMillis: UInt64(duration.seconds * 1000))
+            return .success(eventID)
         } catch {
             MXLog.error("Failed starting live location share with error: \(error)")
             return .failure(.sdkError(error))
@@ -772,16 +729,9 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
         do {
             try await room.sendLiveLocation(geoUri: geoURI.string)
             return .success(())
-        } catch let error as LiveLocationError {
-            switch error {
-            case .Network:
-                MXLog.error("Failed sending live location with error: \(error)")
-                return .failure(.sdkError(error))
-            // We can consider the session not active for any error other the Network one.
-            default:
-                MXLog.error("Failed sending live location, session is not active")
-                return .failure(.liveLocationSessionIsNotActive)
-            }
+        } catch LiveLocationError.NotLive {
+            MXLog.error("Failed sending live location, session is not active")
+            return .failure(.liveLocationSessionIsNotActive)
         } catch {
             MXLog.error("Failed sending live location with error: \(error)")
             return .failure(.sdkError(error))
@@ -797,17 +747,60 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
             return .failure(.sdkError(error))
         }
     }
-
+    
     // MARK: - Private
     
+    private func subscribeToMemberChanges() {
+        memberChangesObservationToken = room.subscribeToStateEvents(eventType: .roomMember, listener: SDKListener.onMainActor { [weak self] _ in
+            guard let self else { return }
+            
+            MXLog.info("Received room member changes")
+            
+            // Changes arriving while a reload runs are folded into a single follow-up reload.
+            needsMembersReload = true
+            guard reloadMembersTask == nil else { return }
+            
+            reloadMembersTask = Task { [weak self] in
+                while let self, needsMembersReload {
+                    needsMembersReload = false
+                    await updateMembers()
+                }
+                self?.reloadMembersTask = nil
+            }
+        })
+    }
+    
+    private func reloadMembersFromStore() async {
+        do {
+            if let members = try await Self.changedMembers(in: room.membersNoSync(), from: publishedMembers) {
+                publishMembers(members)
+            }
+        } catch {
+            MXLog.error("Failed updating members using no sync API: \(error)")
+        }
+    }
+    
+    /// Reads every member off the main actor as large rooms have thousands. Returns nil when nothing changed,
+    /// which is most updates once the full list is stored, so that member screens don't rebuild for nothing.
+    @concurrent
+    private static func changedMembers(in iterator: RoomMembersIterator, from publishedMembers: [RoomMember]) async -> [RoomMember]? {
+        guard let members = iterator.nextChunk(chunkSize: iterator.len()), members != publishedMembers else { return nil }
+        return members
+    }
+    
+    private func publishMembers(_ members: [RoomMember]) {
+        publishedMembers = members
+        membersSubject.value = members.map(RoomMemberProxy.init)
+    }
+    
     private func subscribeToTypingNotifications() {
-        typingNotificationObservationToken = room.subscribeToTypingNotifications(listener: SDKListener { [weak self] typingUserIDs in
+        typingNotificationObservationToken = room.subscribeToTypingNotifications(listener: SDKListener.onMainActor { [weak self] typingUserIDs in
             guard let self else { return }
             
             MXLog.info("Received typing notification update, typingUsers: \(typingUserIDs)")
             
             let typingMembers = typingUserIDs.compactMap { userID in
-                if let member = self.membersPublisher.value.filter({ $0.userID == userID }).first {
+                if let member = self.membersPublisher.value.first(where: { $0.userID == userID }) {
                     return member.displayName ?? member.userID.matrixDisplayNameWithAt
                 } else {
                     return userID
@@ -820,7 +813,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     
     private func subscribeToIdentityStatusChanges() async {
         do {
-            identityStatusChangesObservationToken = try await room.subscribeToIdentityStatusChanges(listener: SDKListener { [weak self] changes in
+            identityStatusChangesObservationToken = try await room.subscribeToIdentityStatusChanges(listener: SDKListener.onMainActor { [weak self] changes in
                 guard let self else { return }
                 
                 MXLog.info("Received identity status changes: \(changes)")
@@ -834,7 +827,7 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
     
     private func subscribeToKnockRequests() async {
         do {
-            knockRequestsChangesObservationToken = try await room.subscribeToKnockRequests(listener: SDKListener { [weak self] requests in
+            knockRequestsChangesObservationToken = try await room.subscribeToKnockRequests(listener: SDKListener.onMainActor { [weak self] requests in
                 guard let self else { return }
                 
                 MXLog.info("Received requests to join update, requests id: \(requests.map(\.eventId))")
@@ -845,25 +838,20 @@ class JoinedRoomProxy: JoinedRoomProxyProtocol {
         }
     }
     
-    private static func excludedEventsFilter(appSettings: AppSettings) -> TimelineEventFilter {
-        var stateEventFilters: [StateEventType] = [.roomCanonicalAlias,
-                                                   .roomGuestAccess,
-                                                   .roomHistoryVisibility,
-                                                   .roomJoinRules,
-                                                   .roomPinnedEvents,
-                                                   .roomPowerLevels,
-                                                   .roomServerAcl,
-                                                   .roomTombstone,
-                                                   .spaceChild,
-                                                   .spaceParent,
-                                                   .policyRuleRoom,
-                                                   .policyRuleServer,
-                                                   .policyRuleUser]
-        
-        if !appSettings.liveLocationSharingEnabled {
-            stateEventFilters.append(.beaconInfo)
-        }
-        
-        return .excludeEventTypes(eventTypes: stateEventFilters.map { FilterTimelineEventType.state(eventType: $0) })
-    }
+    private static let excludedEventsFilter: TimelineEventFilter = {
+        var stateEventFilters: [TimelineEventType] = [.roomCanonicalAlias,
+                                                      .roomGuestAccess,
+                                                      .roomHistoryVisibility,
+                                                      .roomJoinRules,
+                                                      .roomPinnedEvents,
+                                                      .roomPowerLevels,
+                                                      .roomServerAcl,
+                                                      .roomTombstone,
+                                                      .spaceChild,
+                                                      .spaceParent,
+                                                      .policyRuleRoom,
+                                                      .policyRuleServer,
+                                                      .policyRuleUser]
+        return .exclude(stateEventFilters.map { TimelineEventCondition.eventType($0) })
+    }()
 }

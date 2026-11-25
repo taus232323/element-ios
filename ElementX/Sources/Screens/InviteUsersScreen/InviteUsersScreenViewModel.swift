@@ -14,12 +14,12 @@ typealias InviteUsersScreenViewModelType = StateStoreViewModel<InviteUsersScreen
 
 class InviteUsersScreenViewModel: InviteUsersScreenViewModelType, InviteUsersScreenViewModelProtocol {
     private let clientProxy: ClientProxyProtocol
-    private let roomProxy: JoinedRoomProxyProtocol
+    private let roomType: InviteUsersScreenRoomType
     private let userDiscoveryService: UserDiscoveryServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
-    private let appSettings: AppSettings
+    private let screenHook: InviteUsersScreenHookProtocol
     
-    private var suggestedUsers = [UserProfileProxy]()
+    private var suggestedUsers = [UserProfile]()
     
     private let actionsSubject: PassthroughSubject<InviteUsersScreenViewModelAction, Never> = .init()
     var actions: AnyPublisher<InviteUsersScreenViewModelAction, Never> {
@@ -27,21 +27,27 @@ class InviteUsersScreenViewModel: InviteUsersScreenViewModelType, InviteUsersScr
     }
     
     init(userSession: UserSessionProtocol,
-         roomProxy: JoinedRoomProxyProtocol,
+         roomType: InviteUsersScreenRoomType,
          isSkippable: Bool,
          userDiscoveryService: UserDiscoveryServiceProtocol,
-         userIndicatorController: UserIndicatorControllerProtocol,
-         appSettings: AppSettings) {
+         userIndicatorController: UserIndicatorControllerProtocol) {
         clientProxy = userSession.clientProxy
-        self.roomProxy = roomProxy
+        self.roomType = roomType
         self.userDiscoveryService = userDiscoveryService
         self.userIndicatorController = userIndicatorController
-        self.appSettings = appSettings
+        screenHook = userSession.userHooks.inviteUsersScreenHook
         
-        super.init(initialViewState: InviteUsersScreenViewState(selectedUsers: [],
+        let mandatoryInvitees: [UserProfile] = if case .draft(let invitees) = roomType {
+            invitees
+        } else {
+            []
+        }
+        
+        super.init(initialViewState: InviteUsersScreenViewState(selectedUsers: mandatoryInvitees,
+                                                                mandatoryInvitees: mandatoryInvitees,
                                                                 isSkippable: isSkippable),
                    mediaProvider: userSession.mediaProvider)
-                
+        
         setupSubscriptions()
         fetchMembersIfNeeded()
         
@@ -61,39 +67,47 @@ class InviteUsersScreenViewModel: InviteUsersScreenViewModelType, InviteUsersScr
         case .cancel:
             actionsSubject.send(.dismiss)
         case .proceed:
-            guard appSettings.enableKeyShareOnInvite,
-                  roomProxy.details.historySharingState != RoomHistorySharingState.hidden,
-                  !state.usersToConfirm.isEmpty,
-                  !state.isSkippable else {
-                inviteUsers(state.selectedUsers.map(\.userID), roomProxy: roomProxy)
-                return
+            switch roomType {
+            case .draft:
+                createDraftRoom(mandatoryUserIDs: state.selectedUsers.map(\.id))
+            case .existingRoom(let roomProxy):
+                guard roomProxy.details.historySharingState != RoomHistorySharingState.hidden,
+                      !state.usersToConfirm.isEmpty,
+                      !state.isSkippable else {
+                    inviteUsers(state.selectedUsers.map(\.id), roomProxy: roomProxy)
+                    return
+                }
+                state.bindings.presentConfirmationDialog = true
             }
-            state.bindings.presentConfirmationDialog = true
         case .removeUnknownUsers:
             state.bindings.presentConfirmationDialog = false
             state.selectedUsers.removeAll { user in
-                state.usersToConfirm.contains { $0.userID == user.userID }
+                state.usersToConfirm.contains { $0.id == user.id }
             }
             state.usersToConfirm = []
         case .confirmUnknownUsers:
             state.bindings.presentConfirmationDialog = false
             state.usersToConfirm = []
-            inviteUsers(state.selectedUsers.map(\.userID), roomProxy: roomProxy)
+            if case .existingRoom(let roomProxy) = roomType {
+                inviteUsers(state.selectedUsers.map(\.id), roomProxy: roomProxy)
+            }
         case .toggleUser(let user):
             toggleUser(user)
         }
     }
-
+    
     // MARK: - Private
     
-    private func toggleUser(_ user: UserProfileProxy) {
+    private func toggleUser(_ user: UserProfile) {
+        guard !state.isInviteeMandatory(user) else { return }
+        
         if state.selectedUsers.contains(user) {
-            state.selectedUsers.removeAll { $0.userID == user.userID }
+            state.selectedUsers.removeAll { $0.id == user.id }
         } else {
             state.selectedUsers.append(user)
-            withElementAnimation(.easeInOut) { state.bindings.selectedUsersPosition = user.userID }
+            withElementAnimation(.easeInOut) { state.bindings.selectedUsersPosition = user.id }
             Task {
-                let identityUnknown = if case .success(let identity) = await self.clientProxy.userIdentity(for: user.userID, fallBackToServer: false) {
+                let identityUnknown = if case .success(let identity) = await self.clientProxy.userIdentity(for: user.id, fallBackToServer: false) {
                     identity == nil
                 } else {
                     true
@@ -106,12 +120,32 @@ class InviteUsersScreenViewModel: InviteUsersScreenViewModelType, InviteUsersScr
         }
     }
     
-    private func inviteUsers(_ users: [String], roomProxy: JoinedRoomProxyProtocol) {
-        if appSettings.enableKeyShareOnInvite {
-            showLoadingIndicator(title: L10n.screenRoomDetailsInvitePeoplePreparing, message: L10n.screenRoomDetailsInvitePeopleDontClose)
-        } else {
-            showLoadingIndicator()
+    private func createDraftRoom(mandatoryUserIDs: [String]) {
+        showLoadingIndicator(title: L10n.commonCreatingRoom)
+        
+        Task {
+            defer { hideLoadingIndicator() }
+            
+            let parameters = CreateRoomParameters.room(name: nil,
+                                                       topic: nil,
+                                                       accessType: .private,
+                                                       userIDs: mandatoryUserIDs,
+                                                       avatarURL: nil,
+                                                       aliasLocalPart: nil)
+            
+            switch await clientProxy.createRoom(screenHook.update(parameters)) {
+            case .success(let roomID):
+                actionsSubject.send(.openRoom(roomID: roomID))
+            case .failure:
+                state.bindings.alertInfo = .init(id: .unknown,
+                                                 title: L10n.commonError,
+                                                 message: L10n.screenStartChatErrorStartingChat)
+            }
         }
+    }
+    
+    private func inviteUsers(_ users: [String], roomProxy: JoinedRoomProxyProtocol) {
+        showLoadingIndicator(title: L10n.screenRoomDetailsInvitePeoplePreparing, message: L10n.screenRoomDetailsInvitePeopleDontClose)
         
         Task {
             defer {
@@ -126,9 +160,11 @@ class InviteUsersScreenViewModel: InviteUsersScreenViewModelType, InviteUsersScr
                     }
                 }
                 
-                return await group.first { inviteResult in
-                    inviteResult.isFailure
-                } ?? .success(())
+                for await inviteResult in group where inviteResult.isFailure {
+                    return inviteResult
+                }
+                
+                return .success(())
             }
             
             guard case .failure = result else {
@@ -158,7 +194,6 @@ class InviteUsersScreenViewModel: InviteUsersScreenViewModelType, InviteUsersScr
         }
     }
     
-    // periphery:ignore - automatically cancelled when set to nil
     @CancellableTask
     private var fetchUsersTask: Task<Void, Never>?
     
@@ -173,6 +208,8 @@ class InviteUsersScreenViewModel: InviteUsersScreenViewModelType, InviteUsersScr
     }
     
     private func fetchMembersIfNeeded() {
+        guard case .existingRoom(let roomProxy) = roomType else { return }
+        
         Task {
             showLoadingIndicator()
             await roomProxy.updateMembers()
@@ -212,7 +249,7 @@ class InviteUsersScreenViewModel: InviteUsersScreenViewModelType, InviteUsersScr
             }
         }
     }
-        
+    
     private var searchQuery: String {
         context.searchQuery
     }

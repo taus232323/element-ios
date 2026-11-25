@@ -13,7 +13,7 @@ typealias PollFormScreenViewModelType = StateStoreViewModelV2<PollFormScreenView
 
 class PollFormScreenViewModel: PollFormScreenViewModelType, PollFormScreenViewModelProtocol {
     private let timelineController: TimelineControllerProtocol
-    private let analytics: AnalyticsService
+    private let analytics: AnalyticsServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
     
     private var actionsSubject: PassthroughSubject<PollFormScreenViewModelAction, Never> = .init()
@@ -24,7 +24,7 @@ class PollFormScreenViewModel: PollFormScreenViewModelType, PollFormScreenViewMo
     init(mode: PollFormMode,
          maxNumberOfOptions: Int? = nil,
          timelineController: TimelineControllerProtocol,
-         analytics: AnalyticsService,
+         analytics: AnalyticsServiceProtocol,
          userIndicatorController: UserIndicatorControllerProtocol) {
         self.timelineController = timelineController
         self.analytics = analytics
@@ -40,22 +40,31 @@ class PollFormScreenViewModel: PollFormScreenViewModelType, PollFormScreenViewMo
         case .submit:
             let question = state.bindings.question
             let options = state.bindings.options.map(\.text)
+            let maxSelections = state.bindings.maxSelections
             let pollKind = state.bindings.isUndisclosed ? Poll.Kind.undisclosed : .disclosed
             
             Task {
                 switch state.mode {
                 case .new:
-                    await createPoll(question: question, options: options, pollKind: pollKind)
+                    await createPoll(question: question, options: options, maxSelections: maxSelections, pollKind: pollKind)
                 case .edit(let eventID, _):
-                    await editPoll(pollStartID: eventID, question: question, options: options, pollKind: pollKind)
+                    await editPoll(pollStartID: eventID, question: question, options: options, maxSelections: maxSelections, pollKind: pollKind)
                 }
             }
         case .delete:
+            // A blank reason is no reason at all, so don't send one.
+            var reason: String?
+            let binding: Binding<String> = .init(get: { reason ?? "" },
+                                                 set: { reason = $0.isBlank ? nil : $0 })
             state.bindings.alertInfo = .init(id: .init(),
                                              title: L10n.screenEditPollDeleteConfirmationTitle,
                                              message: L10n.screenEditPollDeleteConfirmation,
                                              primaryButton: .init(title: L10n.actionCancel, role: .cancel, action: nil),
-                                             secondaryButton: .init(title: L10n.actionOk) { Task { await self.deletePoll() } })
+                                             secondaryButton: .init(title: L10n.actionOk) { Task { await self.deletePoll(reason: reason) } },
+                                             textFields: [.init(placeholder: L10n.screenRoomConfirmRemovalReasonLabel,
+                                                                text: binding,
+                                                                autoCapitalization: .sentences,
+                                                                autoCorrectionDisabled: false)])
         case .cancel:
             if state.formContentHasChanged {
                 state.bindings.alertInfo = .init(id: .init(),
@@ -80,13 +89,17 @@ class PollFormScreenViewModel: PollFormScreenViewModelType, PollFormScreenViewMo
                 return
             }
             state.bindings.options.append(.init())
+        case .decrementMaxSelections:
+            state.bindings.maxSelections -= 1
+        case .incrementMaxSelections:
+            state.bindings.maxSelections += 1
         }
     }
     
     // MARK: - Private
     
-    private func createPoll(question: String, options: [String], pollKind: Poll.Kind) async {
-        guard case .success = await timelineController.createPoll(question: question, answers: options, pollKind: pollKind) else {
+    private func createPoll(question: String, options: [String], maxSelections: Int, pollKind: Poll.Kind) async {
+        guard case .success = await timelineController.createPoll(question: question, answers: options, maxSelections: maxSelections, pollKind: pollKind) else {
             userIndicatorController.submitIndicator(UserIndicator(title: L10n.errorUnknown))
             return
         }
@@ -102,8 +115,8 @@ class PollFormScreenViewModel: PollFormScreenViewModelType, PollFormScreenViewMo
         analytics.trackPollCreated(isUndisclosed: pollKind == .undisclosed, numberOfAnswers: options.count)
     }
     
-    private func editPoll(pollStartID: String, question: String, options: [String], pollKind: Poll.Kind) async {
-        switch await timelineController.editPoll(original: pollStartID, question: question, answers: options, pollKind: pollKind) {
+    private func editPoll(pollStartID: String, question: String, options: [String], maxSelections: Int, pollKind: Poll.Kind) async {
+        switch await timelineController.editPoll(original: pollStartID, question: question, answers: options, maxSelections: maxSelections, pollKind: pollKind) {
         case .success:
             actionsSubject.send(.close)
         case .failure:
@@ -111,7 +124,7 @@ class PollFormScreenViewModel: PollFormScreenViewModelType, PollFormScreenViewMo
         }
     }
     
-    private func deletePoll() async {
+    private func deletePoll(reason: String?) async {
         // There aren't any local echoes for redactions, so dismiss the screen early
         // until we have them: https://github.com/matrix-org/matrix-rust-sdk/issues/4162
         actionsSubject.send(.close)
@@ -121,6 +134,6 @@ class PollFormScreenViewModel: PollFormScreenViewModelType, PollFormScreenViewMo
             return
         }
         
-        await timelineController.redact(.eventID(pollStartID))
+        await timelineController.redact(.eventID(pollStartID), reason: reason)
     }
 }

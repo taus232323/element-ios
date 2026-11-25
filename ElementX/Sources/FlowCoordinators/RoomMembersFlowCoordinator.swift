@@ -11,7 +11,6 @@ import SwiftUI
 
 enum RoomMembersFlowCoordinatorAction {
     case finished
-    case presentCallScreen(roomProxy: JoinedRoomProxyProtocol, isVoiceCall: Bool)
     case verifyUser(userID: String)
 }
 
@@ -39,10 +38,8 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
     }
     
     enum Event: EventType {
-        case start
-        
         case presentRoomMembersList
-
+        
         case presentRoomMemberDetails(userID: String)
         case dismissedRoomMemberDetails
         
@@ -97,6 +94,8 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
     }
     
     func handleAppRoute(_ appRoute: AppRoute, animated: Bool) {
+        MXLog.info("Handling app route: \(appRoute)")
+        
         switch appRoute {
         case .roomMemberDetails(let userID):
             if case .roomFlow = stateMachine.state, let childFlowCoordinator {
@@ -118,9 +117,10 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
             }
         case .roomAlias, .childRoomAlias, .eventOnRoomAlias, .childEventOnRoomAlias:
             break // These are converted to a room ID route one level above.
-        case .accountProvisioningLink, .invite, .roomList, .room, .roomDetails, .event,
-             .userProfile, .call, .genericCallLink, .settings, .chatBackupSettings,
-             .share, .transferOwnership, .thread, .globalSearch:
+        case .authentication, .accountProvisioningLink, .oAuthCallback, .invite,
+             .roomList, .room, .roomDetails, .event,
+             .userProfile, .call, .settings, .chatBackupSettings,
+             .share, .transferOwnership, .thread, .search:
             break
         }
     }
@@ -175,6 +175,9 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
                 
             case (_, .presentRoomMemberDetails, .roomMemberDetails(let userID, _)):
                 presentRoomMemberDetails(userID: userID, animated: animated)
+                
+            case (.roomMemberDetails, .dismissedRoomMemberDetails, .initial):
+                actionsSubject.send(.finished)
             case (.roomMemberDetails, .dismissedRoomMemberDetails, .roomMembersList):
                 break
                 
@@ -185,6 +188,9 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
                 
             case (.roomMemberDetails, .presentUserProfile, .userProfile(let userID, _)):
                 replaceRoomMemberDetailsWithUserProfile(userID: userID)
+                
+            case (.userProfile, .dismissedUserProfile, .initial):
+                actionsSubject.send(.finished)
             case (.userProfile, .dismissedUserProfile, _):
                 break
                 
@@ -224,9 +230,8 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
         let params = RoomMemberDetailsScreenCoordinatorParameters(userID: userID,
                                                                   roomProxy: roomProxy,
                                                                   userSession: flowParameters.userSession,
-                                                                  userIndicatorController: flowParameters.userIndicatorController,
                                                                   analytics: flowParameters.analytics,
-                                                                  appSettings: flowParameters.appSettings)
+                                                                  userIndicatorController: flowParameters.userIndicatorController)
         let coordinator = RoomMemberDetailsScreenCoordinator(parameters: params)
         
         coordinator.actions.sink { [weak self] action in
@@ -236,33 +241,24 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
                 stateMachine.tryEvent(.presentUserProfile(userID: userID))
             case .openDirectChat(let roomID):
                 stateMachine.tryEvent(.startRoomFlow(roomID: roomID, via: [], eventID: nil))
-            case .startCall(let roomProxy, let isVoiceCall):
-                actionsSubject.send(.presentCallScreen(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
             case .verifyUser(let userID):
                 actionsSubject.send(.verifyUser(userID: userID))
             }
         }
         .store(in: &cancellables)
-
+        
         navigationStackCoordinator.push(coordinator, animated: animated) { [weak self] in
-            guard let self else { return }
-            if case let .roomMemberDetails(_, previousState) = stateMachine.state,
-               previousState == .initial {
-                actionsSubject.send(.finished)
-            } else {
-                stateMachine.tryEvent(.dismissedRoomMemberDetails)
-            }
+            self?.stateMachine.tryEvent(.dismissedRoomMemberDetails)
         }
     }
     
     private func presentInviteUsersScreen() {
         let stackCoordinator = NavigationStackCoordinator()
         let inviteParameters = InviteUsersScreenCoordinatorParameters(userSession: flowParameters.userSession,
-                                                                      roomProxy: roomProxy,
+                                                                      roomType: .existingRoom(roomProxy: roomProxy),
                                                                       isSkippable: false,
                                                                       userDiscoveryService: UserDiscoveryService(clientProxy: flowParameters.userSession.clientProxy),
-                                                                      userIndicatorController: flowParameters.userIndicatorController,
-                                                                      appSettings: flowParameters.appSettings)
+                                                                      userIndicatorController: flowParameters.userIndicatorController)
         
         let coordinator = InviteUsersScreenCoordinator(parameters: inviteParameters)
         stackCoordinator.setRootCoordinator(coordinator)
@@ -273,6 +269,8 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
             switch action {
             case .dismiss:
                 navigationStackCoordinator.setSheetCoordinator(nil)
+            case .openRoom:
+                break
             }
         }
         .store(in: &cancellables)
@@ -286,9 +284,8 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
         let parameters = UserProfileScreenCoordinatorParameters(userID: userID,
                                                                 isPresentedModally: false,
                                                                 userSession: flowParameters.userSession,
-                                                                userIndicatorController: flowParameters.userIndicatorController,
                                                                 analytics: flowParameters.analytics,
-                                                                appSettings: flowParameters.appSettings)
+                                                                userIndicatorController: flowParameters.userIndicatorController)
         let coordinator = UserProfileScreenCoordinator(parameters: parameters)
         coordinator.actionsPublisher.sink { [weak self] action in
             guard let self else { return }
@@ -296,8 +293,6 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
             switch action {
             case .openDirectChat(let roomID):
                 stateMachine.tryEvent(.startRoomFlow(roomID: roomID, via: [], eventID: nil))
-            case .startCall(let roomProxy, let isVoiceCall):
-                actionsSubject.send(.presentCallScreen(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
             case .dismiss:
                 break // Not supported when pushed.
             }
@@ -309,8 +304,8 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) { [weak self] in
             guard let self else { return }
             navigationStackCoordinator.pop(animated: false)
-            navigationStackCoordinator.push(coordinator, animated: false) {
-                self.stateMachine.tryEvent(.dismissedUserProfile)
+            navigationStackCoordinator.push(coordinator, animated: false) { [weak self] in
+                self?.stateMachine.tryEvent(.dismissedUserProfile)
             }
         }
     }
@@ -325,8 +320,6 @@ final class RoomMembersFlowCoordinator: FlowCoordinatorProtocol {
                 guard let self else { return }
                 
                 switch action {
-                case .presentCallScreen(let roomProxy, let isVoiceCall):
-                    actionsSubject.send(.presentCallScreen(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
                 case .verifyUser(let userID):
                     actionsSubject.send(.verifyUser(userID: userID))
                 case .continueWithSpaceFlow:

@@ -12,6 +12,9 @@ if [ "$CI_WORKFLOW" = "Nightly" ]; then
 elif [ "$CI_WORKFLOW" = "Element Pro" ]; then
     # Xcode Cloud automatically fetches the submodules.
     swift run pipeline configure-element-pro
+elif [ "$CI_WORKFLOW" = "Element Pro Nightly" ]; then
+    # Xcode Cloud automatically fetches the submodules.
+    swift run pipeline configure-element-pro-nightly --build-number $CI_BUILD_NUMBER
 else
     swift run --package-path Tools tools ci configure-production
 fi

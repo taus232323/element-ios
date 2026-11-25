@@ -12,11 +12,10 @@ import SwiftUI
 struct RoomDetailsScreenCoordinatorParameters {
     let roomProxy: JoinedRoomProxyProtocol
     let userSession: UserSessionProtocol
-    let analyticsService: AnalyticsService
+    let analyticsService: AnalyticsServiceProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
     let notificationSettings: NotificationSettingsProxyProtocol
     let attributedStringBuilder: AttributedStringBuilderProtocol
-    let appSettings: AppSettings
 }
 
 enum RoomDetailsScreenCoordinatorAction {
@@ -26,9 +25,9 @@ enum RoomDetailsScreenCoordinatorAction {
     case presentRoomDetailsEditScreen
     case presentNotificationSettingsScreen
     case presentInviteUsersScreen
+    case presentInviteToNewRoom(invitee: UserProfile)
     case presentPollsHistory
     case presentRolesAndPermissionsScreen
-    case presentCall(isVoiceCall: Bool)
     case presentPinnedEventsTimeline
     case presentMediaEventsTimeline
     case presentKnockingRequestsListScreen
@@ -43,11 +42,11 @@ final class RoomDetailsScreenCoordinator: CoordinatorProtocol {
     
     private let actionsSubject: PassthroughSubject<RoomDetailsScreenCoordinatorAction, Never> = .init()
     private var cancellables = Set<AnyCancellable>()
-        
+    
     var actions: AnyPublisher<RoomDetailsScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-        
+    
     init(parameters: RoomDetailsScreenCoordinatorParameters) {
         isSpace = parameters.roomProxy.infoPublisher.value.isSpace
         viewModel = RoomDetailsScreenViewModel(roomProxy: parameters.roomProxy,
@@ -55,8 +54,7 @@ final class RoomDetailsScreenCoordinator: CoordinatorProtocol {
                                                analyticsService: parameters.analyticsService,
                                                userIndicatorController: parameters.userIndicatorController,
                                                notificationSettingsProxy: parameters.notificationSettings,
-                                               attributedStringBuilder: parameters.attributedStringBuilder,
-                                               appSettings: parameters.appSettings)
+                                               attributedStringBuilder: parameters.attributedStringBuilder)
     }
     
     // MARK: - Public
@@ -71,6 +69,8 @@ final class RoomDetailsScreenCoordinator: CoordinatorProtocol {
                     actionsSubject.send(.presentRoomMembersList)
                 case .requestInvitePeoplePresentation:
                     actionsSubject.send(.presentInviteUsersScreen)
+                case .requestInviteToNewRoomPresentation(let invitee):
+                    actionsSubject.send(.presentInviteToNewRoom(invitee: invitee))
                 case .leftRoom:
                     actionsSubject.send(.leftRoom)
                 case .requestEditDetailsPresentation:
@@ -81,8 +81,6 @@ final class RoomDetailsScreenCoordinator: CoordinatorProtocol {
                     actionsSubject.send(.presentPollsHistory)
                 case .requestRolesAndPermissionsPresentation:
                     actionsSubject.send(.presentRolesAndPermissionsScreen)
-                case .startCall(let isVoiceCall):
-                    actionsSubject.send(.presentCall(isVoiceCall: isVoiceCall))
                 case .displayPinnedEventsTimeline:
                     actionsSubject.send(.presentPinnedEventsTimeline)
                 case .displayMediaEventsTimeline:

@@ -11,15 +11,15 @@ import SwiftUI
 
 struct InviteUsersScreenCoordinatorParameters {
     let userSession: UserSessionProtocol
-    let roomProxy: JoinedRoomProxyProtocol
+    let roomType: InviteUsersScreenRoomType
     let isSkippable: Bool
     let userDiscoveryService: UserDiscoveryServiceProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
-    let appSettings: AppSettings
 }
 
 enum InviteUsersScreenCoordinatorAction {
     case dismiss
+    case openRoom(roomID: String)
 }
 
 final class InviteUsersScreenCoordinator: CoordinatorProtocol {
@@ -33,11 +33,10 @@ final class InviteUsersScreenCoordinator: CoordinatorProtocol {
     
     init(parameters: InviteUsersScreenCoordinatorParameters) {
         viewModel = InviteUsersScreenViewModel(userSession: parameters.userSession,
-                                               roomProxy: parameters.roomProxy,
+                                               roomType: parameters.roomType,
                                                isSkippable: parameters.isSkippable,
                                                userDiscoveryService: parameters.userDiscoveryService,
-                                               userIndicatorController: parameters.userIndicatorController,
-                                               appSettings: parameters.appSettings)
+                                               userIndicatorController: parameters.userIndicatorController)
     }
     
     func start() {
@@ -46,6 +45,8 @@ final class InviteUsersScreenCoordinator: CoordinatorProtocol {
             switch action {
             case .dismiss:
                 actionsSubject.send(.dismiss)
+            case .openRoom(let roomID):
+                actionsSubject.send(.openRoom(roomID: roomID))
             }
         }
         .store(in: &cancellables)

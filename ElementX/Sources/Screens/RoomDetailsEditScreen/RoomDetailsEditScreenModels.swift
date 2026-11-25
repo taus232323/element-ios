@@ -13,6 +13,7 @@ enum RoomDetailsEditScreenViewModelAction {
     case saveFinished
     case displayCameraPicker
     case displayMediaPicker
+    case displayFilePicker
 }
 
 struct RoomDetailsEditScreenViewState: BindableState {
@@ -26,7 +27,7 @@ struct RoomDetailsEditScreenViewState: BindableState {
     var canEditTopic = false
     var avatarURL: URL?
     var localMedia: MediaInfo?
-
+    
     var bindings: RoomDetailsEditScreenViewStateBindings
     
     var nameDidChange: Bool {
@@ -50,7 +51,7 @@ struct RoomDetailsEditScreenViewState: BindableState {
     var avatarDidChange: Bool {
         localMedia != nil || avatarURL != initialAvatarURL
     }
-
+    
     var canSave: Bool {
         !bindings.name.isEmpty && (avatarDidChange || nameDidChange || topicDidChange)
     }
@@ -81,5 +82,6 @@ enum RoomDetailsEditScreenViewAction {
     case presentMediaSource
     case displayCameraPicker
     case displayMediaPicker
+    case displayFilePicker
     case removeImage
 }

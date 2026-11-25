@@ -6,6 +6,7 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+import Algorithms
 import Combine
 import Compound
 import MatrixRustSDK
@@ -17,7 +18,6 @@ import SwiftUI
 class TimelineItemCell: UITableViewCell {
     static let reuseIdentifier = "TimelineItemCell"
     
-    // periphery:ignore - retaining purpose
     var item: RoomTimelineItemViewState?
     
     override func prepareForReuse() {
@@ -56,10 +56,6 @@ class TimelineTableViewController: UIViewController {
             }
             
             applySnapshot()
-            
-            if timelineItemsDictionary.isEmpty {
-                paginatePublisher.send()
-            }
             
             sendLastVisibleItemReadReceipt()
         }
@@ -103,7 +99,9 @@ class TimelineTableViewController: UIViewController {
     var isLive = true {
         didSet {
             // Update isScrolledToBottom when switching back to a live timeline.
-            if isLive { scrollViewDidScroll(tableView) }
+            if isLive {
+                scrollViewDidScroll(tableView)
+            }
         }
     }
     
@@ -145,19 +143,28 @@ class TimelineTableViewController: UIViewController {
     }
     
     @Binding private var isScrolledToBottom: Bool
+    @Binding private var isReadMarkerVisible: Bool
+    @Binding private var hasNewMessagesAtBottom: Bool
     @Binding private var floatingDate: Date?
+    
+    /// The unique ID of the read marker (NEW banner) currently in the timeline, if any.
+    /// Updated by `TimelineViewRepresentable.updateUIViewController` whenever it changes.
+    var readMarkerUniqueID: TimelineItemIdentifier.UniqueID?
     
     /// A work item used to auto-hide the floating date badge after scrolling stops.
     private var floatingDateHideWorkItem: DispatchWorkItem?
-
+    
     private var timelineItemsIDs: [TimelineItemIdentifier.UniqueID] {
         timelineItemsDictionary.keys.elements.reversed()
     }
     
     /// The table's diffable data source.
     private var dataSource: UITableViewDiffableDataSource<TimelineSection, TimelineItemIdentifier.UniqueID>?
+    /// The IDs of the pagination indicators, which aren't part of the timeline's content.
+    private static let paginationIndicatorIDs: Set<TimelineItemIdentifier.UniqueID> = [PaginationIndicatorRoomTimelineItem(position: .start).id.uniqueID,
+                                                                                       PaginationIndicatorRoomTimelineItem(position: .end).id.uniqueID]
     private var cancellables = Set<AnyCancellable>()
-
+    
     /// A publisher used to throttle back pagination requests.
     ///
     /// Our view actions get wrapped in a `Task` so it is possible that a second call in
@@ -172,18 +179,18 @@ class TimelineTableViewController: UIViewController {
     /// Whether or not the view has been shown on screen yet.
     private var hasAppearedOnce = false
     
-    /// Value that determines if the table view is flipped or not according to the VoiceOver status.
-    private var scaleY: CGFloat {
-        UIAccessibility.isVoiceOverRunning ? 1 : -1
-    }
-    
     init(coordinator: TimelineViewRepresentable.Coordinator,
          isScrolledToBottom: Binding<Bool>,
+         isReadMarkerVisible: Binding<Bool>,
+         hasNewMessagesAtBottom: Binding<Bool>,
          floatingDate: Binding<Date?>,
          scrollToBottomPublisher: PassthroughSubject<Void, Never>,
-         scrollToFirstItemForDatePublisher: PassthroughSubject<Void, Never>) {
+         scrollToFirstItemForDatePublisher: PassthroughSubject<Void, Never>,
+         scrollToReadMarkerPublisher: PassthroughSubject<TimelineItemIdentifier.UniqueID, Never>) {
         self.coordinator = coordinator
         _isScrolledToBottom = isScrolledToBottom
+        _isReadMarkerVisible = isReadMarkerVisible
+        _hasNewMessagesAtBottom = hasNewMessagesAtBottom
         _floatingDate = floatingDate
         
         super.init(nibName: nil, bundle: nil)
@@ -195,9 +202,8 @@ class TimelineTableViewController: UIViewController {
         tableView.keyboardDismissMode = .onDrag
         tableView.backgroundColor = .compound.bgCanvasDefault
         
-        // The tableview should be flipped to display the newest items at the top
-        // the only exception is VoiceOver, where we want to keep the latest item at the top as Android.
-        tableView.transform = CGAffineTransform(scaleX: 1, y: scaleY)
+        // The tableview is flipped to display the newest items at the bottom.
+        tableView.transform = CGAffineTransform(scaleX: 1, y: -1)
         view.addSubview(tableView)
         
         // Prevents XCUITest from invoking the diffable dataSource's cellProvider
@@ -213,6 +219,12 @@ class TimelineTableViewController: UIViewController {
         scrollToFirstItemForDatePublisher
             .sink { [weak self] _ in
                 self?.scrollToFirstItemForCurrentDate()
+            }
+            .store(in: &cancellables)
+        
+        scrollToReadMarkerPublisher
+            .sink { [weak self] uniqueID in
+                self?.scrollToItem(uniqueID: uniqueID, animated: true)
             }
             .store(in: &cancellables)
         
@@ -234,15 +246,6 @@ class TimelineTableViewController: UIViewController {
         NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in
                 self?.sendLastVisibleItemReadReceipt()
-            }
-            .store(in: &cancellables)
-        
-        // Observe voice over status changes to flip the table view accordingly
-        NotificationCenter.default.publisher(for: UIAccessibility.voiceOverStatusDidChangeNotification)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                tableView.transform = CGAffineTransform(scaleX: 1, y: scaleY)
-                tableView.reloadData()
             }
             .store(in: &cancellables)
         
@@ -293,7 +296,7 @@ class TimelineTableViewController: UIViewController {
                 .background(Color.clear)
                 
                 // Flipping the cell can create some issues with cell resizing, so flip the content View
-                cell.contentView.transform = CGAffineTransform(scaleX: 1, y: scaleY)
+                cell.contentView.transform = CGAffineTransform(scaleX: 1, y: -1)
                 cell.accessibilityElements = [cell.contentView] // Ensure VoiceOver reads the content view only
                 
                 return cell
@@ -320,7 +323,7 @@ class TimelineTableViewController: UIViewController {
                 .background(Color.clear)
                 
                 // Flipping the cell can create some issues with cell resizing, so flip the content View
-                cell.contentView.transform = CGAffineTransform(scaleX: 1, y: scaleY)
+                cell.contentView.transform = CGAffineTransform(scaleX: 1, y: -1)
                 return cell
             }
         }
@@ -345,7 +348,7 @@ class TimelineTableViewController: UIViewController {
     /// the scroll position will be updated to maintain the position of the last visible item.
     private func applySnapshot() {
         guard let dataSource else { return }
-
+        
         var snapshot = NSDiffableDataSourceSnapshot<TimelineSection, TimelineItemIdentifier.UniqueID>()
         
         // We don't want to display the typing notification in this timeline
@@ -359,9 +362,10 @@ class TimelineTableViewController: UIViewController {
         let currentSnapshot = dataSource.snapshot()
         
         // We only animate when new items come at the end of a live timeline, ignoring transitions through empty.
-        let newestItemIdentifier = snapshot.mainItemIdentifiers.first
-        let currentNewestItemIdentifier = currentSnapshot.mainItemIdentifiers.first
-        let newestItemIDChanged = snapshot.numberOfMainItems > 0 && currentSnapshot.numberOfMainItems > 0 && newestItemIdentifier != currentNewestItemIdentifier
+        // A timeline that only shows its pagination indicators is still empty, its first items aren't new messages.
+        let snapshotMainItemIDs = snapshot.mainItemIdentifiers.trimming { Self.paginationIndicatorIDs.contains($0) }
+        let currentMainItemIDs = currentSnapshot.mainItemIdentifiers.trimming { Self.paginationIndicatorIDs.contains($0) }
+        let newestItemIDChanged = !snapshotMainItemIDs.isEmpty && !currentMainItemIDs.isEmpty && snapshotMainItemIDs.first != currentMainItemIDs.first
         let animated = isLive && !isSwitchingTimelines && newestItemIDChanged
         
         let layout: Layout? = if !isLive, newestItemIDChanged {
@@ -383,6 +387,14 @@ class TimelineTableViewController: UIViewController {
         if isSwitchingTimelines {
             coordinator.send(viewAction: .hasSwitchedTimeline)
         }
+        
+        // Re-evaluate after the snapshot has been applied so the new layout is reflected.
+        DispatchQueue.main.async { [weak self] in
+            self?.updateReadMarkerVisibility()
+            
+            // Make sure we paginate with the final timeline geometry
+            self?.paginatePublisher.send(())
+        }
     }
     
     /// Scrolls to the newest item in the timeline.
@@ -393,14 +405,27 @@ class TimelineTableViewController: UIViewController {
         tableView.scrollToRow(at: IndexPath(item: 0, section: 0), at: .top, animated: animated)
         scrollDirectionPublisher.send(.bottom)
     }
-
+    
     /// Scrolls to the oldest item in the timeline.
     private func scrollToOldestItem(animated: Bool) {
-        guard !timelineItemsIDs.isEmpty else {
+        // The data source can lag behind timelineItemsIDs, so scroll against the table's actual
+        // contents to avoid targeting a section or row that doesn't exist yet.
+        guard tableView.numberOfSections > 1,
+              tableView.numberOfRows(inSection: 1) > 0 else {
             return
         }
-        tableView.scrollToRow(at: IndexPath(item: timelineItemsIDs.count - 1, section: 1), at: .bottom, animated: animated)
+        tableView.scrollToRow(at: IndexPath(item: tableView.numberOfRows(inSection: 1) - 1, section: 1), at: .bottom, animated: animated)
         scrollDirectionPublisher.send(.top)
+    }
+    
+    /// Scrolls to the item with the corresponding unique ID. Used to jump to virtual items like
+    /// the read marker that have no event ID. Positions the item near the middle of the viewport
+    /// so the user can see what's above and below the marker.
+    private func scrollToItem(uniqueID: TimelineItemIdentifier.UniqueID, animated: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let indexPath = dataSource?.indexPath(for: uniqueID) else { return }
+            tableView.scrollToRow(at: indexPath, at: .middle, animated: animated)
+        }
     }
     
     /// Scrolls to the item with the corresponding event ID if loaded in the timeline.
@@ -441,6 +466,27 @@ class TimelineTableViewController: UIViewController {
         }
     }
     
+    /// Updates the `isReadMarkerVisible` binding based on whether the read marker is currently
+    /// on screen or below the viewport (already scrolled past).
+    ///
+    /// In the flipped table view, "above the viewport" means a higher index path. The marker is
+    /// considered "visible or below" iff its index path ≤ the maximum visible index path.
+    private func updateReadMarkerVisibility() {
+        let isVisible: Bool = {
+            guard let readMarkerUniqueID,
+                  let readMarkerIndexPath = dataSource?.indexPath(for: readMarkerUniqueID),
+                  let visibleIndexPaths = tableView.indexPathsForVisibleRows,
+                  let maxVisibleIndexPath = visibleIndexPaths.max() else {
+                return false
+            }
+            return readMarkerIndexPath <= maxVisibleIndexPath
+        }()
+        
+        if isReadMarkerVisible != isVisible {
+            isReadMarkerVisible = isVisible
+        }
+    }
+    
     private func sendLastVisibleItemReadReceipt() {
         // Find the last visible timeline item and send a read receipt for it
         guard let visibleIndexPaths = tableView.indexPathsForVisibleRows else {
@@ -473,13 +519,18 @@ extension TimelineTableViewController: UITableViewDelegate {
             // Only update the binding on changes to avoid needlessly recomputing the hierarchy when scrolling.
             if self.isScrolledToBottom != isScrolledToBottom {
                 self.isScrolledToBottom = isScrolledToBottom
+                if isScrolledToBottom, self.hasNewMessagesAtBottom {
+                    self.hasNewMessagesAtBottom = false
+                }
             }
             
             if !isScrolledToBottom {
                 updateFloatingDate()
             }
+            
+            updateReadMarkerVisibility()
         }
-
+        
         // We never want the table view to be fully at the bottom to allow the status bar tap to work properly
         if scrollView.contentOffset.y == 0 {
             scrollView.contentOffset.y = -1
@@ -570,19 +621,16 @@ extension TimelineTableViewController {
     
     /// Returns the timestamp of the newest visible timeline item.
     ///
-    /// The table view is flipped (unless VoiceOver is running), so the "newest"
-    /// visible cell on screen is actually the *last* index path in `indexPathsForVisibleRows`
-    /// when the table is flipped, or the *first* when it is not.
+    /// The table view is flipped, so the "newest" visible cell on screen is
+    /// actually the *last* index path in `indexPathsForVisibleRows`.
     private func newestVisibleDate() -> Date? {
         guard let visibleIndexPaths = tableView.indexPathsForVisibleRows,
               !visibleIndexPaths.isEmpty else {
             return nil
         }
         
-        // In a flipped table view the last index path is the topmost item on screen;
-        // when VoiceOver is active the table is not flipped so the first is topmost.
-        let isFlipped = scaleY == -1
-        let orderedPaths = isFlipped ? visibleIndexPaths.reversed() : visibleIndexPaths
+        // In a flipped table view the last index path is the topmost item on screen.
+        let orderedPaths = visibleIndexPaths.reversed()
         
         // Walk from topmost downward and return the timestamp of the first item that has one.
         for indexPath in orderedPaths {
@@ -600,7 +648,7 @@ extension TimelineTableViewController {
 
 extension TimelineTableViewController {
     /// The sections of the table view used in the diffable data source.
-    enum TimelineSection {
+    nonisolated enum TimelineSection {
         case main
         case typingIndicator
     }
@@ -658,11 +706,6 @@ extension TimelineTableViewController {
 }
 
 private extension NSDiffableDataSourceSnapshot<TimelineTableViewController.TimelineSection, TimelineItemIdentifier.UniqueID> {
-    var numberOfMainItems: Int {
-        guard sectionIdentifiers.contains(.main) else { return 0 }
-        return numberOfItems(inSection: .main)
-    }
-    
     var mainItemIdentifiers: [TimelineItemIdentifier.UniqueID] {
         guard sectionIdentifiers.contains(.main) else { return [] }
         return itemIdentifiers(inSection: .main)

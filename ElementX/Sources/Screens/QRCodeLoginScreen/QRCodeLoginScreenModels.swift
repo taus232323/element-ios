@@ -16,7 +16,7 @@ enum QRCodeLoginScreenViewModelAction: CustomStringConvertible {
     case startOver
     case signInManually
     case signedIn(userSession: UserSessionProtocol)
-    case requestOIDCAuthorisation(URL, OIDCAccountSettingsPresenter.Continuation)
+    case requestOAuthAuthorisation(URL, OAuthAccountSettingsPresenter.Continuation)
     case linkedDevice
     /// Cancel the flow (dismiss the modal).
     case cancel
@@ -26,7 +26,7 @@ enum QRCodeLoginScreenViewModelAction: CustomStringConvertible {
         case .startOver: "startOver"
         case .signInManually: "signInManually"
         case .signedIn: "signedIn"
-        case .requestOIDCAuthorisation: "requestOIDCAuthorisation"
+        case .requestOAuthAuthorisation: "requestOAuthAuthorisation"
         case .linkedDevice: "linkedDevice"
         case .cancel: "cancel"
         }
@@ -39,14 +39,14 @@ enum QRCodeLoginScreenMode {
     /// Configures the screen to link another device by scanning a QR code.
     case linkDesktop(LinkNewDeviceServiceProtocol)
     /// Configures the screen to link another device by showing it a QR code.
-    case linkMobile(LinkNewDeviceService.LinkMobileProgressPublisher)
+    case linkMobile(LinkNewDeviceService.LinkMobileOperation)
 }
 
 struct QRCodeLoginScreenViewState: BindableState {
     var state: QRCodeLoginState
     let mode: QRCodeLoginScreenMode
     /// Whether or not it is possible for the screen to start the manual sign in flow. This was added to avoid
-    /// having to handle server configuration when ``AppSettings.allowOtherAccountProviders`` is false.
+    /// having to handle server configuration when ``UserSettings.allowOtherAccountProviders`` is false.
     let canSignInManually: Bool
     
     let instructions = QRCodeLoginScreenInstructions()
@@ -68,7 +68,7 @@ struct QRCodeLoginScreenViewState: BindableState {
             }
         }
     }
-
+    
     var shouldDisplayBackButton: Bool {
         switch mode {
         case .login:
@@ -95,7 +95,7 @@ enum QRCodeLoginScreenViewAction {
     case errorAction(QRCodeErrorView.Action)
 }
 
-enum QRCodeLoginState: Equatable {
+nonisolated enum QRCodeLoginState: Equatable {
     /// Initial state where the user is informed how to login this device by scanning a QR code.
     case loginInstructions
     /// Initial state where the user is informed how to link another device by scanning it's QR code.
@@ -114,7 +114,7 @@ enum QRCodeLoginState: Equatable {
     /// Any full screen error state
     case error(ErrorState)
     
-    enum ErrorState: Equatable, CaseIterable {
+    nonisolated enum ErrorState: Equatable, CaseIterable {
         /// The account provider doesn't support the use of QR codes.
         case notSupported
         case noCameraPermission
@@ -131,7 +131,7 @@ enum QRCodeLoginState: Equatable {
         case unknown
     }
     
-    enum ScanningState: Equatable {
+    nonisolated enum ScanningState: Equatable {
         /// The QR code is scanning.
         case scanning
         /// The QR code has been detected and is being processed.
@@ -139,7 +139,7 @@ enum QRCodeLoginState: Equatable {
         /// The QR code was scanned, but an error occurred.
         case scanFailed(Error)
         
-        enum Error: Equatable {
+        nonisolated enum Error: Equatable {
             /// The QR code has been processed and is invalid.
             case invalid
             /// The QR code has been processed but it is for an account provider that isn't allowed.
@@ -171,7 +171,7 @@ enum QRCodeLoginState: Equatable {
         }
     }
     
-    enum DisplayCodeState: Equatable {
+    nonisolated enum DisplayCodeState: Equatable {
         case deviceCode(String)
         case verificationCode(String)
         
@@ -183,7 +183,7 @@ enum QRCodeLoginState: Equatable {
         }
     }
     
-    enum CheckCodeState: Equatable {
+    nonisolated enum CheckCodeState: Equatable {
         /// The user needs to input the confirmation code.
         case inputCode(CheckCodeSenderProxy)
         /// The code supplied by the user didn't pass local validation.

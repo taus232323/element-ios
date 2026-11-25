@@ -27,6 +27,7 @@ enum SessionVerificationScreenViewAction {
 struct SessionVerificationScreenViewState: BindableState {
     let flow: SessionVerificationScreenFlow
     let learnMoreURL: URL
+    var ownProfile: UserProfile
     
     var verificationState: SessionVerificationScreenStateMachine.State
     
@@ -41,12 +42,8 @@ struct SessionVerificationScreenViewState: BindableState {
             case .userInitiator, .userResponder:
                 return (\.userProfileSolid, .defaultSolid)
             }
-        case .showingChallenge:
-            return (\.reaction, .defaultSolid)
-        case .acceptingChallenge:
-            return (\.reaction, .defaultSolid)
-        case .decliningChallenge:
-            return (\.reaction, .defaultSolid)
+        case .showingChallenge, .acceptingChallenge, .decliningChallenge:
+            return (\.reactionSolid, .defaultSolid)
         case .verified:
             return (\.checkCircleSolid, .successSolid)
         case .cancelled:
@@ -88,7 +85,7 @@ struct SessionVerificationScreenViewState: BindableState {
             return L10n.commonVerificationFailed
         }
     }
-        
+    
     var message: String {
         switch verificationState {
         case .initial, .acceptingVerificationRequest, .requestingVerification,
@@ -104,11 +101,7 @@ struct SessionVerificationScreenViewState: BindableState {
             case .userResponder:
                 return L10n.screenSessionVerificationUserResponderSubtitle
             }
-        case .acceptingChallenge:
-            return L10n.screenSessionVerificationCompareEmojisSubtitle
-        case .decliningChallenge:
-            return L10n.screenSessionVerificationCompareEmojisSubtitle
-        case .showingChallenge:
+        case .showingChallenge, .acceptingChallenge, .decliningChallenge:
             switch flow {
             case .deviceInitiator, .deviceResponder:
                 return L10n.screenSessionVerificationCompareEmojisSubtitle
@@ -127,11 +120,11 @@ struct SessionVerificationScreenViewState: BindableState {
             return L10n.screenSessionVerificationFailedSubtitle
         }
     }
-        
+    
     var isWaiting: Bool {
         switch verificationState {
         case .acceptingVerificationRequest, .requestingVerification, .verificationRequestAccepted,
-             .startingSasVerification, .sasVerificationStarted, .cancelling:
+             .startingSasVerification, .sasVerificationStarted, .acceptingChallenge, .decliningChallenge, .cancelling:
             true
         default:
             false

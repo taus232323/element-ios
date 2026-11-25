@@ -21,15 +21,17 @@ struct ThreadTimelineScreen: View {
         self.timelineContext = timelineContext
         self.composerToolbar = composerToolbar
     }
-        
+    
     var body: some View {
         TimelineView(timelineContext: timelineContext)
             .background(.compound.bgCanvasDefault)
             .toolbarRole(RoomHeaderView.toolbarRole)
+            .fixesTitleViewOnCancelledPop()
             .navigationTitle(L10n.commonThread)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
             .toolbarBackground(.visible, for: .navigationBar) // Fix the toolbar's background.
+            .navigationBarBackButtonHidden(isMessageSelectionActive)
             .timelineMediaPreview(viewModel: $context.mediaPreviewViewModel)
             .overlay(alignment: .top) {
                 FloatingDateBadge(dateText: timelineContext.floatingDate?.formattedDateSeparator()) {
@@ -38,19 +40,31 @@ struct ThreadTimelineScreen: View {
                 .padding(.top, 13)
             }
             .overlay(alignment: .bottomTrailing) {
-                TimelineScrollToBottomButton(isVisible: isAtBottomAndLive) {
+                TimelineScrollButton(isHidden: !timelineContext.viewState.shouldShowScrollToBottomButton) {
                     timelineContext.send(viewAction: .scrollToBottom)
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                composer
-                    .padding(.top, 8)
-                    .background(Color.compound.bgCanvasDefault.ignoresSafeArea())
-                    .environmentObject(timelineContext)
-                    .environment(\.timelineContext, timelineContext)
-                    // Make sure the reply header honours the hideTimelineMedia setting too.
-                    .environment(\.shouldAutomaticallyLoadImages, !timelineContext.viewState.hideTimelineMedia)
+                VStack(spacing: 0) {
+                    composer
+                        .padding(.top, 8)
+                        .background(Color.compound.bgCanvasDefault.ignoresSafeArea())
+                        .environmentObject(timelineContext)
+                        .environment(\.timelineContext, timelineContext)
+                        // Make sure the reply header honours the hideTimelineMedia setting too.
+                        .environment(\.shouldAutomaticallyLoadImages, !timelineContext.viewState.hideTimelineMedia)
+                        .collapsedInPlace(isMessageSelectionActive)
+                    
+                    if isMessageSelectionActive {
+                        TimelineMessageSelectionActionBar(context: timelineContext)
+                    }
+                }
             }
+            .particleEffect(timelineContext.viewState.particleEffect)
+    }
+    
+    private var isMessageSelectionActive: Bool {
+        timelineContext.viewState.messageSelection.isActive
     }
     
     @ViewBuilder
@@ -70,15 +84,17 @@ struct ThreadTimelineScreen: View {
             RoomHeaderView(roomName: L10n.commonThread,
                            roomSubtitle: context.viewState.roomTitle,
                            roomAvatar: context.viewState.roomAvatar,
-                           dmRecipientVerificationState: context.viewState.dmRecipientVerificationState,
+                           dmRecipientDetails: context.viewState.dmRecipientDetails,
                            roomHistorySharingState: context.viewState.roomHistorySharingState,
                            mediaProvider: context.mediaProvider) {
                 // There is no action but the iOS 26 designs have it looking like a button.
             }
         }
-    }
-    
-    private var isAtBottomAndLive: Bool {
-        timelineContext.isScrolledToBottom && timelineContext.viewState.timelineState.isLive
+        
+        if isMessageSelectionActive {
+            TimelineMessageSelectionToolbar {
+                timelineContext.send(viewAction: .clearMessageSelection)
+            }
+        }
     }
 }

@@ -10,18 +10,6 @@ import Foundation
 import SwiftState
 
 extension RoomFlowCoordinator {
-    struct HashableRoomMemberWrapper: Hashable {
-        let value: RoomMemberProxyProtocol
-
-        static func == (lhs: HashableRoomMemberWrapper, rhs: HashableRoomMemberWrapper) -> Bool {
-            lhs.value.userID == rhs.value.userID
-        }
-
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(value.userID)
-        }
-    }
-    
     enum PresentationAction: Hashable {
         case eventFocus(FocusEvent)
         case share(ShareExtensionPayload)
@@ -54,7 +42,7 @@ extension RoomFlowCoordinator {
             }
         }
     }
-
+    
     indirect enum State: StateType {
         case initial
         case joinRoomScreen
@@ -65,12 +53,12 @@ extension RoomFlowCoordinator {
         case roomDetailsEditScreen
         case notificationSettings
         case globalNotificationSettings
-        case inviteUsersScreen(previousState: State)
-        case mediaUploadPicker(mode: MediaPickerScreenMode, previousState: State)
-        case mediaUploadPreview(mediaURLs: [URL], previousState: State)
-        case emojiPicker(itemID: TimelineItemIdentifier, selectedEmojis: Set<String>, previousState: State)
+        case inviteUsersScreen(flow: InviteUsersFlow, previousState: State)
+        case mediaUploadPicker(mode: MediaPickerScreenMode, caption: NSAttributedString, previousState: State)
+        case mediaUploadPreview(mediaURLs: [URL], caption: NSAttributedString?, previousState: State)
+        case emojiPicker(selectedEmojis: Set<String>, previousState: State)
         case mapNavigator(previousState: State)
-        case messageForwarding(forwardingItem: MessageForwardingItem, previousState: State)
+        case messageForwarding(forwardingPayload: MessageForwardingPayload, previousState: State)
         case reportContent(itemID: TimelineItemIdentifier, senderID: String, previousState: State)
         case pollForm(previousState: State)
         case pollsHistory
@@ -102,8 +90,9 @@ extension RoomFlowCoordinator {
         var timelineController: TimelineControllerProtocol?
         var spaceRoomListProxy: SpaceRoomListProxyProtocol?
         var authorizedSpacesSelection: AuthorizedSpacesSelection?
+        var emojiPickerContinuation: EmojiPickerScreenContinuation?
     }
-
+    
     enum Event: EventType {
         case presentJoinRoomScreen(via: [String])
         case dismissJoinRoomScreen
@@ -114,7 +103,7 @@ extension RoomFlowCoordinator {
         
         case presentThread(threadRootEventID: String, focusEventID: String?)
         case dismissThread
-
+        
         case presentThreadList
         case dismissThreadList
         
@@ -136,24 +125,24 @@ extension RoomFlowCoordinator {
         case presentGlobalNotificationSettingsScreen
         case dismissGlobalNotificationSettingsScreen
         
-        case presentInviteUsersScreen
+        case presentInviteUsersScreen(flow: InviteUsersFlow)
         case dismissInviteUsersScreen
-                
-        case presentMediaUploadPicker(mode: MediaPickerScreenMode)
+        
+        case presentMediaUploadPicker(mode: MediaPickerScreenMode, caption: NSAttributedString)
         case dismissMediaUploadPicker
         
-        case presentMediaUploadPreview(mediaURLs: [URL])
+        case presentMediaUploadPreview(mediaURLs: [URL], caption: NSAttributedString?)
         case dismissMediaUploadPreview
         
-        case presentEmojiPicker(itemID: TimelineItemIdentifier, selectedEmojis: Set<String>)
+        case presentEmojiPicker(selectedEmojis: Set<String>)
         case dismissEmojiPicker
-
+        
         case presentMapNavigator(interactionMode: LocationSharingInteractionMode)
         case dismissMapNavigator
         
-        case presentMessageForwarding(forwardingItem: MessageForwardingItem)
+        case presentMessageForwarding(forwardingPayload: MessageForwardingPayload)
         case dismissMessageForwarding
-
+        
         case presentPollForm(mode: PollFormMode)
         case dismissPollForm
         
@@ -210,23 +199,23 @@ extension RoomFlowCoordinator {
             case (.room, .presentReportContent(let itemID, let senderID)):
                 return .reportContent(itemID: itemID, senderID: senderID, previousState: fromState)
                 
-            case (.room, .presentMediaUploadPicker(let mode)):
-                return .mediaUploadPicker(mode: mode, previousState: fromState)
-            
-            case (.room, .presentMediaUploadPreview(let mediaURLs)):
-                return .mediaUploadPreview(mediaURLs: mediaURLs, previousState: fromState)
+            case (.room, .presentMediaUploadPicker(let mode, let caption)):
+                return .mediaUploadPicker(mode: mode, caption: caption, previousState: fromState)
                 
-            case (.room, .presentEmojiPicker(let itemID, let selectedEmoji)):
-                return .emojiPicker(itemID: itemID, selectedEmojis: selectedEmoji, previousState: fromState)
-            
-            case (.room, .presentMessageForwarding(let forwardingItem)):
-                return .messageForwarding(forwardingItem: forwardingItem, previousState: fromState)
-            case (.mediaEventsTimeline, .presentMessageForwarding(forwardingItem: let forwardingItem)):
-                return .messageForwarding(forwardingItem: forwardingItem, previousState: fromState)
-
-            case (.room, .presentMapNavigator(_)):
+            case (.room, .presentMediaUploadPreview(let mediaURLs, let caption)):
+                return .mediaUploadPreview(mediaURLs: mediaURLs, caption: caption, previousState: fromState)
+                
+            case (.room, .presentEmojiPicker(let selectedEmojis)):
+                return .emojiPicker(selectedEmojis: selectedEmojis, previousState: fromState)
+                
+            case (.room, .presentMessageForwarding(let forwardingPayload)):
+                return .messageForwarding(forwardingPayload: forwardingPayload, previousState: fromState)
+            case (.mediaEventsTimeline, .presentMessageForwarding(forwardingPayload: let forwardingPayload)):
+                return .messageForwarding(forwardingPayload: forwardingPayload, previousState: fromState)
+                
+            case (.room, .presentMapNavigator):
                 return .mapNavigator(previousState: fromState)
-            
+                
             case (.room, .presentPollForm):
                 return .pollForm(previousState: fromState)
                 
@@ -247,7 +236,7 @@ extension RoomFlowCoordinator {
                 return .room
             case (.threadList, .presentThread(let threadRootEventID, _)):
                 return .thread(threadRootEventID: threadRootEventID, previousState: fromState)
-
+                
             // Thread
             case (.room, .presentThread(let threadRootEventID, _)):
                 return .thread(threadRootEventID: threadRootEventID, previousState: fromState)
@@ -259,21 +248,21 @@ extension RoomFlowCoordinator {
             case (.thread, .presentReportContent(let itemID, let senderID)):
                 return .reportContent(itemID: itemID, senderID: senderID, previousState: fromState)
                 
-            case (.thread, .presentMediaUploadPicker(let mode)):
-                return .mediaUploadPicker(mode: mode, previousState: fromState)
-            
-            case (.thread, .presentMediaUploadPreview(let mediaURLs)):
-                return .mediaUploadPreview(mediaURLs: mediaURLs, previousState: fromState)
+            case (.thread, .presentMediaUploadPicker(let mode, let caption)):
+                return .mediaUploadPicker(mode: mode, caption: caption, previousState: fromState)
                 
-            case (.thread, .presentEmojiPicker(let itemID, let selectedEmoji)):
-                return .emojiPicker(itemID: itemID, selectedEmojis: selectedEmoji, previousState: fromState)
-            
-            case (.thread, .presentMessageForwarding(let forwardingItem)):
-                return .messageForwarding(forwardingItem: forwardingItem, previousState: fromState)
-
-            case (.thread, .presentMapNavigator(_)):
+            case (.thread, .presentMediaUploadPreview(let mediaURLs, let caption)):
+                return .mediaUploadPreview(mediaURLs: mediaURLs, caption: caption, previousState: fromState)
+                
+            case (.thread, .presentEmojiPicker(let selectedEmojis)):
+                return .emojiPicker(selectedEmojis: selectedEmojis, previousState: fromState)
+                
+            case (.thread, .presentMessageForwarding(let forwardingPayload)):
+                return .messageForwarding(forwardingPayload: forwardingPayload, previousState: fromState)
+                
+            case (.thread, .presentMapNavigator):
                 return .mapNavigator(previousState: fromState)
-            
+                
             case (.thread, .presentPollForm):
                 return .pollForm(previousState: fromState)
                 
@@ -282,10 +271,10 @@ extension RoomFlowCoordinator {
                 
             // Room + Thread
                 
-            case (.mediaUploadPicker(_, let previousState), .dismissMediaUploadPicker):
+            case (.mediaUploadPicker(_, _, let previousState), .dismissMediaUploadPicker):
                 return previousState
                 
-            case (.emojiPicker(_, _, let previouState), .dismissEmojiPicker):
+            case (.emojiPicker(_, let previouState), .dismissEmojiPicker):
                 return previouState
                 
             case (.reportContent(_, _, let previousState), .dismissReportContent):
@@ -372,7 +361,7 @@ extension RoomFlowCoordinator {
                 return .membersFlow(previousState: fromState)
             case (.membersFlow(let previousState), .stopMembersFlow):
                 return previousState
-            
+                
             case (_, .startChildFlow(let roomID, _, _)):
                 return .presentingChild(childRoomID: roomID, previousState: fromState)
             case (.presentingChild(_, let previousState), .dismissChildFlow):
@@ -388,7 +377,7 @@ extension RoomFlowCoordinator {
             case (.knockRequestsList(let previousState), .dismissKnockRequestsListScreen):
                 return previousState
                 
-            case (.mediaUploadPreview(_, let previousState), .dismissMediaUploadPreview):
+            case (.mediaUploadPreview(_, _, let previousState), .dismissMediaUploadPreview):
                 return previousState
                 
             case (.notificationSettings, .presentGlobalNotificationSettingsScreen):
@@ -401,19 +390,19 @@ extension RoomFlowCoordinator {
             case (.pollsHistoryForm, .dismissPollForm):
                 return .pollsHistory
                 
-            case (.mediaUploadPicker(_, let previousMediaUploadPickerState), .presentMediaUploadPreview(let mediaURLs)):
-                return .mediaUploadPreview(mediaURLs: mediaURLs, previousState: previousMediaUploadPickerState)
+            case (.mediaUploadPicker(_, _, let previousMediaUploadPickerState), .presentMediaUploadPreview(let mediaURLs, let caption)):
+                return .mediaUploadPreview(mediaURLs: mediaURLs, caption: caption, previousState: previousMediaUploadPickerState)
                 
-            case (_, .presentInviteUsersScreen):
-                return .inviteUsersScreen(previousState: fromState)
-            case (.inviteUsersScreen(let previousState), .dismissInviteUsersScreen):
+            case (_, .presentInviteUsersScreen(let flow)):
+                return .inviteUsersScreen(flow: flow, previousState: fromState)
+            case (.inviteUsersScreen(_, let previousState), .dismissInviteUsersScreen):
                 return previousState
                 
             case (_, .presentTransferOwnershipScreen):
                 return .transferOwnershipScreen(previousState: fromState)
             case (.transferOwnershipScreen(let previousState), .dismissedTransferOwnershipScreen):
                 return previousState
-            
+                
             default:
                 return nil
             }

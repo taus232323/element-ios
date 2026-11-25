@@ -10,7 +10,6 @@ import Foundation
 
 enum UserProfileScreenViewModelAction {
     case openDirectChat(roomID: String)
-    case startCall(roomProxy: JoinedRoomProxyProtocol, isVoiceCall: Bool)
     case dismiss
 }
 
@@ -19,12 +18,13 @@ struct UserProfileScreenViewState: BindableState {
     let isOwnUser: Bool
     let isPresentedModally: Bool
     
-    var userProfile: UserProfileProxy?
+    var userProfile: UserProfile?
     var isIdentityKnown = false
     var isVerified: Bool?
     var permalink: URL?
     var dmRoomID: String?
-
+    var isCallingEnabled = true
+    
     var bindings: UserProfileScreenViewStateBindings
     
     var showVerifiedBadge: Bool {

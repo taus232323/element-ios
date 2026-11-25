@@ -18,12 +18,12 @@ struct VoiceMessagePreviewComposer: View {
     @ScaledMetric private var waveformLineWidth = 2.0
     @ScaledMetric private var waveformLinePadding = 2.0
     @GestureState var isDragging = false
-
+    
     let onPlay: () -> Void
     let onPause: () -> Void
     let onSeek: (Double) -> Void
     let onScrubbing: (Bool) -> Void
-
+    
     var timeLabelContent: String {
         // Display the duration if progress is 0.0
         let percent = playerState.progress > 0.0 ? playerState.progress : 1.0
@@ -43,7 +43,7 @@ struct VoiceMessagePreviewComposer: View {
                 .foregroundColor(.compound.textSecondary)
                 .monospacedDigit()
                 .fixedSize(horizontal: true, vertical: true)
-
+            
             waveformView
                 .waveformInteraction(isDragging: $isDragging,
                                      progress: playerState.progress,
@@ -56,10 +56,6 @@ struct VoiceMessagePreviewComposer: View {
         .padding(.vertical, Compound.supportsGlass ? 7 : 4)
         .padding(.horizontal, Compound.supportsGlass ? 8 : 6)
         .padding(.trailing, Compound.supportsGlass ? 8 : 0)
-        .background {
-            RoundedRectangle(cornerRadius: Compound.supportsGlass ? 21 : 12)
-                .fill(.compound.bgSubtleSecondary)
-        }
     }
     
     @ViewBuilder
@@ -73,11 +69,12 @@ struct VoiceMessagePreviewComposer: View {
                 .progressMask(progress: playerState.progress)
         case .data(let array):
             WaveformLiveCanvas(samples: array,
-                               configuration: configuration)
+                               configuration: configuration,
+                               shouldDrawSilencePadding: true)
                 .progressMask(progress: playerState.progress)
         }
     }
-
+    
     private func onPlayPause() {
         if playerState.playbackState == .playing {
             onPause()
@@ -108,6 +105,7 @@ struct VoiceMessagePreviewComposer_Previews: PreviewProvider, TestablePreview {
     
     static var previews: some View {
         VoiceMessagePreviewComposer(playerState: playerState, waveform: .data(waveformData), onPlay: { }, onPause: { }, onSeek: { _ in }, onScrubbing: { _ in })
+            .messageComposerStyle(contentIncludesPadding: true)
             .fixedSize(horizontal: false, vertical: true)
     }
 }

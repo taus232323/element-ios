@@ -10,13 +10,14 @@ import Combine
 import SwiftUI
 
 struct SecureBackupLogoutConfirmationScreenCoordinatorParameters {
-    let secureBackupController: SecureBackupControllerProtocol
-    let homeserverReachabilityPublisher: CurrentValuePublisher<NetworkMonitorReachability, Never>
+    let userSession: UserSessionProtocol
+    let mode: SecureBackupLogoutConfirmationScreenViewMode
 }
 
 enum SecureBackupLogoutConfirmationScreenCoordinatorAction {
     case cancel
-    case settings
+    case checkRecoveryKey(SecureBackupLogoutConfirmationScreenRecoveryKeyContinuation)
+    case generateRecoveryKey(SecureBackupLogoutConfirmationScreenRecoveryKeyContinuation)
     case logout
 }
 
@@ -30,8 +31,7 @@ final class SecureBackupLogoutConfirmationScreenCoordinator: CoordinatorProtocol
     }
     
     init(parameters: SecureBackupLogoutConfirmationScreenCoordinatorParameters) {
-        viewModel = SecureBackupLogoutConfirmationScreenViewModel(secureBackupController: parameters.secureBackupController,
-                                                                  homeserverReachabilityPublisher: parameters.homeserverReachabilityPublisher)
+        viewModel = SecureBackupLogoutConfirmationScreenViewModel(userSession: parameters.userSession, mode: parameters.mode)
     }
     
     func start() {
@@ -43,15 +43,17 @@ final class SecureBackupLogoutConfirmationScreenCoordinator: CoordinatorProtocol
             switch action {
             case .cancel:
                 actionsSubject.send(.cancel)
-            case .settings:
-                actionsSubject.send(.settings)
+            case .checkRecoveryKey(let continuation):
+                actionsSubject.send(.checkRecoveryKey(continuation))
+            case .generateRecoveryKey(let continuation):
+                actionsSubject.send(.generateRecoveryKey(continuation))
             case .logout:
                 actionsSubject.send(.logout)
             }
         }
         .store(in: &cancellables)
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(SecureBackupLogoutConfirmationScreen(context: viewModel.context))
     }

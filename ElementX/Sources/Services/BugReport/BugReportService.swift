@@ -13,7 +13,6 @@ import Sentry
 import UIKit
 
 class BugReportService: NSObject, BugReportServiceProtocol {
-    private var rageshakeURL: RageshakeConfiguration
     private let applicationID: String
     private let sdkGitSHA: String
     private let session: URLSession
@@ -22,44 +21,29 @@ class BugReportService: NSObject, BugReportServiceProtocol {
     private let progressSubject = PassthroughSubject<Double, Never>()
     private var cancellables = Set<AnyCancellable>()
     
-    var isEnabled: Bool {
-        rageshakeURL != .disabled
-    }
-
-    var lastCrashEventID: String?
+    let lastCrashEventIDSubject = CurrentValueSubject<String?, Never>(nil)
     
-    init(rageshakeURLPublisher: CurrentValuePublisher<RageshakeConfiguration, Never>,
-         applicationID: String,
+    init(applicationID: String,
          sdkGitSHA: String,
          session: URLSession = .shared,
          appHooks: AppHooks) {
-        rageshakeURL = rageshakeURLPublisher.value
         self.applicationID = applicationID
         self.sdkGitSHA = sdkGitSHA
         self.session = session
         self.appHooks = appHooks
-        
-        super.init()
-        
-        rageshakeURLPublisher
-            .weakAssign(to: \.rageshakeURL, on: self)
-            .store(in: &cancellables)
     }
-
-    // MARK: - BugReportServiceProtocol
     
-    var crashedLastRun: Bool {
-        SentrySDK.lastRunStatus == .didCrash
-    }
+    // MARK: - BugReportServiceProtocol
     
     // swiftlint:disable:next cyclomatic_complexity
     func submitBugReport(_ bugReport: BugReport,
+                         flow: Flow,
                          progressListener: CurrentValueSubject<Double, Never>) async -> Result<SubmitBugReportResponse, BugReportServiceError> {
-        guard case let .url(rageshakeURL) = rageshakeURL else {
+        guard case let .url(rageshakeURL) = flow.rageshakeConfiguration else {
             fatalError("No bug report URL set, the screen should not be shown in this case.")
         }
         
-        var bugReport = appHooks.bugReportHook.update(bugReport)
+        var bugReport = appHooks.bugReportHook.update(bugReport, for: flow)
         
         var params = [
             MultipartFormData(key: "text", type: .text(value: bugReport.text)),
@@ -81,14 +65,14 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             params.append(.init(key: "device_keys", type: .text(value: compactKeys)))
         }
         
-        if let crashEventID = lastCrashEventID {
-            params.append(MultipartFormData(key: "crash_report", type: .text(value: crashEventID)))
+        if let crashEventID = lastCrashEventIDSubject.value {
+            params.append(MultipartFormData(key: "crash_report", type: .text(value: "<https://sentry.tools.element.io/organizations/element/issues/?project=44&query=\(crashEventID)>")))
             bugReport.githubLabels.append("crash")
         }
         
         params.append(contentsOf: defaultParams)
         
-        if InfoPlistReader.main.baseBundleIdentifier.hasSuffix(".nightly") {
+        if AppBuildType.current == .nightly {
             bugReport.githubLabels.append("Nightly")
         }
         
@@ -110,7 +94,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
         for url in bugReport.files {
             params.append(MultipartFormData(key: "file", type: .file(url: url)))
         }
-
+        
         let boundary = "Boundary-\(UUID().uuidString)"
         var body = Data()
         for param in params {
@@ -122,13 +106,13 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             }
         }
         body.appendString(string: "--\(boundary)--\r\n")
-
+        
         var request = URLRequest(url: rageshakeURL)
         request.addValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-
+        
         request.httpMethod = "POST"
         request.httpBody = body as Data
-
+        
         progressSubject
             .receive(on: DispatchQueue.main)
             .weakAssign(to: \.value, on: progressListener)
@@ -155,7 +139,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             let decoder = JSONDecoder()
             let uploadResponse = try decoder.decode(SubmitBugReportResponse.self, from: data)
             
-            lastCrashEventID = nil
+            lastCrashEventIDSubject.send(nil)
             
             MXLog.info("Feedback submitted.")
             
@@ -164,9 +148,9 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             return .failure(.uploadFailure(error))
         }
     }
-
+    
     // MARK: - Private
-
+    
     private var defaultParams: [MultipartFormData] {
         let (localTime, utcTime) = localAndUTCTime(for: Date())
         let version = "\(InfoPlistReader.main.bundleShortVersionString) (\(InfoPlistReader.main.bundleVersion))"
@@ -185,7 +169,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             MultipartFormData(key: "base_bundle_identifier", type: .text(value: InfoPlistReader.main.baseBundleIdentifier))
         ]
     }
-
+    
     private func localAndUTCTime(for date: Date) -> (String, String) {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
@@ -194,7 +178,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
         let utcTime = dateFormatter.string(from: date)
         return (localTime, utcTime)
     }
-
+    
     private var os: String {
         if ProcessInfo.processInfo.isiOSAppOnMac {
             // The other APIs report macOS's equivalent iOS version, so lets use the right one to get the macOS version.
@@ -203,7 +187,8 @@ class BugReportService: NSObject, BugReportServiceProtocol {
             "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
         }
     }
-
+    
+    @concurrent
     private func zipFiles(_ logFiles: [URL]) async -> Logs {
         MXLog.info("zipFiles")
         
@@ -211,7 +196,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
         
         for url in logFiles {
             do {
-                try attachFile(at: url, to: &compressedLogs)
+                try await attachFile(at: url, to: &compressedLogs)
             } catch {
                 MXLog.error("Failed to compress log at \(url)")
                 // Continue so that other logs can still be sent.
@@ -219,12 +204,13 @@ class BugReportService: NSObject, BugReportServiceProtocol {
         }
         
         MXLog.info("zipFiles: originalSize: \(compressedLogs.originalSize), zippedSize: \(compressedLogs.zippedSize)")
-
+        
         return compressedLogs
     }
     
     /// Zips a file creating chunks based on 10MB inputs.
-    private func attachFile(at url: URL, to zippedFiles: inout Logs) throws {
+    @concurrent
+    private func attachFile(at url: URL, to zippedFiles: inout Logs) async throws {
         let fileHandle = try FileHandle(forReadingFrom: url)
         
         while let data = try fileHandle.readToEnd() {
@@ -235,7 +221,7 @@ class BugReportService: NSObject, BugReportServiceProtocol {
                 try? FileManager.default.removeItem(at: zippedURL)
                 
                 try zippedData.write(to: zippedURL)
-                zippedFiles.appendFile(at: zippedURL, zippedSize: zippedData.count, originalSize: data.count)
+                await zippedFiles.appendFile(at: zippedURL, zippedSize: zippedData.count, originalSize: data.count)
             }
         }
     }
@@ -263,7 +249,7 @@ private extension Data {
             append(data)
         }
     }
-
+    
     mutating func appendParam(_ param: MultipartFormData, boundary: String) throws {
         appendString(string: "--\(boundary)\r\n")
         appendString(string: "Content-Disposition:form-data; name=\"\(param.key)\"")
@@ -289,12 +275,14 @@ private enum MultipartFormDataType {
     case file(url: URL)
 }
 
-extension BugReportService: URLSessionTaskDelegate {
+nonisolated extension BugReportService: URLSessionTaskDelegate {
+    /// URLSession calls its delegate on a background queue, hop to the main actor
+    /// where the service lives.
     func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
-        task.progress.publisher(for: \.fractionCompleted)
-            .sink { [weak self] value in
+        Task { @MainActor [weak self] in
+            for await value in task.progress.publisher(for: \.fractionCompleted).buffer(size: 1, prefetch: .byRequest, whenFull: .dropOldest).values {
                 self?.progressSubject.send(value)
             }
-            .store(in: &cancellables)
+        }
     }
 }

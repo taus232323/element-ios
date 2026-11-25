@@ -6,26 +6,35 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-import Foundation
-import UIKit
+import SwiftUI
 
-enum SettingsScreenViewModelAction: Equatable {
+enum SettingsScreenViewModelAction {
     case close
+    
     case userDetails
-    case linkNewDevice
+    case userStatusEmojiPicker(EmojiPickerScreenContinuation)
+    
+    case addAccount
+    case switchAccount(userID: String)
+    
     case manageAccount(url: URL)
-    case analytics
-    case appLock
-    case reportBug
-    case about
-    case blockedUsers
-    case secureBackup
+    case linkNewDevice
     case notifications
-    case advancedSettings
-    case labs
-    case developerOptions
-    case logout
+    case secureBackup
+    case moderationAndSafety
+    case reportBug
+    
+    case logout(hasOtherVerifiedDevice: Bool)
     case deactivateAccount
+    
+    case mediaUploadQuality
+    case appLock
+    case locationSharing
+    case analytics
+    case labs
+    case about
+    
+    case developerOptions
 }
 
 enum SettingsScreenSecuritySectionMode {
@@ -35,45 +44,113 @@ enum SettingsScreenSecuritySectionMode {
 
 struct SettingsScreenViewState: BindableState {
     var deviceID: String?
-    var userID: String
+    var userProfile: UserProfile
+    var showUserStatusInput = false
     var showLinkNewDeviceButton: Bool
+    var showAddAccountRow: Bool
+    /// Every other account with a live session, most recently used first.
+    var otherAccounts: [UserSessionDetails] = []
     var accountProfileURL: URL?
     var showAccountDeactivation: Bool
-    var userAvatarURL: URL?
-    var userDisplayName: String?
     var showDeveloperOptions: Bool
     
     var securitySectionMode = SettingsScreenSecuritySectionMode.none
     var showSecuritySectionBadge = false
     
-    var showBlockedUsers = true
     let showAnalyticsSettings: Bool
     
     let isBugReportServiceEnabled: Bool
     
-    var bindings = SettingsScreenViewStateBindings()
+    let navigationBarVisibility: Visibility
+    
+    var bindings: SettingsScreenViewStateBindings
+    
+    var userStatusRowMode: SettingsScreenUserStatusRow.Mode {
+        if bindings.isShowingCustomStatusField {
+            .customStatusInput(emoji: bindings.customStatusEmoji)
+        } else if let displayedStatus = userProfile.status.displayed {
+            .showingStatus(displayedStatus)
+        } else {
+            .pickStatusButton
+        }
+    }
+    
+    var showSwitchAccountsSection: Bool {
+        showAddAccountRow || !otherAccounts.isEmpty
+    }
 }
 
 struct SettingsScreenViewStateBindings {
+    private let userSettings: UserSettings
+    
+    var isPresentingStatusPicker = false
+    var customStatusEmoji: Character = "😄"
+    var isShowingCustomStatusField = false {
+        didSet {
+            if !isShowingCustomStatusField {
+                customStatusEmoji = "😄" // Reset the emoji.
+            }
+        }
+    }
+    
     var isPresentingAccountDeactivationConfirmation = false
+    
+    var appAppearance: AppAppearance {
+        get { userSettings.app.appAppearance }
+        set { userSettings.app.appAppearance = newValue }
+    }
+    
+    var hasExpandedAccountPicker: Bool {
+        get { userSettings.app.hasExpandedAccountPicker }
+        set { userSettings.app.hasExpandedAccountPicker = newValue }
+    }
+    
+    init(userSettings: UserSettings) {
+        self.userSettings = userSettings
+    }
 }
 
 enum SettingsScreenViewAction {
     case close
+    
     case userDetails
-    case analytics
-    case appLock
-    case reportBug
-    case about
-    case blockedUsers
-    case secureBackup
-    case linkNewDevice
+    case userStatus(UserStatusAction)
+    
+    case addAccount
+    case switchAccount(userID: String)
+    
     case manageAccount(url: URL)
+    case linkNewDevice
     case notifications
-    case enableDeveloperOptions
-    case developerOptions
-    case advancedSettings
-    case labs
+    case secureBackup
+    case moderationAndSafety
+    case reportBug
+    
     case logout
     case deactivateAccount
+    
+    case mediaUploadQuality
+    case appLock
+    case locationSharing
+    case analytics
+    case labs
+    case about
+    
+    case enableDeveloperOptions
+    case developerOptions
+    
+    enum UserStatusAction {
+        /// Show status picker sheet to select a preset status.
+        case pickStatus
+        /// Dismiss the picker sheet and show the custom status input.
+        case customStatus
+        /// Show the emoji picker to select the emoji for the custom status.
+        case pickCustomEmoji
+        /// Set the user's status to the provided value.
+        case set(UserStatus.Raw)
+        /// Clears the user's currently displayed status.
+        case clear
+        /// Cancel user status picking/input.
+        case cancel
+    }
 }

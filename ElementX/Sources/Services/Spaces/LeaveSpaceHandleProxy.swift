@@ -32,7 +32,7 @@ final class LeaveSpaceHandleProxy {
             true
         }
     }
-
+    
     var selectedCount: Int {
         rooms.count { $0.isSelected }
     }
@@ -105,6 +105,7 @@ final class LeaveSpaceHandleProxy {
 @Observable class LeaveSpaceRoomDetails {
     let spaceServiceRoom: SpaceServiceRoom
     let canLeave: Bool
+    // periphery:ignore - might be useful to have
     let areCreatorsPrivileged: Bool
     var isSelected: Bool
     

@@ -22,7 +22,7 @@ class SpaceScreenViewModel: SpaceScreenViewModelType, SpaceScreenViewModelProtoc
     var actionsPublisher: AnyPublisher<SpaceScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(spaceRoomListProxy: SpaceRoomListProxyProtocol,
          spaceServiceProxy: SpaceServiceProxyProtocol,
          selectedSpaceRoomPublisher: CurrentValuePublisher<String?, Never>,
@@ -72,11 +72,11 @@ class SpaceScreenViewModel: SpaceScreenViewModelType, SpaceScreenViewModelProtoc
             .weakAssign(to: \.state.selectedSpaceRoomID, on: self)
             .store(in: &cancellables)
         
-        Task {
+        Task { [self] in
             await configureJoinedSpaceRoom()
         }
     }
-
+    
     private func configureJoinedSpaceRoom() async {
         guard case let .joined(roomProxy) = await clientProxy.roomForIdentifier(spaceRoomListProxy.id) else {
             MXLog.error("Joined room proxy unavailable for space \(spaceRoomListProxy.id)")
@@ -279,13 +279,13 @@ class SpaceScreenViewModel: SpaceScreenViewModelType, SpaceScreenViewModelProtoc
         
         state.bindings.leaveSpaceViewModel = leaveSpaceViewModel
     }
-        
+    
     // MARK: - Indicators
     
     private static var removingIndicatorID: String {
         "\(Self.self)-Removing"
     }
-
+    
     private static var failureIndicatorID: String {
         "\(Self.self)-Failure"
     }
@@ -305,6 +305,6 @@ class SpaceScreenViewModel: SpaceScreenViewModelType, SpaceScreenViewModelProtoc
         userIndicatorController.submitIndicator(UserIndicator(id: Self.failureIndicatorID,
                                                               type: .toast,
                                                               title: L10n.errorUnknown,
-                                                              iconName: "xmark"))
+                                                              icon: \.close))
     }
 }

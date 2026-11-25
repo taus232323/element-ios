@@ -8,10 +8,15 @@
 
 import Combine
 import MatrixRustSDK
+import MatrixRustSDKMocks
 import SwiftUI
 import UIKit
 
 class UITestsAppCoordinator: AppCoordinatorProtocol, SecureWindowManagerDelegate {
+    private let appSettings: AppSettings
+    private let analytics: AnalyticsServiceProtocol
+    private let userIndicatorController: UserIndicatorControllerProtocol
+    
     private let navigationRootCoordinator: NavigationRootCoordinator
     
     // periphery:ignore - retaining purpose
@@ -29,28 +34,28 @@ class UITestsAppCoordinator: AppCoordinatorProtocol, SecureWindowManagerDelegate
         
         navigationRootCoordinator = NavigationRootCoordinator()
         
-        windowManager.delegate = self
-        
         MXLog.configure(currentTarget: "uitests")
         
-        ServiceLocator.shared.register(userIndicatorController: UserIndicatorController())
-        
-        AppSettings.configureWithSuiteName("io.element.elementx.uitests")
-        AppSettings.resetAllSettings()
-        let appHooks = AppHooks()
-        appHooks.setUp()
-        ServiceLocator.shared.register(appSettings: appHooks.appSettingsHook.configure(AppSettings()))
+        appSettings = AppSettings.volatile()
         
         let analyticsClient = AnalyticsClientMock()
         analyticsClient.isRunning = false
-        ServiceLocator.shared.register(analytics: AnalyticsService(client: analyticsClient,
-                                                                   appSettings: ServiceLocator.shared.settings))
+        
+        analytics = AnalyticsServiceMock(.init())
+        userIndicatorController = UserIndicatorController()
+        
+        windowManager.delegate = self
     }
     
     func start() {
         guard let screenID = ProcessInfo.testScreenID else { fatalError("Unable to launch with unknown screen.") }
         
-        let mockScreen = MockScreen(id: screenID, windowManager: windowManager, navigationRootCoordinator: navigationRootCoordinator)
+        let mockScreen = MockScreen(id: screenID,
+                                    windowManager: windowManager,
+                                    navigationRootCoordinator: navigationRootCoordinator,
+                                    appSettings: appSettings,
+                                    analytics: analytics,
+                                    userIndicatorController: userIndicatorController)
         
         if let coordinator = mockScreen.coordinator {
             navigationRootCoordinator.setRootCoordinator(coordinator)
@@ -60,7 +65,8 @@ class UITestsAppCoordinator: AppCoordinatorProtocol, SecureWindowManagerDelegate
     }
     
     func toPresentable() -> AnyView {
-        navigationRootCoordinator.toPresentable()
+        AnyView(navigationRootCoordinator.toPresentable()
+            .environment(\.analyticsService, analytics))
     }
     
     func handlePotentialPhishingAttempt(url: URL, openURLAction: @escaping (URL) -> Void) -> Bool {
@@ -80,13 +86,16 @@ class UITestsAppCoordinator: AppCoordinatorProtocol, SecureWindowManagerDelegate
     }
     
     func windowManagerDidConfigureWindows(_ windowManager: SecureWindowManagerProtocol) {
-        ServiceLocator.shared.userIndicatorController.window = windowManager.overlayWindow
+        userIndicatorController.window = windowManager.overlayWindow
         
         // Set up the alternate window for the App Lock flow coordinator tests.
         guard let screenID = ProcessInfo.testScreenID, screenID == .appLockFlow || screenID == .appLockFlowDisabled else { return }
         let screen = MockScreen(id: screenID == .appLockFlow ? .appLockFlowAlternateWindow : .appLockFlowDisabledAlternateWindow,
                                 windowManager: windowManager,
-                                navigationRootCoordinator: navigationRootCoordinator)
+                                navigationRootCoordinator: navigationRootCoordinator,
+                                appSettings: appSettings,
+                                analytics: analytics,
+                                userIndicatorController: userIndicatorController)
         
         guard let coordinator = screen.coordinator else {
             fatalError()
@@ -98,11 +107,14 @@ class UITestsAppCoordinator: AppCoordinatorProtocol, SecureWindowManagerDelegate
     }
 }
 
-@MainActor
 class MockScreen: Identifiable {
     let id: UITestsScreenIdentifier
     let windowManager: SecureWindowManagerProtocol
     let navigationRootCoordinator: NavigationRootCoordinator
+    
+    private let appSettings: AppSettings
+    private let analytics: AnalyticsServiceProtocol
+    private let userIndicatorController: UserIndicatorControllerProtocol
     
     private var client: UITestsSignalling.Client?
     
@@ -111,10 +123,16 @@ class MockScreen: Identifiable {
     
     init(id: UITestsScreenIdentifier,
          windowManager: SecureWindowManagerProtocol,
-         navigationRootCoordinator: NavigationRootCoordinator) {
+         navigationRootCoordinator: NavigationRootCoordinator,
+         appSettings: AppSettings,
+         analytics: AnalyticsServiceProtocol,
+         userIndicatorController: UserIndicatorControllerProtocol) {
         self.id = id
         self.windowManager = windowManager
         self.navigationRootCoordinator = navigationRootCoordinator
+        self.appSettings = appSettings
+        self.analytics = analytics
+        self.userIndicatorController = userIndicatorController
     }
     
     lazy var coordinator: CoordinatorProtocol? = {
@@ -123,20 +141,29 @@ class MockScreen: Identifiable {
             let navigationStackCoordinator = NavigationStackCoordinator()
             let coordinator = ServerSelectionScreenCoordinator(parameters: .init(authenticationService: AuthenticationService.mock,
                                                                                  authenticationFlow: .login,
-                                                                                 appSettings: ServiceLocator.shared.settings,
-                                                                                 userIndicatorController: ServiceLocator.shared.userIndicatorController))
+                                                                                 appSettings: appSettings,
+                                                                                 homeserverHistoryManager: HomeserverHistoryManager(appSettings: appSettings),
+                                                                                 userIndicatorController: userIndicatorController))
             navigationStackCoordinator.setRootCoordinator(coordinator)
             return navigationStackCoordinator
         case .authenticationFlow, .provisionedAuthenticationFlow, .singleProviderAuthenticationFlow, .multipleProvidersAuthenticationFlow:
-            let appSettings: AppSettings! = ServiceLocator.shared.settings
+            let navigationStackCoordinator = NavigationStackCoordinator()
+            let appSettings: AppSettings! = appSettings
             
-            if id == .singleProviderAuthenticationFlow || id == .multipleProvidersAuthenticationFlow {
-                let accountProviders = id == .singleProviderAuthenticationFlow ? ["example.com"] : ["guest.example.com", "example.com"]
+            if id == .authenticationFlow || id == .provisionedAuthenticationFlow || id == .singleProviderAuthenticationFlow || id == .multipleProvidersAuthenticationFlow {
+                // AuthenticationService.mock only builds clients for known hosts. Arcana always uses the first provider.
+                let accountProviders: [AccountProvider] = if id == .multipleProvidersAuthenticationFlow {
+                    [.managed(serverName: "example.com", baseURL: "https://matrix.example.com"),
+                     .managed(serverName: "company.com", baseURL: "https://matrix.company.com")]
+                } else {
+                    [.managed(serverName: "example.com", baseURL: "https://matrix.example.com")]
+                }
                 appSettings.override(accountProviders: accountProviders,
                                      allowOtherAccountProviders: false,
                                      hideBrandChrome: false,
                                      pushGatewayBaseURL: appSettings.pushGatewayBaseURL,
-                                     oidcRedirectURL: appSettings.oidcRedirectURL,
+                                     oAuthRedirectURL: appSettings.oAuthRedirectURL,
+                                     oAuthClientURIPath: appSettings.oAuthClientURIPath,
                                      websiteURL: appSettings.websiteURL,
                                      logoURL: appSettings.logoURL,
                                      copyrightURL: appSettings.copyrightURL,
@@ -151,16 +178,16 @@ class MockScreen: Identifiable {
                                      accountProvisioningHost: appSettings.accountProvisioningHost,
                                      bugReportApplicationID: appSettings.bugReportApplicationID,
                                      analyticsTermsURL: appSettings.analyticsTermsURL,
-                                     mapTilerConfiguration: appSettings.mapTilerConfiguration)
+                                     bundledMapTilerConfiguration: appSettings.bundledMapTilerConfiguration)
             }
             
             let flowCoordinator = AuthenticationFlowCoordinator(authenticationService: AuthenticationService.mock,
+                                                                navigationStackCoordinator: navigationStackCoordinator,
                                                                 bugReportService: BugReportServiceMock(.init()),
-                                                                navigationRootCoordinator: navigationRootCoordinator,
-                                                                appMediator: AppMediatorMock.default,
+                                                                appMediator: AppMediatorMock(.init()),
                                                                 appSettings: appSettings,
                                                                 appHooks: AppHooks(),
-                                                                userIndicatorController: ServiceLocator.shared.userIndicatorController)
+                                                                userIndicatorController: userIndicatorController)
             flowCoordinator.start()
             retainedState.append(flowCoordinator)
             
@@ -168,7 +195,7 @@ class MockScreen: Identifiable {
                 flowCoordinator.handleAppRoute(.accountProvisioningLink(.init(accountProvider: "example.com", loginHint: nil)), animated: false)
             }
             
-            return nil
+            return navigationStackCoordinator
         case .appLockFlow, .appLockFlowDisabled:
             // The tested coordinator is setup below in the alternate window.
             // Here we just return a blank screen to snapshot as the unlocked app.
@@ -182,10 +209,10 @@ class MockScreen: Identifiable {
             let context = LAContextMock()
             context.biometryTypeValue = UIDevice.current.isPhone ? .faceID : .touchID // (iPhone 14 & iPad 9th gen)
             context.evaluatePolicyReturnValue = true
-            context.evaluatedPolicyDomainStateValue = Data("😎".utf8)
+            context.biometricStateHashValue = Data("😎".utf8)
             
             let appLockService = AppLockService(keychainController: keychainController,
-                                                appSettings: ServiceLocator.shared.settings,
+                                                appSettings: appSettings,
                                                 context: context)
             
             if id == .appLockFlowAlternateWindow {
@@ -207,7 +234,7 @@ class MockScreen: Identifiable {
                                                          appLockService: appLockService,
                                                          navigationCoordinator: navigationCoordinator,
                                                          notificationCenter: notificationCenter,
-                                                         appSettings: ServiceLocator.shared.settings)
+                                                         appSettings: appSettings)
             
             flowCoordinator.actions
                 .sink { [weak self] action in
@@ -238,10 +265,10 @@ class MockScreen: Identifiable {
             let context = LAContextMock()
             context.biometryTypeValue = UIDevice.current.isPhone ? .faceID : .touchID // (iPhone 14 & iPad 9th gen)
             context.evaluatePolicyReturnValue = true
-            context.evaluatedPolicyDomainStateValue = Data("😎".utf8)
+            context.biometricStateHashValue = Data("😎".utf8)
             
             let appLockService = AppLockService(keychainController: keychainController,
-                                                appSettings: ServiceLocator.shared.settings,
+                                                appSettings: appSettings,
                                                 context: context)
             if id == .appLockSetupFlowUnlock, case .failure = appLockService.setupPINCode("2023") {
                 fatalError("Failed to pre-set the PIN code")
@@ -260,8 +287,9 @@ class MockScreen: Identifiable {
             let navigationStackCoordinator = NavigationStackCoordinator()
             let clientProxy = ClientProxyMock(.init(userID: "@mock:client.com", roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))))
             let userSession = UserSessionMock(.init(clientProxy: clientProxy))
-            let coordinator = BugReportScreenCoordinator(parameters: .init(bugReportService: BugReportServiceMock(.init()),
-                                                                           userSession: userSession,
+            let coordinator = BugReportScreenCoordinator(parameters: .init(flow: .userSession(userSession),
+                                                                           bugReportService: BugReportServiceMock(.init()),
+                                                                           bugReportHook: DefaultBugReportHook(),
                                                                            userIndicatorController: nil,
                                                                            screenshot: nil,
                                                                            isModallyPresented: true))
@@ -271,16 +299,13 @@ class MockScreen: Identifiable {
             let navigationStackCoordinator = NavigationStackCoordinator()
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
                                                              roomProxy: JoinedRoomProxyMock(.init(name: "Some room name", avatarURL: nil)),
-                                                             timelineController: MockTimelineController(),
+                                                             timelineController: TimelineControllerMock(.init()),
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()),
                                                              userIndicatorController: UserIndicatorControllerMock())
@@ -289,20 +314,16 @@ class MockScreen: Identifiable {
             return navigationStackCoordinator
         case .roomSmallTimeline:
             let navigationStackCoordinator = NavigationStackCoordinator()
-            let timelineController = MockTimelineController()
-            timelineController.timelineItems = RoomTimelineItemFixtures.smallChunk
+            let timelineController = TimelineControllerMock(.init(timelineItems: TimelineFixtures.smallChunk))
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
                                                              roomProxy: JoinedRoomProxyMock(.init(name: "New room", avatarURL: .mockMXCAvatar)),
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()),
                                                              userIndicatorController: UserIndicatorControllerMock())
@@ -311,20 +332,16 @@ class MockScreen: Identifiable {
             return navigationStackCoordinator
         case .roomSmallTimelineWithReactions:
             let navigationStackCoordinator = NavigationStackCoordinator()
-            let timelineController = MockTimelineController()
-            timelineController.timelineItems = RoomTimelineItemFixtures.default
+            let timelineController = TimelineControllerMock(.init(timelineItems: TimelineFixtures.default))
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
                                                              roomProxy: JoinedRoomProxyMock(.init(name: "New room", avatarURL: .mockMXCAvatar)),
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
@@ -332,20 +349,16 @@ class MockScreen: Identifiable {
             return navigationStackCoordinator
         case .roomSmallTimelineWithReadReceipts:
             let navigationStackCoordinator = NavigationStackCoordinator()
-            let timelineController = MockTimelineController()
-            timelineController.timelineItems = RoomTimelineItemFixtures.smallChunkWithReadReceipts
+            let timelineController = TimelineControllerMock(.init(timelineItems: TimelineFixtures.smallChunkWithReadReceipts))
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
                                                              roomProxy: JoinedRoomProxyMock(.init(name: "New room", avatarURL: .mockMXCAvatar)),
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
@@ -354,22 +367,21 @@ class MockScreen: Identifiable {
         case .roomSmallTimelineIncomingAndSmallPagination:
             let navigationStackCoordinator = NavigationStackCoordinator()
             
-            let timelineController = MockTimelineController(listenForSignals: true)
-            timelineController.timelineItems = RoomTimelineItemFixtures.smallChunk
-            timelineController.backPaginationResponses = [RoomTimelineItemFixtures.singleMessageChunk]
-            timelineController.incomingItems = [RoomTimelineItemFixtures.incomingMessage]
+            let itemProvider = SignallingTimelineItemProviderMock(itemProxies: TimelineFixtures.smallChunkProxies,
+                                                                  listenForSignals: true)
+            itemProvider.backPaginationResponses = [TimelineFixtures.singleMessageChunkProxies]
+            itemProvider.incomingItems = [TimelineFixtures.incomingMessageProxy]
+            let roomProxy = JoinedRoomProxyMock(.init(name: "Small timeline", avatarURL: .mockMXCAvatar))
+            let timelineController = makeSignallingTimelineController(itemProvider: itemProvider, roomProxy: roomProxy)
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
-                                                             roomProxy: JoinedRoomProxyMock(.init(name: "Small timeline", avatarURL: .mockMXCAvatar)),
+                                                             roomProxy: roomProxy,
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
@@ -379,21 +391,20 @@ class MockScreen: Identifiable {
         case .roomSmallTimelineLargePagination:
             let navigationStackCoordinator = NavigationStackCoordinator()
             
-            let timelineController = MockTimelineController(listenForSignals: true)
-            timelineController.timelineItems = RoomTimelineItemFixtures.smallChunk
-            timelineController.backPaginationResponses = [RoomTimelineItemFixtures.largeChunk]
+            let itemProvider = SignallingTimelineItemProviderMock(itemProxies: TimelineFixtures.smallChunkProxies,
+                                                                  listenForSignals: true)
+            itemProvider.backPaginationResponses = [TimelineFixtures.largeChunkProxies]
+            let roomProxy = JoinedRoomProxyMock(.init(name: "Small timeline, paginating", avatarURL: .mockMXCAvatar))
+            let timelineController = makeSignallingTimelineController(itemProvider: itemProvider, roomProxy: roomProxy)
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
-                                                             roomProxy: JoinedRoomProxyMock(.init(name: "Small timeline, paginating", avatarURL: .mockMXCAvatar)),
+                                                             roomProxy: roomProxy,
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()), timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
             
@@ -402,46 +413,44 @@ class MockScreen: Identifiable {
         case .roomLayoutTop:
             let navigationStackCoordinator = NavigationStackCoordinator()
             
-            let timelineController = MockTimelineController(listenForSignals: true)
-            timelineController.timelineItems = RoomTimelineItemFixtures.largeChunk
-            timelineController.backPaginationResponses = [RoomTimelineItemFixtures.largeChunk]
+            let itemProvider = SignallingTimelineItemProviderMock(itemProxies: TimelineFixtures.largeChunkProxies,
+                                                                  listenForSignals: true)
+            itemProvider.backPaginationResponses = [TimelineFixtures.largeChunkProxies]
+            let roomProxy = JoinedRoomProxyMock(.init(name: "Large timeline", avatarURL: .mockMXCAvatar))
+            let timelineController = makeSignallingTimelineController(itemProvider: itemProvider, roomProxy: roomProxy)
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
-                                                             roomProxy: JoinedRoomProxyMock(.init(name: "Large timeline", avatarURL: .mockMXCAvatar)),
+                                                             roomProxy: roomProxy,
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
-
+            
             navigationStackCoordinator.setRootCoordinator(coordinator)
             return navigationStackCoordinator
         case .roomLayoutMiddle:
             let navigationStackCoordinator = NavigationStackCoordinator()
             
-            let timelineController = MockTimelineController(listenForSignals: true)
-            timelineController.timelineItems = RoomTimelineItemFixtures.largeChunk
-            timelineController.backPaginationResponses = [RoomTimelineItemFixtures.largeChunk]
-            timelineController.incomingItems = [RoomTimelineItemFixtures.incomingMessage]
+            let itemProvider = SignallingTimelineItemProviderMock(itemProxies: TimelineFixtures.largeChunkProxies,
+                                                                  listenForSignals: true)
+            itemProvider.backPaginationResponses = [TimelineFixtures.largeChunkProxies]
+            itemProvider.incomingItems = [TimelineFixtures.incomingMessageProxy]
+            let roomProxy = JoinedRoomProxyMock(.init(name: "Large timeline", avatarURL: .mockMXCAvatar))
+            let timelineController = makeSignallingTimelineController(itemProvider: itemProvider, roomProxy: roomProxy)
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
-                                                             roomProxy: JoinedRoomProxyMock(.init(name: "Large timeline", avatarURL: .mockMXCAvatar)),
+                                                             roomProxy: roomProxy,
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
@@ -451,21 +460,20 @@ class MockScreen: Identifiable {
         case .roomLayoutBottom:
             let navigationStackCoordinator = NavigationStackCoordinator()
             
-            let timelineController = MockTimelineController(listenForSignals: true)
-            timelineController.timelineItems = RoomTimelineItemFixtures.largeChunk
-            timelineController.incomingItems = [RoomTimelineItemFixtures.incomingMessage]
+            let itemProvider = SignallingTimelineItemProviderMock(itemProxies: TimelineFixtures.largeChunkProxies,
+                                                                  listenForSignals: true)
+            itemProvider.incomingItems = [TimelineFixtures.incomingMessageProxy]
+            let roomProxy = JoinedRoomProxyMock(.init(name: "Large timeline", avatarURL: .mockMXCAvatar))
+            let timelineController = makeSignallingTimelineController(itemProvider: itemProvider, roomProxy: roomProxy)
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
-                                                             roomProxy: JoinedRoomProxyMock(.init(name: "Large timeline", avatarURL: .mockMXCAvatar)),
+                                                             roomProxy: roomProxy,
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
@@ -475,20 +483,16 @@ class MockScreen: Identifiable {
         case .roomLayoutHighlight:
             let navigationStackCoordinator = NavigationStackCoordinator()
             
-            let timelineController = MockTimelineController()
-            timelineController.timelineItems = RoomTimelineItemFixtures.permalinkChunk
+            let timelineController = TimelineControllerMock(.init(timelineItems: TimelineFixtures.permalinkChunk))
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
                                                              roomProxy: JoinedRoomProxyMock(.init(name: "Timeline highlight", avatarURL: .mockMXCAvatar)),
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
@@ -510,74 +514,59 @@ class MockScreen: Identifiable {
             return navigationStackCoordinator
         case .roomWithDisclosedPolls:
             let navigationStackCoordinator = NavigationStackCoordinator()
-
-            let timelineController = MockTimelineController()
-            timelineController.timelineItems = RoomTimelineItemFixtures.disclosedPolls
-            timelineController.incomingItems = []
+            
+            let timelineController = TimelineControllerMock(.init(timelineItems: TimelineFixtures.disclosedPolls))
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
                                                              roomProxy: JoinedRoomProxyMock(.init(name: "Polls timeline", avatarURL: .mockMXCAvatar)),
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
-
+            
             navigationStackCoordinator.setRootCoordinator(coordinator)
             return navigationStackCoordinator
         case .roomWithUndisclosedPolls:
             let navigationStackCoordinator = NavigationStackCoordinator()
-
-            let timelineController = MockTimelineController()
-            timelineController.timelineItems = RoomTimelineItemFixtures.undisclosedPolls
-            timelineController.incomingItems = []
+            
+            let timelineController = TimelineControllerMock(.init(timelineItems: TimelineFixtures.undisclosedPolls))
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
                                                              roomProxy: JoinedRoomProxyMock(.init(name: "Polls timeline", avatarURL: .mockMXCAvatar)),
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
-
+            
             navigationStackCoordinator.setRootCoordinator(coordinator)
             return navigationStackCoordinator
         case .roomWithOutgoingPolls:
             let navigationStackCoordinator = NavigationStackCoordinator()
-
-            let timelineController = MockTimelineController()
-            timelineController.timelineItems = RoomTimelineItemFixtures.outgoingPolls
-            timelineController.incomingItems = []
+            
+            let timelineController = TimelineControllerMock(.init(timelineItems: TimelineFixtures.outgoingPolls))
             let parameters = RoomScreenCoordinatorParameters(userSession: UserSessionMock(.init()),
                                                              roomProxy: JoinedRoomProxyMock(.init(name: "Polls timeline", avatarURL: .mockMXCAvatar)),
                                                              timelineController: timelineController,
                                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                                              linkMetadataProvider: LinkMetadataProvider(),
                                                              completionSuggestionService: CompletionSuggestionServiceMock(configuration: .init()),
-                                                             ongoingCallRoomIDPublisher: .init(.init(nil)),
-                                                             appMediator: AppMediatorMock.default,
-                                                             appSettings: ServiceLocator.shared.settings,
-                                                             appHooks: AppHooks(),
-                                                             analytics: ServiceLocator.shared.analytics,
+                                                             appMediator: AppMediatorMock(.init()),
+                                                             analytics: analytics,
                                                              composerDraftService: ComposerDraftServiceMock(.init()),
                                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()), userIndicatorController: UserIndicatorControllerMock())
             let coordinator = RoomScreenCoordinator(parameters: parameters)
-
+            
             navigationStackCoordinator.setRootCoordinator(coordinator)
             return navigationStackCoordinator
         case .sessionVerification:
@@ -585,24 +574,26 @@ class MockScreen: Identifiable {
                                                                                                           requestDelay: .seconds(5))
             let parameters = SessionVerificationScreenCoordinatorParameters(sessionVerificationControllerProxy: sessionVerificationControllerProxy,
                                                                             flow: .deviceInitiator,
-                                                                            appSettings: ServiceLocator.shared.settings,
-                                                                            mediaProvider: MediaProviderMock(configuration: .init()))
+                                                                            userSession: UserSessionMock(.init()))
             return SessionVerificationScreenCoordinator(parameters: parameters)
         case .userSessionScreen, .userSessionScreenReply, .userSessionSpacesFlow:
-            let appSettings: AppSettings = ServiceLocator.shared.settings
-            appSettings.hasRunNotificationPermissionsOnboarding = true
-            appSettings.analyticsConsentState = .optedOut
-
+            let userID = "@mock:client.com"
+            let userSettings = appSettings.userSettings(for: userID)
+            userSettings.account.hasRunIdentityConfirmationOnboarding = true
+            userSettings.app.hasRunNotificationPermissionsOnboarding = true
+            userSettings.app.analyticsConsentState = .optedOut
+            
             let roomSummaries: [RoomSummary] = if id == .userSessionSpacesFlow {
                 [[RoomSummary].mockSpaceInvites[0]] + .mockRooms
             } else {
                 .mockRooms
             }
-            let clientProxy = ClientProxyMock(.init(userID: "@mock:client.com",
+            
+            let clientProxy = ClientProxyMock(.init(userID: userID,
                                                     deviceID: "MOCKCLIENT",
                                                     roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(roomSummaries))),
                                                     spaceServiceConfiguration: .init(topLevelSpaces: .mockSpaceList.filter(\.isSpace) + .mockSingleRoom),
-                                                    roomPreviews: [SpaceServiceRoom].mockSpaceList.map(RoomPreviewProxyMock.init),
+                                                    roomPreviews: [SpaceServiceRoom].mockSpaceList.map { RoomPreviewProxyMock(spaceServiceRoom: $0) },
                                                     defaultRoomMembers: .allMembersAsAdmin))
             clientProxy.recentlyVisitedRoomsFilterReturnValue = .mockRooms
             
@@ -610,28 +601,116 @@ class MockScreen: Identifiable {
             let spaceServiceProxy = SpaceServiceProxyMock(id == .userSessionSpacesFlow ? .populated : .init())
             clientProxy.spaceService = spaceServiceProxy
             
-            let appMediator = AppMediatorMock.default
-            appMediator.underlyingWindowManager = windowManager
-
+            let appMediator = AppMediatorMock(.init())
+            appMediator.windowManager = windowManager
+            
+            let itemProvider = SignallingTimelineItemProviderMock(itemProxies: TimelineFixtures.largeChunkProxies)
+            
+            let timelineController = makeSignallingTimelineController(itemProvider: itemProvider,
+                                                                      roomProxy: JoinedRoomProxyMock(.init()))
+            
+            let timelineControllerFactory = TimelineControllerFactoryMock(.init(timelineController: timelineController))
+            
+            let userSession = UserSessionMock(.init(clientProxy: clientProxy, userSettings: userSettings))
             let flowCoordinator = UserSessionFlowCoordinator(isNewLogin: false,
                                                              navigationRootCoordinator: navigationRootCoordinator,
                                                              appLockService: AppLockService(keychainController: KeychainControllerMock(),
-                                                                                            appSettings: ServiceLocator.shared.settings),
-                                                             flowParameters: CommonFlowParameters(userSession: UserSessionMock(.init(clientProxy: clientProxy)),
+                                                                                            appSettings: appSettings),
+                                                             flowParameters: CommonFlowParameters(userSession: userSession,
+                                                                                                  availableSessionsPublisher: .init([.init(userSession: userSession)]),
                                                                                                   bugReportService: BugReportServiceMock(.init()),
-                                                                                                  elementCallService: ElementCallServiceMock(.init()),
-                                                                                                  timelineControllerFactory: TimelineControllerFactoryMock(.init()),
-                                                                                                  emojiProvider: EmojiProvider(appSettings: appSettings),
+                                                                                                  timelineControllerFactory: timelineControllerFactory,
+                                                                                                  emojiProvider: EmojiProvider(userSettings: userSession.userSettings),
                                                                                                   linkMetadataProvider: LinkMetadataProvider(),
                                                                                                   appMediator: appMediator,
-                                                                                                  appSettings: appSettings,
-                                                                                                  appHooks: AppHooks(),
-                                                                                                  analytics: ServiceLocator.shared.analytics,
+                                                                                                  analytics: analytics,
                                                                                                   userIndicatorController: UserIndicatorControllerMock(),
-                                                                                                  notificationManager: NotificationManagerMock(),
                                                                                                   stateMachineFactory: StateMachineFactory()))
-
+            
             flowCoordinator.start()
+            
+            retainedState.append(flowCoordinator)
+            
+            return nil
+        case .rootFlow, .rootFlowSignedIn:
+            let userID = "@mock:client.com"
+            let userSettings = appSettings.userSettings(for: userID)
+            userSettings.account.hasRunIdentityConfirmationOnboarding = true
+            userSettings.app.hasRunNotificationPermissionsOnboarding = true
+            userSettings.app.analyticsConsentState = .optedOut
+            userSettings.app.multiAccountEnabled = true
+            userSettings.app.hasSeenMultiAccountAnnouncement = true
+            
+            let clientProxy = ClientProxyMock(.init(userID: userID,
+                                                    deviceID: "MOCKCLIENT",
+                                                    roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))))
+            // Presents a room's call straight away, as the manager does without a native call stack.
+            let callManagerActions = PassthroughSubject<ElementCallManagerAction, Never>()
+            let elementCallManager = ElementCallManagerMock(.init(actionsPublisher: callManagerActions.eraseToAnyPublisher()))
+            let elementCallService = ElementCallServiceMock(.init(userID: userID))
+            elementCallService.requestCallRoomProxyIsVoiceCallClosure = { roomProxy, isVoiceCall in
+                callManagerActions.send(.callScreen(.present(userID: userID, kind: .webView(.init(roomProxy: roomProxy, isVoiceCall: isVoiceCall)))))
+            }
+            
+            let userSession = UserSessionMock(.init(clientProxy: clientProxy, userSettings: userSettings, elementCallService: elementCallService))
+            
+            let bobUserID = "@bob:client.com"
+            let bobUserSettings = appSettings.userSettings(for: bobUserID)
+            bobUserSettings.account.hasRunIdentityConfirmationOnboarding = true
+            let bobClientProxy = ClientProxyMock(.init(userID: bobUserID,
+                                                       deviceID: "MOCKCLIENT",
+                                                       displayName: "Bob",
+                                                       roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))))
+            let bobUserSession = UserSessionMock(.init(clientProxy: bobClientProxy, userSettings: bobUserSettings))
+            
+            let userSessionManagerCallbacks = PassthroughSubject<UserSessionManagerCallback, Never>()
+            let userSessionManager = UserSessionManagerMock(.init(callbacksPublisher: userSessionManagerCallbacks.eraseToAnyPublisher()))
+            // Keeps the accounts in order with the first one active, as the real manager does.
+            @MainActor func setSessions(_ sessions: [UserSessionProtocol]) {
+                userSessionManager.activeSession = sessions.first
+                userSessionManager.sessionsPublisher = .init(sessions)
+                userSessionManager.userIDs = sessions.map(\.clientProxy.userID)
+            }
+            @MainActor func sessions(excluding userID: String) -> [UserSessionProtocol] {
+                userSessionManager.sessionsPublisher.value.filter { $0.clientProxy.userID != userID }
+            }
+            
+            setSessions(id == .rootFlowSignedIn ? [userSession, bobUserSession] : [])
+            userSessionManager.sessionForClosure = { userID in
+                userSessionManager.sessionsPublisher.value.first { $0.clientProxy.userID == userID }
+            }
+            userSessionManager.selectAccountUserIDClosure = { userID in
+                guard let selectedSession = userSessionManager.session(for: userID) else { return }
+                setSessions([selectedSession] + sessions(excluding: userID))
+                userSessionManagerCallbacks.send(.didSelectAccount(userID: userID))
+            }
+            userSessionManager.logoutUserIDClosure = { @MainActor userID in
+                setSessions(sessions(excluding: userID))
+                userSessionManagerCallbacks.send(.didRemoveAccount(userID: userID, error: nil))
+            }
+            // The signed in session is a bare mock, use the populated one instead.
+            userSessionManager.addNewSessionClosure = { _ in
+                setSessions([userSession] + sessions(excluding: userID))
+            }
+            
+            let appMediator = AppMediatorMock(.init())
+            appMediator.windowManager = windowManager
+            
+            let flowCoordinator = RootFlowCoordinator(navigationRootCoordinator: navigationRootCoordinator,
+                                                      userSessionManager: userSessionManager,
+                                                      elementCallManager: elementCallManager,
+                                                      appLockService: AppLockService(keychainController: KeychainControllerMock(),
+                                                                                     appSettings: appSettings),
+                                                      bugReportService: BugReportServiceMock(.init()),
+                                                      appMediator: appMediator,
+                                                      appSettings: appSettings,
+                                                      appHooks: AppHooks(),
+                                                      analyticsService: analytics,
+                                                      userIndicatorController: UserIndicatorControllerMock(),
+                                                      targetContext: .mock,
+                                                      authenticationServiceFactory: AuthenticationServiceFactoryMock(.init()))
+            
+            flowCoordinator.handleAppRoute(id == .rootFlow ? .authentication : .roomList, animated: false)
             
             retainedState.append(flowCoordinator)
             
@@ -641,26 +720,26 @@ class MockScreen: Identifiable {
             let members: [RoomMemberProxyMock] = [.mockInvitedAlice, .mockBob, .mockCharlie]
             let coordinator = RoomMembersListScreenCoordinator(parameters: .init(userSession: UserSessionMock(.init()),
                                                                                  roomProxy: JoinedRoomProxyMock(.init(name: "test", members: members)),
-                                                                                 userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                                                                 analytics: ServiceLocator.shared.analytics))
+                                                                                 userIndicatorController: userIndicatorController,
+                                                                                 analytics: analytics))
             navigationStackCoordinator.setRootCoordinator(coordinator)
             return navigationStackCoordinator
         case .roomRolesAndPermissionsFlow:
             let navigationStackCoordinator = NavigationStackCoordinator()
             navigationStackCoordinator.setRootCoordinator(BlankFormCoordinator())
             let coordinator = RoomRolesAndPermissionsFlowCoordinator(parameters: .init(roomProxy: JoinedRoomProxyMock(.init(members: .allMembersAsAdmin)),
-                                                                                       mediaProvider: MediaProviderMock(configuration: .init()),
+                                                                                       mediaProvider: MediaProviderMock(.init()),
                                                                                        navigationStackCoordinator: navigationStackCoordinator,
-                                                                                       userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                                                                       analytics: ServiceLocator.shared.analytics))
+                                                                                       userIndicatorController: userIndicatorController,
+                                                                                       analytics: analytics))
             retainedState.append(coordinator)
             coordinator.start()
             return navigationStackCoordinator
         case .startChatFlow:
             let clientProxy = ClientProxyMock(.init(userID: "@mock:client.com"))
-            clientProxy.createRoomNameTopicAccessTypeIsSpaceUserIDsAvatarURLAliasLocalPartReturnValue =
-                .success("!new-room:client.com")
+            clientProxy.createRoomReturnValue = .success("!new-room:client.com")
             clientProxy.roomForIdentifierClosure = { roomID in .joined(JoinedRoomProxyMock(.init(id: roomID, members: []))) }
+            let userSession = UserSessionMock(.init(clientProxy: clientProxy))
             
             let userDiscoveryService = UserDiscoveryServiceMock()
             userDiscoveryService.searchProfilesWithReturnValue = .success([.mockBob, .mockBobby])
@@ -669,18 +748,15 @@ class MockScreen: Identifiable {
             let flowCoordinator = StartChatFlowCoordinator(entryPoint: .startChat,
                                                            userDiscoveryService: userDiscoveryService,
                                                            navigationStackCoordinator: navigationStackCoordinator,
-                                                           flowParameters: CommonFlowParameters(userSession: UserSessionMock(.init(clientProxy: clientProxy)),
+                                                           flowParameters: CommonFlowParameters(userSession: userSession,
+                                                                                                availableSessionsPublisher: .init([.init(userSession: userSession)]),
                                                                                                 bugReportService: BugReportServiceMock(.init()),
-                                                                                                elementCallService: ElementCallServiceMock(.init()),
                                                                                                 timelineControllerFactory: TimelineControllerFactoryMock(.init()),
-                                                                                                emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                                                                emojiProvider: EmojiProvider(userSettings: userSession.userSettings),
                                                                                                 linkMetadataProvider: LinkMetadataProvider(),
-                                                                                                appMediator: AppMediatorMock.default,
-                                                                                                appSettings: ServiceLocator.shared.settings,
-                                                                                                appHooks: AppHooks(),
-                                                                                                analytics: ServiceLocator.shared.analytics,
+                                                                                                appMediator: AppMediatorMock(.init()),
+                                                                                                analytics: analytics,
                                                                                                 userIndicatorController: UserIndicatorControllerMock(),
-                                                                                                notificationManager: NotificationManagerMock(),
                                                                                                 stateMachineFactory: StateMachineFactory()))
             flowCoordinator.actionsPublisher
                 .sink { [weak self] action in
@@ -702,10 +778,10 @@ class MockScreen: Identifiable {
             return PlaceholderScreenCoordinator(hideBrandChrome: false)
         case .createPoll:
             let navigationStackCoordinator = NavigationStackCoordinator()
-            let coordinator = PollFormScreenCoordinator(parameters: .init(mode: .new,
+            let coordinator = PollFormScreenCoordinator(parameters: .init(mode: .new(topic: nil),
                                                                           maxNumberOfOptions: 10,
-                                                                          timelineController: MockTimelineController(),
-                                                                          analytics: ServiceLocator.shared.analytics,
+                                                                          timelineController: TimelineControllerMock(.init()),
+                                                                          analytics: analytics,
                                                                           userIndicatorController: UserIndicatorControllerMock()))
             navigationStackCoordinator.setRootCoordinator(coordinator)
             return navigationStackCoordinator
@@ -718,14 +794,13 @@ class MockScreen: Identifiable {
             navigationStackCoordinator.setRootCoordinator(BlankFormCoordinator())
             
             let coordinator = EncryptionSettingsFlowCoordinator(parameters: .init(userSession: userSession,
-                                                                                  appSettings: ServiceLocator.shared.settings,
                                                                                   userIndicatorController: UserIndicatorControllerMock(),
                                                                                   navigationStackCoordinator: navigationStackCoordinator))
             retainedState.append(coordinator)
             coordinator.start()
             
             return navigationStackCoordinator
-        case .encryptionReset:
+        case .encryptionReset, .encryptionResetNoOptions:
             let recoveryState: SecureBackupRecoveryState = id == .encryptionSettings ? .enabled : .incomplete
             let clientProxy = ClientProxyMock(.init(userID: "@mock:client.com", recoveryState: recoveryState))
             let userSession = UserSessionMock(.init(clientProxy: clientProxy))
@@ -735,36 +810,50 @@ class MockScreen: Identifiable {
             let navigationStackCoordinator = NavigationStackCoordinator()
             
             let coordinator = EncryptionResetFlowCoordinator(parameters: .init(userSession: userSession,
-                                                                               appSettings: ServiceLocator.shared.settings,
+                                                                               appMediator: AppMediatorMock(.init()),
                                                                                userIndicatorController: userIndicatorController,
                                                                                navigationStackCoordinator: navigationStackCoordinator,
-                                                                               windowManger: windowManager))
-
+                                                                               windowManger: windowManager,
+                                                                               mode: id == .encryptionResetNoOptions ? .noOptionsWithEncryptedRooms : .hasConfirmationOptions))
+            
             retainedState.append(coordinator)
             coordinator.start()
             
             return navigationStackCoordinator
-        case .linkNewDevice:
+        case .linkNewDevice, .linkNewDeviceWithAppLockPIN:
             let linkMobileProgressSubject: CurrentValueSubject<LinkNewDeviceService.LinkMobileProgress, QRCodeLoginError> = .init(.qrReady(LinkNewDeviceServiceMock.mockQRCodeImage))
-            let linkNewDeviceService = LinkNewDeviceServiceMock(.init(linkMobileProgressPublisher: linkMobileProgressSubject.asCurrentValuePublisher()))
+            let linkNewDeviceService = LinkNewDeviceServiceMock(.init(linkMobileOperation: .init(progressPublisher: linkMobileProgressSubject.asCurrentValuePublisher())))
             
             let clientProxy = ClientProxyMock(.init())
             clientProxy.linkNewDeviceServiceReturnValue = linkNewDeviceService
+            let userSession = UserSessionMock(.init(clientProxy: clientProxy))
+            
+            let keychainController = KeychainController(service: .tests, accessGroup: InfoPlistReader.main.keychainAccessGroupIdentifier)
+            keychainController.resetSecrets()
+            
+            let context = LAContextMock()
+            context.canEvaluatePolicyReturnValue = false // No device passcode in the simulator.
+            
+            let appLockService = AppLockService(keychainController: keychainController, appSettings: appSettings, context: context)
+            
+            // Set an App Lock PIN for the dedicated variant so linking requires it (and forced logout can be tested).
+            // Without a PIN the service is disabled, so verification is unavailable and linking proceeds.
+            if id == .linkNewDeviceWithAppLockPIN, case .failure = appLockService.setupPINCode("2023") {
+                fatalError("Failed to preset the PIN code.")
+            }
             
             let navigationStackCoordinator = NavigationStackCoordinator()
             let flowCoordinator = LinkNewDeviceFlowCoordinator(navigationStackCoordinator: navigationStackCoordinator,
-                                                               flowParameters: CommonFlowParameters(userSession: UserSessionMock(.init(clientProxy: clientProxy)),
+                                                               appLockService: appLockService,
+                                                               flowParameters: CommonFlowParameters(userSession: userSession,
+                                                                                                    availableSessionsPublisher: .init([.init(userSession: userSession)]),
                                                                                                     bugReportService: BugReportServiceMock(.init()),
-                                                                                                    elementCallService: ElementCallServiceMock(.init()),
                                                                                                     timelineControllerFactory: TimelineControllerFactoryMock(.init()),
-                                                                                                    emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                                                                    emojiProvider: EmojiProvider(userSettings: userSession.userSettings),
                                                                                                     linkMetadataProvider: LinkMetadataProvider(),
-                                                                                                    appMediator: AppMediatorMock.default,
-                                                                                                    appSettings: ServiceLocator.shared.settings,
-                                                                                                    appHooks: AppHooks(),
-                                                                                                    analytics: ServiceLocator.shared.analytics,
+                                                                                                    appMediator: AppMediatorMock(.init()),
+                                                                                                    analytics: analytics,
                                                                                                     userIndicatorController: UserIndicatorControllerMock(),
-                                                                                                    notificationManager: NotificationManagerMock(),
                                                                                                     stateMachineFactory: StateMachineFactory()))
             flowCoordinator.actionsPublisher
                 .sink { [weak self] action in
@@ -772,7 +861,7 @@ class MockScreen: Identifiable {
                     switch action {
                     case .dismiss:
                         navigationRootCoordinator.setSheetCoordinator(nil)
-                    case .requestOIDCAuthorisation:
+                    case .requestOAuthAuthorisation, .forceLogout:
                         break
                     }
                 }
@@ -785,13 +874,16 @@ class MockScreen: Identifiable {
             navigationRootCoordinator.setSheetCoordinator(navigationStackCoordinator)
             return PlaceholderScreenCoordinator(hideBrandChrome: false)
         case .autoUpdatingTimeline:
-            let appSettings: AppSettings = ServiceLocator.shared.settings
-            appSettings.hasRunNotificationPermissionsOnboarding = true
-            appSettings.analyticsConsentState = .optedOut
+            let userID = "@mock:client.com"
+            let userSettings = appSettings.userSettings(for: userID)
+            userSettings.account.hasRunIdentityConfirmationOnboarding = true
+            userSettings.app.hasRunNotificationPermissionsOnboarding = true
+            userSettings.app.analyticsConsentState = .optedOut
             let navigationSplitCoordinator = NavigationSplitCoordinator(placeholderCoordinator: PlaceholderScreenCoordinator(hideBrandChrome: false))
             navigationRootCoordinator.setRootCoordinator(navigationSplitCoordinator)
             
-            let clientProxy = ClientProxyMock(.init(userID: "@mock:client.com", roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))))
+            let clientProxy = ClientProxyMock(.init(userID: userID, roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))))
+            let userSession = UserSessionMock(.init(clientProxy: clientProxy, userSettings: userSettings))
             
             let roomProxy = JoinedRoomProxyMock(.init(id: "whatever", name: "okay", shouldUseAutoUpdatingTimeline: true))
             
@@ -803,25 +895,21 @@ class MockScreen: Identifiable {
                                                         timelineItemFactory: RoomTimelineItemFactory(userID: "@alice:matrix.org",
                                                                                                      attributedStringBuilder: AttributedStringBuilder(mentionBuilder: MentionBuilder()),
                                                                                                      stateEventStringBuilder: RoomStateEventStringBuilder(userID: "@alice:matrix.org")),
-                                                        mediaProvider: MediaProviderMock(configuration: .init()),
-                                                        appSettings: ServiceLocator.shared.settings)
+                                                        mediaProvider: MediaProviderMock(.init()),
+                                                        userSettings: userSettings)
             
-            let flowCoordinator = ChatsTabFlowCoordinator(isNewLogin: false,
-                                                          navigationSplitCoordinator: navigationSplitCoordinator,
-                                                          flowParameters: CommonFlowParameters(userSession: UserSessionMock(.init(clientProxy: clientProxy)),
+            let flowCoordinator = ChatsTabFlowCoordinator(navigationSplitCoordinator: navigationSplitCoordinator,
+                                                          flowParameters: CommonFlowParameters(userSession: userSession,
+                                                                                               availableSessionsPublisher: .init([.init(userSession: userSession)]),
                                                                                                bugReportService: BugReportServiceMock(.init()),
-                                                                                               elementCallService: ElementCallServiceMock(.init()),
                                                                                                timelineControllerFactory: TimelineControllerFactoryMock(.init(timelineController: timelineController)),
-                                                                                               emojiProvider: EmojiProvider(appSettings: appSettings),
+                                                                                               emojiProvider: EmojiProvider(userSettings: userSession.userSettings),
                                                                                                linkMetadataProvider: LinkMetadataProvider(),
-                                                                                               appMediator: AppMediatorMock.default,
-                                                                                               appSettings: appSettings,
-                                                                                               appHooks: AppHooks(),
-                                                                                               analytics: ServiceLocator.shared.analytics,
+                                                                                               appMediator: AppMediatorMock(.init()),
+                                                                                               analytics: analytics,
                                                                                                userIndicatorController: UserIndicatorControllerMock(),
-                                                                                               notificationManager: NotificationManagerMock(),
                                                                                                stateMachineFactory: StateMachineFactory()))
-
+            
             flowCoordinator.start()
             
             retainedState.append(flowCoordinator)
@@ -829,4 +917,40 @@ class MockScreen: Identifiable {
             return nil
         }
     }()
+    
+    // MARK: - Private
+    
+    private func makeSignallingTimelineController(itemProvider: SignallingTimelineItemProviderMock,
+                                                  roomProxy: JoinedRoomProxyMock) -> TimelineController {
+        let timelineProxy = TimelineProxyMock(.init(timelineItemProvider: itemProvider))
+        
+        var pendingEditText: String?
+        
+        timelineProxy.sendMessageHtmlInReplyToEventIDIntentionalMentionsClosure = { [weak itemProvider] message, _, _, _ in
+            itemProvider?.inject([.mockOwnMessage(message)])
+            return .success(())
+        }
+        
+        timelineProxy.buildMessageContentForHtmlIntentionalMentionsClosure = { text, _, _ in
+            pendingEditText = text
+            return RoomMessageEventContentWithoutRelationSDKMock()
+        }
+        
+        timelineProxy.editNewContentClosure = { [weak itemProvider] _, _ in
+            if let text = pendingEditText {
+                itemProvider?.replaceLastItem(with: .mockOwnMessage(text, isEdited: true))
+                pendingEditText = nil
+            }
+            return .success(())
+        }
+        
+        return TimelineController(roomProxy: roomProxy,
+                                  timelineProxy: timelineProxy,
+                                  initialFocussedEventID: nil,
+                                  timelineItemFactory: RoomTimelineItemFactory(userID: "@alice:matrix.org",
+                                                                               attributedStringBuilder: AttributedStringBuilder(mentionBuilder: MentionBuilder()),
+                                                                               stateEventStringBuilder: RoomStateEventStringBuilder(userID: "@alice:matrix.org")),
+                                  mediaProvider: MediaProviderMock(.init()),
+                                  userSettings: .mock())
+    }
 }

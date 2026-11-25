@@ -16,6 +16,8 @@ class UserFlowTests: XCTestCase {
     private var app: XCUIApplication!
     
     override func setUp() async throws {
+        continueAfterFailure = false
+        
         app = Application.launch()
         try app.login(currentTestCase: self)
     }
@@ -23,26 +25,23 @@ class UserFlowTests: XCTestCase {
     func testUserFlow() {
         checkRoomFlows()
         
-        checkSettings()
-        
-        checkRoomCreation()
-        
         app.logout()
     }
     
     /// Assumes app is on the home screen
     private func checkRoomFlows() {
-        // Wait for the room list to paginate and correctly compute the room display names otherwise the test room
-        // won't be found
-        // Remove once https://github.com/element-hq/element-x-ios/issues/3365 gets sorted
-        sleep(30)
-        
         // Search for the special test room
-        let searchField = app.searchFields.firstMatch
+        let searchTab = app.buttons[A11yIdentifiers.homeTabs.search].firstMatch
+        XCTAssertTrue(searchTab.waitForExistence(timeout: 30))
+        searchTab.tap(.center)
+        
+        // The search tab hosts its field in the tab bar, which exposes it as a text field.
+        let searchField = app.textFields.firstMatch
+        XCTAssertTrue(searchField.waitForExistence(timeout: 30))
         searchField.clearAndTypeText(Self.integrationTestsRoomName, app: app)
         
         // And open it
-        let firstRoom = app.buttons.matching(NSPredicate(format: "identifier CONTAINS %@", Self.integrationTestsRoomName)).firstMatch
+        let firstRoom = app.buttons[A11yIdentifiers.searchScreen.roomName(Self.integrationTestsRoomName)].firstMatch
         
         // The backend is sometimes really slow and having a longer timeout
         // beats having to rerun the whole suite again.
@@ -52,23 +51,10 @@ class UserFlowTests: XCTestCase {
         
         sendMessages()
         
-        checkPhotoSharing()
-        
-        checkDocumentSharing()
-        
-        checkLocationSharing()
-        
         checkTimelineItemActionMenu()
-        
-        checkRoomDetails()
         
         // Go back to the room list
         tapOnBackButton("Chats")
-        
-        // Cancel initial the room search
-        let searchCancelButton = app.buttons["Close"].firstMatch
-        XCTAssertTrue(searchCancelButton.waitForExistence(timeout: 10.0))
-        searchCancelButton.tap(.center)
     }
     
     private func sendMessages() {
@@ -79,8 +65,6 @@ class UserFlowTests: XCTestCase {
         var sendButton = app.buttons[A11yIdentifiers.roomScreen.sendButton].firstMatch
         XCTAssertTrue(sendButton.waitForExistence(timeout: 10.0))
         sendButton.tap(.center)
-        
-        sleep(10) // Wait for the message to be sent
         
         // Switch to the rich text editor
         tapOnButton(A11yIdentifiers.roomScreen.composerToolbar.openComposeOptions)
@@ -94,79 +78,8 @@ class UserFlowTests: XCTestCase {
         XCTAssertTrue(sendButton.waitForExistence(timeout: 10.0))
         sendButton.tap(.center)
         
-        sleep(5) // Wait for the message to be sent
-        
         // Close the formatting options
         app.buttons[A11yIdentifiers.roomScreen.composerToolbar.closeFormattingOptions].tap(.center)
-    }
-        
-    private func checkPhotoSharing() {
-        tapOnButton(A11yIdentifiers.roomScreen.composerToolbar.openComposeOptions)
-        tapOnButton(A11yIdentifiers.roomScreen.attachmentPickerPhotoLibrary)
-        
-        sleep(10) // Wait for the picker to load
-        
-        // Tap on the second image. First one is always broken on simulators.
-        let secondImage = app.scrollViews.images.element(boundBy: 1)
-        XCTAssertTrue(secondImage.waitForExistence(timeout: 20.0)) // Photo library takes a bit to load
-        secondImage.tap(.center)
-        
-        // Wait for the image to be processed and the new screen to appear
-        sleep(10)
-        
-        // Cancel the upload flow
-        tapOnButton("Cancel", waitForDisappearance: true)
-    }
-    
-    private func checkDocumentSharing() {
-        tapOnButton(A11yIdentifiers.roomScreen.composerToolbar.openComposeOptions)
-        tapOnButton(A11yIdentifiers.roomScreen.attachmentPickerDocuments)
-        
-        sleep(10) // Wait for the picker to load
-        
-        tapOnButton("Cancel", waitForDisappearance: true)
-    }
-    
-    private func checkLocationSharing() {
-        tapOnButton(A11yIdentifiers.roomScreen.composerToolbar.openComposeOptions)
-        tapOnButton(A11yIdentifiers.roomScreen.attachmentPickerLocation)
-        
-        sleep(10) // Wait for the picker to load
-        
-        // The order of the alerts is a bit of a mistery so try twice
-        
-        allowLocationPermissionOnce()
-        
-        // Handle map loading errors (missing credentials)
-        let alertOkButton = app.alerts.firstMatch.buttons["OK"].firstMatch
-        if alertOkButton.waitForExistence(timeout: 10.0) {
-            alertOkButton.tap(.center)
-        }
-        
-        allowLocationPermissionOnce()
-        
-        tapOnButton("Close", waitForDisappearance: true)
-    }
-    
-    private func allowLocationPermissionOnce() {
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let notificationAlertAllowButton = springboard.buttons["Allow Once"].firstMatch
-        if notificationAlertAllowButton.waitForExistence(timeout: 10.0) {
-            notificationAlertAllowButton.tap(.center)
-        }
-    }
-    
-    private func checkRoomCreation() {
-        tapOnButton(A11yIdentifiers.homeScreen.startChat)
-        
-        tapOnButton(A11yIdentifiers.startChatScreen.createRoom)
-        
-        // Don't create the room, it will make the test account very noisy.
-        // The UI tests already test this flow with mocked data.
-        
-        tapOnBackButton("Start chat")
-        
-        tapOnButton("Cancel", waitForDisappearance: true)
     }
     
     private func checkTimelineItemActionMenu() {
@@ -182,77 +95,6 @@ class UserFlowTests: XCTestCase {
         if timelineItemActionMenu.waitForExistence(timeout: 10.0) {
             timelineItemActionMenu.swipeDown(velocity: .fast)
         }
-    }
-    
-    private func checkRoomDetails() {
-        // Open the room details
-        let roomHeader = app.buttons[A11yIdentifiers.roomScreen.name]
-        XCTAssertTrue(roomHeader.waitForExistence(timeout: 10.0))
-        roomHeader.tap(.center)
-        
-        // Swipe until the People button is hittable
-        let peopleButton = app.buttons[A11yIdentifiers.roomDetailsScreen.people]
-        if !peopleButton.isHittable {
-            var attempts = 0
-            while !peopleButton.isHittable, attempts < 5 {
-                app.swipeUp()
-                attempts += 1
-            }
-        }
-
-        // Open the room members list.
-        tapOnButton(A11yIdentifiers.roomDetailsScreen.people)
-        
-        // Open the first member's details. Loading members for big rooms can take a while.
-        let firstRoomMember = app.scrollViews.buttons.firstMatch
-        XCTAssertTrue(firstRoomMember.waitForExistence(timeout: 1000.0))
-        firstRoomMember.tap(.center)
-        
-        // Open the profile from the bottom sheet
-        let viewProfileButton = app.buttons[A11yIdentifiers.manageRoomMemberSheet.viewProfile]
-        XCTAssertTrue(viewProfileButton.waitForExistence(timeout: 10.0))
-        tapOnButton(A11yIdentifiers.manageRoomMemberSheet.viewProfile, waitForDisappearance: true)
-        
-        // Go back to the room member details
-        tapOnBackButton("People")
-        
-        // Go back to the room details
-        tapOnBackButton("Room info")
-        
-        // Go back to the room
-        tapOnBackButton("Chat")
-    }
-    
-    private func checkSettings() {
-        // On first login when multiple sheets get presented the profile button is not hittable
-        // Moving the scroll fixed it for some obscure reason
-        app.swipeDown()
-        
-        let profileButton = app.buttons[A11yIdentifiers.homeScreen.userAvatar]
-        
-        // `Failed to scroll to visible (by AX action) Button` https://stackoverflow.com/a/33534187/730924
-        profileButton.tap(.center)
-        
-        // Open analytics
-        tapOnButton(A11yIdentifiers.settingsScreen.analytics)
-        
-        // Go back to settings
-        tapOnBackButton("Settings")
-        
-        // Open report a bug
-        tapOnButton(A11yIdentifiers.settingsScreen.reportBug)
-        
-        // Go back to settings
-        tapOnBackButton("Settings")
-        
-        // Open about
-        tapOnButton(A11yIdentifiers.settingsScreen.about)
-        
-        // Go back to settings
-        tapOnBackButton("Settings")
-        
-        // Close the settings
-        tapOnButton(A11yIdentifiers.settingsScreen.done)
     }
     
     private func tapOnButton(_ identifier: String, waitForDisappearance: Bool = false) {

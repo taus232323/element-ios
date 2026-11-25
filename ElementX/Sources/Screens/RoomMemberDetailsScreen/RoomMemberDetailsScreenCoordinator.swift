@@ -13,35 +13,32 @@ struct RoomMemberDetailsScreenCoordinatorParameters {
     let userID: String
     let roomProxy: JoinedRoomProxyProtocol
     let userSession: UserSessionProtocol
+    let analytics: AnalyticsServiceProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
-    let analytics: AnalyticsService
-    let appSettings: AppSettings
 }
 
 enum RoomMemberDetailsScreenCoordinatorAction {
     case openUserProfile
     case openDirectChat(roomID: String)
-    case startCall(roomProxy: JoinedRoomProxyProtocol, isVoiceCall: Bool)
     case verifyUser(userID: String)
 }
 
 final class RoomMemberDetailsScreenCoordinator: CoordinatorProtocol {
     private var viewModel: RoomMemberDetailsScreenViewModelProtocol
-
+    
     private let actionsSubject: PassthroughSubject<RoomMemberDetailsScreenCoordinatorAction, Never> = .init()
     private var cancellables = Set<AnyCancellable>()
     
     var actions: AnyPublisher<RoomMemberDetailsScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(parameters: RoomMemberDetailsScreenCoordinatorParameters) {
         viewModel = RoomMemberDetailsScreenViewModel(userID: parameters.userID,
                                                      roomProxy: parameters.roomProxy,
                                                      userSession: parameters.userSession,
-                                                     userIndicatorController: parameters.userIndicatorController,
                                                      analytics: parameters.analytics,
-                                                     appSettings: parameters.appSettings)
+                                                     userIndicatorController: parameters.userIndicatorController)
     }
     
     func start() {
@@ -53,8 +50,6 @@ final class RoomMemberDetailsScreenCoordinator: CoordinatorProtocol {
                 actionsSubject.send(.openUserProfile)
             case .openDirectChat(let roomID):
                 actionsSubject.send(.openDirectChat(roomID: roomID))
-            case .startCall(let roomProxy, let isVoiceCall):
-                actionsSubject.send(.startCall(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
             case .verifyUser(let userID):
                 actionsSubject.send(.verifyUser(userID: userID))
             }
@@ -65,7 +60,7 @@ final class RoomMemberDetailsScreenCoordinator: CoordinatorProtocol {
     func stop() {
         viewModel.stop()
     }
-
+    
     func toPresentable() -> AnyView {
         AnyView(RoomMemberDetailsScreen(context: viewModel.context))
     }

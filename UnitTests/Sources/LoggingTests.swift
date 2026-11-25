@@ -9,13 +9,11 @@
 @testable import Arcana
 import Foundation
 @testable import MatrixRustSDK
+import MatrixRustSDKMocks
 import Testing
 
+@MainActor
 final class LoggingTests {
-    private enum Constants {
-        static let genericFailure = "Test failed"
-    }
-    
     deinit {
         Tracing.logsDirectoryOverride = nil
         do {
@@ -72,9 +70,10 @@ final class LoggingTests {
         let roomName = "Private Conversation"
         let lastMessage = "Secret information"
         let heroName = "Pseudonym"
-        let roomSummary = RoomSummary(room: .init(noHandle: .init()),
+        let roomSummary = RoomSummary(room: RoomSDKMock(),
                                       id: "myroomid",
                                       joinRequestType: nil,
+                                      isJoined: true,
                                       name: roomName,
                                       isDirect: true,
                                       isSpace: false,
@@ -223,19 +222,19 @@ final class LoggingTests {
         let rustImageMessage = ImageMessageContent(filename: "ImageString",
                                                    caption: "ImageString",
                                                    formattedCaption: nil,
-                                                   source: MediaSource(noHandle: .init()),
+                                                   source: MediaSourceSDKMock(),
                                                    info: nil)
         
         let rustVideoMessage = VideoMessageContent(filename: "VideoString",
                                                    caption: "VideoString",
                                                    formattedCaption: nil,
-                                                   source: MediaSource(noHandle: .init()),
+                                                   source: MediaSourceSDKMock(),
                                                    info: nil)
         
         let rustFileMessage = FileMessageContent(filename: "FileString",
                                                  caption: "FileString",
                                                  formattedCaption: nil,
-                                                 source: MediaSource(noHandle: .init()),
+                                                 source: MediaSourceSDKMock(),
                                                  info: nil)
         
         // When logging that value
@@ -329,6 +328,11 @@ final class LoggingTests {
     /// to start with a fresh state (as calling ``Tracing.deleteLogFiles`` would trigger the bug).
     private func setupTest(name: String = #function, redirectTracingFileWriter: Bool = true) throws {
         let testDirectory = URL.appGroupLogsDirectory.appending(component: name, directoryHint: .isDirectory)
+        
+        // CI retries re-run the suite on the same simulator, so clear out any log files left
+        // behind by a previous attempt. No writer points at the directory yet, so this is safe.
+        try? FileManager.default.removeItem(at: testDirectory)
+        
         Tracing.logsDirectoryOverride = testDirectory
         try? FileManager.default.createDirectory(at: testDirectory, withIntermediateDirectories: true)
         

@@ -8,10 +8,12 @@
 
 import Combine
 import Compound
-import SentrySwiftUI
+import Sentry
 import SwiftUI
 
 struct HomeScreen: View {
+    @Environment(\.isInSidebar) private var isInSidebar
+    
     @ObservedObject var context: HomeScreenViewModel.Context
     
     @State private var scrollViewAdapter = ScrollViewAdapter()
@@ -28,10 +30,12 @@ struct HomeScreen: View {
                    actions: leaveRoomAlertActions,
                    message: leaveRoomAlertMessage)
             .navigationTitle(title)
+            .navigationBarTitleDisplayMode(Compound.supportsGlass ? .inline : .automatic)
             .toolbar { toolbar }
+            .toolbarRole(Compound.supportsGlass ? .editor : .automatic)
             .background(Color.compound.bgCanvasDefault.ignoresSafeArea())
             .track(screen: .Home)
-            .toolbarBloom(hasSearchBar: true)
+            .toolbarBloom(hasSearchBar: context.viewState.isRoomListSearchEnabled)
             .sentryTrace("\(Self.self)")
             .sheet(item: $context.spaceFiltersViewModel) { vm in
                 ChatsSpaceFiltersScreen(context: vm.context)
@@ -44,6 +48,11 @@ struct HomeScreen: View {
                     context.send(viewAction: .createDM(user: userToInvite.user))
                 }
             }
+            .sheet(isPresented: $context.isPresentingMultiAccountAnnouncement) {
+                MultiAccountAnnouncementView(context: context)
+                    .onAppear { context.send(viewAction: .multiAccountAnnouncementAppeared) }
+            }
+            .onAppear { context.send(viewAction: .screenAppeared) }
     }
     
     // MARK: - Private
@@ -55,13 +64,25 @@ struct HomeScreen: View {
             L10n.screenRoomlistMainSpaceTitle
         }
     }
-        
+    
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarLeading) {
-            settingsButton
-                .buttonStyle(.borderless)
+        ToolbarItem(placement: Compound.supportsGlass ? .title : .navigationBarLeading) {
+            HStack(spacing: isInSidebar ? 8 : 12) {
+                // The settings button is inside the title on iOS 26 to workaround a
+                // weird liquid glass transition when pushing/popping a room.
+                settingsButton
+                    .buttonStyle(.borderless)
+                
+                if #available(iOS 26, *) {
+                    Text(title)
+                        .font(isInSidebar ? .compound.bodyLGSemibold : .compound.headingLGBold)
+                        .foregroundStyle(.compound.textPrimary)
+                        .minimumScaleFactor(isInSidebar ? 1 : 0.6) // Allow scaling down to bodyLG if needed.
+                }
+            }
         }
+        .backportSharedBackgroundVisibility(.hidden)
         
         ToolbarItem(placement: .primaryAction) {
             if #available(iOS 26, *) {
@@ -76,7 +97,7 @@ struct HomeScreen: View {
             if #available(iOS 26, *) {
                 ToolbarSpacer(.fixed, placement: .primaryAction)
             }
-               
+            
             ToolbarItem(placement: .primaryAction) {
                 SpaceFiltersButton(selected: context.viewState.selectedSpaceFilter != nil) {
                     context.send(viewAction: .spaceFilters)
@@ -88,20 +109,10 @@ struct HomeScreen: View {
     }
     
     private var settingsButton: some View {
-        Button {
+        AvatarSettingsButton(userProfile: context.viewState.userProfile,
+                             mediaProvider: context.mediaProvider) {
             context.send(viewAction: .showSettings)
-        } label: {
-            LoadableAvatarImage(url: context.viewState.userAvatarURL,
-                                name: context.viewState.userDisplayName,
-                                contentID: context.viewState.userID,
-                                avatarSize: .user(on: .chats),
-                                mediaProvider: context.mediaProvider)
-                .accessibilityIdentifier(A11yIdentifiers.homeScreen.userAvatar)
-                .clipShape(.circle)
-                .overlayBadge(10, isBadged: context.viewState.requiresExtraAccountSetup)
-                .compositingGroup()
         }
-        .accessibilityLabel(L10n.commonSettings)
     }
     
     @ViewBuilder
@@ -189,7 +200,7 @@ struct HomeScreen_Previews: PreviewProvider, TestablePreview {
         ElementNavigationStack {
             HomeScreen(context: loadingViewModel.context)
         }
-        .snapshotPreferences(expect: loadedViewModel.context.$viewState.map { state in
+        .snapshotPreferences(expect: loadingViewModel.context.$viewState.map { state in
             state.roomListMode == .skeletons
         })
         .previewDisplayName("Loading")
@@ -215,7 +226,7 @@ struct HomeScreen_Previews: PreviewProvider, TestablePreview {
         let userID = "@alice:example.com"
         
         let roomSummaryProviderState: RoomSummaryProviderMockConfigurationState = switch mode {
-        case .skeletons:
+        case .awaitingCachedRooms, .skeletons:
             .loading
         case .empty:
             .loaded([])
@@ -229,10 +240,10 @@ struct HomeScreen_Previews: PreviewProvider, TestablePreview {
         let userSession = UserSessionMock(.init(clientProxy: clientProxy))
         
         return HomeScreenViewModel(userSession: userSession,
+                                   availableSessionsPublisher: .init([.init(userSession: userSession)]),
                                    selectedRoomPublisher: CurrentValueSubject<String?, Never>(nil).asCurrentValuePublisher(),
-                                   appSettings: ServiceLocator.shared.settings,
-                                   analyticsService: ServiceLocator.shared.analytics,
-                                   notificationManager: NotificationManagerMock(),
-                                   userIndicatorController: ServiceLocator.shared.userIndicatorController)
+                                   analyticsService: AnalyticsServiceMock(.init()),
+                                   bugReportService: BugReportServiceMock(.init()),
+                                   userIndicatorController: UserIndicatorControllerMock())
     }
 }

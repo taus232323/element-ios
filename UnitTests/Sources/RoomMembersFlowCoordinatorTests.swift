@@ -51,18 +51,17 @@ struct RoomMembersFlowCoordinatorTests {
         let clientProxy = ClientProxyMock(.init())
         clientProxy.directRoomForUserIDReturnValue = .success(nil)
         
-        let flowParameters = CommonFlowParameters(userSession: UserSessionMock(.init(clientProxy: clientProxy)),
+        let userSession = UserSessionMock(.init(clientProxy: clientProxy))
+        
+        let flowParameters = CommonFlowParameters(userSession: userSession,
+                                                  availableSessionsPublisher: .init([.init(userSession: userSession)]),
                                                   bugReportService: BugReportServiceMock(.init()),
-                                                  elementCallService: ElementCallServiceMock(.init()),
                                                   timelineControllerFactory: TimelineControllerFactoryMock(.init()),
-                                                  emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                  emojiProvider: EmojiProvider(userSettings: userSession.userSettings),
                                                   linkMetadataProvider: LinkMetadataProvider(),
-                                                  appMediator: AppMediatorMock.default,
-                                                  appSettings: ServiceLocator.shared.settings,
-                                                  appHooks: AppHooks(),
-                                                  analytics: ServiceLocator.shared.analytics,
+                                                  appMediator: AppMediatorMock(.init()),
+                                                  analytics: AnalyticsServiceMock(.init()),
                                                   userIndicatorController: UserIndicatorControllerMock(),
-                                                  notificationManager: NotificationManagerMock(),
                                                   stateMachineFactory: stateMachineFactory)
         
         let roomProxy = JoinedRoomProxyMock(.init())

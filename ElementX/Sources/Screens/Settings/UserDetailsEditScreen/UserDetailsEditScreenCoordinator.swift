@@ -10,12 +10,11 @@ import Combine
 import SwiftUI
 
 struct UserDetailsEditScreenCoordinatorParameters {
-    let orientationManager: OrientationManagerProtocol
     let userSession: UserSessionProtocol
     let mediaUploadingPreprocessor: MediaUploadingPreprocessor
     weak var navigationStackCoordinator: NavigationStackCoordinator?
+    let appMediator: AppMediatorProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
-    let appSettings: AppSettings
 }
 
 enum UserDetailsEditScreenCoordinatorAction {
@@ -27,8 +26,8 @@ final class UserDetailsEditScreenCoordinator: CoordinatorProtocol {
     private var viewModel: UserDetailsEditScreenViewModelProtocol
     private var cancellables = Set<AnyCancellable>()
     
-    private let actionsSubject: PassthroughSubject<RoomDetailsEditScreenCoordinatorAction, Never> = .init()
-    var actions: AnyPublisher<RoomDetailsEditScreenCoordinatorAction, Never> {
+    private let actionsSubject: PassthroughSubject<UserDetailsEditScreenCoordinatorAction, Never> = .init()
+    var actions: AnyPublisher<UserDetailsEditScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
     
@@ -37,6 +36,7 @@ final class UserDetailsEditScreenCoordinator: CoordinatorProtocol {
         
         viewModel = UserDetailsEditScreenViewModel(userSession: parameters.userSession,
                                                    mediaUploadingPreprocessor: parameters.mediaUploadingPreprocessor,
+                                                   appMediator: parameters.appMediator,
                                                    userIndicatorController: parameters.userIndicatorController)
     }
     
@@ -53,7 +53,7 @@ final class UserDetailsEditScreenCoordinator: CoordinatorProtocol {
                 case .displayMediaPicker:
                     displayMediaPickerWithMode(.init(source: .photoLibrary, selectionType: .single))
                 case .displayFilePicker:
-                    displayMediaPickerWithMode(.init(source: .documents, selectionType: .single))
+                    displayMediaPickerWithMode(.init(source: .documents(types: [.image]), selectionType: .single))
                 }
             }
             .store(in: &cancellables)
@@ -70,7 +70,7 @@ final class UserDetailsEditScreenCoordinator: CoordinatorProtocol {
         
         let mediaPickerCoordinator = MediaPickerScreenCoordinator(mode: mode,
                                                                   userIndicatorController: parameters.userIndicatorController,
-                                                                  orientationManager: parameters.orientationManager) { [weak self] action in
+                                                                  orientationManager: parameters.appMediator.windowManager) { [weak self] action in
             guard let self else { return }
             switch action {
             case .cancel:

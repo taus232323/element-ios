@@ -13,13 +13,15 @@ import SwiftState
 enum OnboardingFlowCoordinatorAction {
     case requestPresentation(animated: Bool)
     case dismiss
+    /// Kept so callers that handle an identity reset can compile. Arcana does not present that flow.
+    case logoutWithoutConfirmation
 }
 
 class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
     private let appLockService: AppLockServiceProtocol
-    private let analyticsService: AnalyticsService
-    private let appSettings: AppSettings
-    private let notificationManager: NotificationManagerProtocol
+    private let userSession: UserSessionProtocol
+    private let analyticsService: AnalyticsServiceProtocol
+    private let userSettings: UserSettings
     private var isNewLogin: Bool
     
     private var navigationStackCoordinator: NavigationStackCoordinator!
@@ -53,9 +55,9 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
          flowParameters: CommonFlowParameters) {
         self.isNewLogin = isNewLogin
         self.appLockService = appLockService
+        userSession = flowParameters.userSession
         analyticsService = flowParameters.analytics
-        appSettings = flowParameters.appSettings
-        notificationManager = flowParameters.notificationManager
+        userSettings = flowParameters.userSession.userSettings
         
         self.navigationStackCoordinator = navigationStackCoordinator
         
@@ -78,7 +80,7 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
         }
         
         actionsSubject.send(.requestPresentation(animated: !isNewLogin))
-
+        
         stateMachine.tryEvent(.next)
     }
     
@@ -93,7 +95,7 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
     // MARK: - Private
     
     private var requiresAppLockSetup: Bool {
-        appSettings.appLockIsMandatory && !appLockService.isEnabled
+        userSettings.app.appLockIsMandatory && !appLockService.isEnabled
     }
     
     private var requiresAnalyticsSetup: Bool {
@@ -101,7 +103,7 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
     }
     
     private var requiresNotificationsSetup: Bool {
-        !appSettings.hasRunNotificationPermissionsOnboarding
+        !userSettings.app.hasRunNotificationPermissionsOnboarding
     }
     
     private func configureStateMachine() {
@@ -135,7 +137,7 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
                 
             case (.notificationPermissions, _, _, _):
                 return .finished
-            
+                
             default:
                 return nil
             }
@@ -153,6 +155,7 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
                 presentNotificationPermissionsScreen()
             case (_, _, .finished):
                 isNewLogin = false
+                userSettings.app.hasSignedInBefore = true
                 actionsSubject.send(.dismiss)
                 stateMachine.tryState(.initial)
             case (.finished, _, .initial):
@@ -192,9 +195,9 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
         appLockFlowCoordinator = coordinator
         coordinator.start()
     }
-
+    
     private func presentAnalyticsPromptScreen() {
-        let coordinator = AnalyticsPromptScreenCoordinator(analytics: analyticsService, termsURL: appSettings.analyticsTermsURL)
+        let coordinator = AnalyticsPromptScreenCoordinator(analytics: analyticsService, termsURL: userSettings.app.analyticsTermsURL)
         
         coordinator.actions
             .sink { [weak self] action in
@@ -210,14 +213,14 @@ class OnboardingFlowCoordinator: FlowCoordinatorProtocol {
     }
     
     private func presentNotificationPermissionsScreen() {
-        let coordinator = NotificationPermissionsScreenCoordinator(parameters: .init(notificationManager: notificationManager))
+        let coordinator = NotificationPermissionsScreenCoordinator(parameters: .init(notificationService: userSession.notificationService))
         
         coordinator.actions
             .sink { [weak self] action in
                 guard let self else { return }
                 switch action {
                 case .done:
-                    appSettings.hasRunNotificationPermissionsOnboarding = true
+                    userSettings.app.hasRunNotificationPermissionsOnboarding = true
                     stateMachine.tryEvent(.next)
                 }
             }

@@ -12,7 +12,7 @@ import Testing
 
 @MainActor
 final class AuthenticationStartScreenViewModelTests {
-    var clientFactory: AuthenticationClientFactoryMock!
+    var clientFactory: ClientFactoryMock!
     var appSettings: AppSettings!
     var authenticationService: AuthenticationServiceProtocol!
     
@@ -22,29 +22,21 @@ final class AuthenticationStartScreenViewModelTests {
     }
     
     init() {
-        AppSettings.resetAllSettings()
-        appSettings = AppSettings()
-        // These app settings are kept local to the tests on purpose as if they are registered in the
-        // ServiceLocator, the providers override that we apply will break other tests in the suite.
-    }
-    
-    deinit {
-        AppSettings.resetAllSettings()
+        appSettings = AppSettings.volatile()
     }
     
     @Test
     func initialState() async throws {
-        // Given a view model that has no provisioning parameters.
         await setupViewModel()
         #expect(context.viewState.showCreateAccountButton)
+        #expect(context.viewState.mode == .welcome)
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
         
-        // When tapping report the action should pass through without configuring a homeserver.
         let deferred = deferFulfillment(viewModel.actions) { $0 == .reportProblem }
         context.send(viewAction: .reportProblem)
         try await deferred.fulfill()
         
-        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 0)
+        #expect(clientFactory.makeAuthenticationClientServerNameOrBaseURLSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 0)
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
     }
     
@@ -57,8 +49,9 @@ final class AuthenticationStartScreenViewModelTests {
         context.send(viewAction: .register)
         try await deferred.fulfill()
         
-        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
+        #expect(clientFactory.makeAuthenticationClientServerNameOrBaseURLSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
         #expect(authenticationService.homeserver.value.loginMode == .password)
+        #expect(authenticationService.flow == .register)
     }
     
     @Test
@@ -70,40 +63,59 @@ final class AuthenticationStartScreenViewModelTests {
         context.send(viewAction: .login)
         try await deferred.fulfill()
         
-        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
+        #expect(clientFactory.makeAuthenticationClientServerNameOrBaseURLSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
         #expect(authenticationService.homeserver.value.loginMode == .password)
+        #expect(authenticationService.flow == .login)
     }
     
     @Test
     func provisionedPasswordState() async throws {
-        // Given a view model that has been provisioned.
         await setupViewModel(provisioningParameters: .init(accountProvider: "company.com", loginHint: "user@company.com"))
         #expect(authenticationService.homeserver.value.loginMode == .unknown)
         
-        // When tapping the login button the flow should continue directly with the login hint.
-        let deferred = deferFulfillment(viewModel.actions) { $0.isLoginDirectlyWithPassword }
+        let deferred = deferFulfillment(viewModel.actions) { $0 == .loginDirectlyWithPassword(loginHint: "user@company.com") }
         context.send(viewAction: .login)
         try await deferred.fulfill()
         
-        #expect(clientFactory.makeClientHomeserverAddressSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
+        #expect(clientFactory.makeAuthenticationClientServerNameOrBaseURLSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksCallsCount == 1)
         #expect(authenticationService.homeserver.value.loginMode == .password)
+    }
+    
+    @Test
+    func addAccount() async throws {
+        await setupViewModel(isAddingAccount: true)
+        #expect(context.viewState.mode == .addAccount)
+        
+        let deferred = deferFulfillment(viewModel.actions) { $0 == .cancelAddingAccount }
+        context.send(viewAction: .cancelAddingAccount)
+        try await deferred.fulfill()
     }
     
     // MARK: - Helpers
     
-    private func setupViewModel(provisioningParameters: AccountProvisioningParameters? = nil) async {
-        clientFactory = AuthenticationClientFactoryMock(configuration: .init())
-        authenticationService = AuthenticationService(userSessionStore: UserSessionStoreMock(configuration: .init()),
+    private func setupViewModel(provisioningParameters: AccountProvisioningParameters? = nil,
+                                isAddingAccount: Bool = false) async {
+        clientFactory = ClientFactoryMock(.init())
+        clientFactory.makeAuthenticationClientServerNameOrBaseURLSessionDirectoriesPassphraseClientSessionDelegateAppSettingsAppHooksClosure = { address, _, _, _, _, _ in
+            ClientSDKMock(.init(serverName: address,
+                                homeserverURL: "https://\(address)",
+                                oAuthLoginURL: nil,
+                                supportsPasswordLogin: true))
+        }
+        
+        authenticationService = AuthenticationService(userSessionManager: UserSessionManagerMock(.init()),
                                                       encryptionKeyProvider: EncryptionKeyProvider(),
                                                       clientFactory: clientFactory,
                                                       appSettings: appSettings,
-                                                      appHooks: AppHooks())
+                                                      appHooks: AppHooks(),
+                                                      targetContext: .mock)
         
         viewModel = AuthenticationStartScreenViewModel(authenticationService: authenticationService,
                                                        provisioningParameters: provisioningParameters,
+                                                       isAddingAccount: isAddingAccount,
                                                        isBugReportServiceEnabled: true,
                                                        appSettings: appSettings,
-                                                       mediaProvider: MediaProviderMock(configuration: .init()),
+                                                       mediaProvider: MediaProviderMock(.init()),
                                                        userIndicatorController: UserIndicatorControllerMock())
     }
 }

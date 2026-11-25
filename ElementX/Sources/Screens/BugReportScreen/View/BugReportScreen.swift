@@ -18,7 +18,7 @@ struct BugReportScreen: View {
     var canSendLogFiles: Bool {
         context.viewState.canSendLogFiles
     }
-
+    
     var photosPickerTitle: String {
         context.viewState.screenshot == nil ? L10n.screenBugReportAttachScreenshot : L10n.screenBugReportEditScreenshot
     }
@@ -37,13 +37,13 @@ struct BugReportScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
         .interactiveDismissDisabled()
-        .onChange(of: selectedScreenshot) { _, newItem in
-            Task {
-                guard let data = try? await newItem?.loadTransferable(type: Data.self),
-                      let image = UIImage(data: data)
-                else {
-                    return
-                }
+        .task(id: selectedScreenshot) {
+            guard let selectedScreenshot else { return }
+            let data = try? await selectedScreenshot.loadTransferable(type: Data.self)
+            guard !Task.isCancelled else { return }
+            // Clear the selection so that picking the same item again triggers a new load.
+            self.selectedScreenshot = nil
+            if let data, let image = UIImage(data: data) {
                 context.send(viewAction: .attachScreenshot(image))
             }
         }
@@ -65,7 +65,8 @@ struct BugReportScreen: View {
         Section {
             if canSendLogFiles {
                 ListRow(label: .plain(title: L10n.screenBugReportIncludeLogs),
-                        kind: .toggle($context.sendingLogsEnabled))
+                        kind: .toggle($context.includeLogs))
+                    .disabled(!context.viewState.canChangeIncludeLogs)
                     .accessibilityIdentifier(A11yIdentifiers.bugReportScreen.sendLogs)
             }
             ListRow(label: .plain(title: L10n.screenBugReportViewLogs),
@@ -82,7 +83,7 @@ struct BugReportScreen: View {
             }
         }
     }
-
+    
     private var canContactSection: some View {
         Section {
             ListRow(label: .plain(title: L10n.screenBugReportContactMeTitle),
@@ -93,14 +94,17 @@ struct BugReportScreen: View {
                 .compoundListSectionFooter()
         }
     }
-
+    
     private var attachScreenshotSection: some View {
         Section {
             ListRow(kind: .custom {
                 PhotosPicker(selection: $selectedScreenshot,
                              matching: .screenshots,
                              photoLibrary: .shared()) {
-                    ListRowLabel.plain(title: photosPickerTitle)
+                    // The label builder isn't isolated in SwiftUI's signature but is only ever called on the main actor.
+                    MainActor.assumeIsolated {
+                        ListRowLabel.plain(title: photosPickerTitle)
+                    }
                 }
             })
             .accessibilityIdentifier(A11yIdentifiers.bugReportScreen.attachScreenshot)
@@ -114,7 +118,7 @@ struct BugReportScreen: View {
                     .accessibilityIdentifier(A11yIdentifiers.bugReportScreen.screenshot)
                     .accessibilityLabel(L10n.screenBugReportA11yScreenshot)
                     .overlay(alignment: .topTrailing) {
-                        Button { context.send(viewAction: .removeScreenshot) } label: {
+                        Button(action: removeScreenshot) {
                             CompoundIcon(\.close, size: .small, relativeTo: .compound.bodyMD)
                                 .foregroundStyle(.compound.iconSecondary)
                                 .background {
@@ -126,6 +130,7 @@ struct BugReportScreen: View {
                     }
                     .padding(.vertical, 16)
                     .padding(.horizontal, 16)
+                    .listRowInsets(ListRowPadding.insets)
             }
         }
     }
@@ -149,6 +154,12 @@ struct BugReportScreen: View {
             .disabled(context.viewState.shouldDisableInteraction)
         }
     }
+    
+    private func removeScreenshot() {
+        // Cancels any in-flight load so it can't re-attach the screenshot.
+        selectedScreenshot = nil
+        context.send(viewAction: .removeScreenshot)
+    }
 }
 
 // MARK: - Previews
@@ -156,18 +167,18 @@ struct BugReportScreen: View {
 struct BugReportScreen_Previews: PreviewProvider, TestablePreview {
     static var previews: some View {
         ElementNavigationStack {
-            let clientProxy = ClientProxyMock(.init(userID: "@mock:client.com", roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))))
-            BugReportScreen(context: BugReportScreenViewModel(bugReportService: BugReportServiceMock(.init()),
-                                                              clientProxy: clientProxy,
+            BugReportScreen(context: BugReportScreenViewModel(flow: .userSession(UserSessionMock(.init())),
+                                                              bugReportService: BugReportServiceMock(.init()),
+                                                              bugReportHook: DefaultBugReportHook(),
                                                               screenshot: nil,
                                                               isModallyPresented: false).context)
         }
         .previewDisplayName("Without Screenshot")
         
         ElementNavigationStack {
-            let clientProxy = ClientProxyMock(.init(userID: "@mock:client.com", roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))))
-            BugReportScreen(context: BugReportScreenViewModel(bugReportService: BugReportServiceMock(.init()),
-                                                              clientProxy: clientProxy,
+            BugReportScreen(context: BugReportScreenViewModel(flow: .userSession(UserSessionMock(.init())),
+                                                              bugReportService: BugReportServiceMock(.init()),
+                                                              bugReportHook: DefaultBugReportHook(),
                                                               screenshot: Asset.Images.appLogo.image,
                                                               isModallyPresented: false).context)
         }

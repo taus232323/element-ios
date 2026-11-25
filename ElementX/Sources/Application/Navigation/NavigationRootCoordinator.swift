@@ -67,6 +67,9 @@ import SwiftUI
         overlayModule?.coordinator
     }
     
+    enum OverlayPresentationMode { case fullScreen, minimized }
+    fileprivate var overlayPresentationMode: OverlayPresentationMode = .minimized
+    
     /// The lowest-level `AlertInfo`, directly available to the root of the app.
     var alertInfo: AlertInfo<UUID>?
     
@@ -96,21 +99,23 @@ import SwiftUI
         if sheetModule?.coordinator === coordinator {
             fatalError("Cannot use the same coordinator more than once")
         }
-
+        
         var transaction = Transaction()
         transaction.disablesAnimations = !animated
-
+        
         withTransaction(transaction) {
             sheetModule = NavigationModule(coordinator, dismissalCallback: dismissalCallback)
         }
     }
     
-    /// Present an overlay on top of the split view
+    /// Present an overlay on top of the root
     /// - Parameters:
     ///   - coordinator: the coordinator to display
+    ///   - presentationMode: how the coordinator should be presented
     ///   - animated: whether the transition should be animated
     ///   - dismissalCallback: called when the overlay has been dismissed, programatically or otherwise
     func setOverlayCoordinator(_ coordinator: (any CoordinatorProtocol)?,
+                               presentationMode: OverlayPresentationMode = .fullScreen,
                                animated: Bool = true,
                                dismissalCallback: (() -> Void)? = nil) {
         guard let coordinator else {
@@ -121,15 +126,29 @@ import SwiftUI
         if overlayModule?.coordinator === coordinator {
             fatalError("Cannot use the same coordinator more than once")
         }
-
+        
         var transaction = Transaction()
         transaction.disablesAnimations = !animated
-
+        
         withTransaction(transaction) {
+            overlayPresentationMode = presentationMode
             overlayModule = NavigationModule(coordinator, dismissalCallback: dismissalCallback)
         }
     }
+    
+    /// Updates the presentation of the overlay coordinator.
+    /// - Parameters:
+    ///   - mode: The type of presentation to use.
+    ///   - animated: whether the transition should be animated
+    func setOverlayPresentationMode(_ mode: OverlayPresentationMode, animated: Bool = true) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = !animated
         
+        withTransaction(transaction) {
+            overlayPresentationMode = mode
+        }
+    }
+    
     // MARK: - CoordinatorProtocol
     
     func toPresentable() -> AnyView {
@@ -164,18 +183,20 @@ private struct NavigationRootCoordinatorView: View {
         }
         .alert(item: $rootCoordinator.alertInfo)
         .animation(.elementDefault, value: rootCoordinator.rootModule)
-        .sheet(item: $rootCoordinator.sheetModule) { module in
-            module.coordinator?.toPresentable()
-        }
-        .accessibilityHidden(rootCoordinator.overlayModule?.coordinator != nil)
+        .accessibilityHidden(rootCoordinator.overlayModule?.coordinator != nil && rootCoordinator.overlayPresentationMode == .fullScreen)
         .overlay {
             Group {
                 if let coordinator = rootCoordinator.overlayModule?.coordinator {
                     coordinator.toPresentable()
+                        .opacity(rootCoordinator.overlayPresentationMode == .minimized ? 0 : 1)
                         .transition(.opacity)
                 }
             }
+            .animation(.elementDefault, value: rootCoordinator.overlayPresentationMode)
             .animation(.elementDefault, value: rootCoordinator.overlayModule)
+        }
+        .sheet(item: $rootCoordinator.sheetModule) { module in
+            module.coordinator?.toPresentable()
         }
     }
 }

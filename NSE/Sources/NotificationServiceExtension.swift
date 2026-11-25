@@ -8,7 +8,8 @@
 
 import Combine
 import MatrixRustSDK
-import UserNotifications
+import Synchronization
+@preconcurrency import UserNotifications
 
 // The lifecycle of the NSE looks something like the following:
 //  1)  App receives notification
@@ -29,31 +30,60 @@ import UserNotifications
 // called on the same instance of `NotificationService` as a previous
 // notification.
 
-class NotificationServiceExtension: UNNotificationServiceExtension {
+final nonisolated class NotificationServiceExtension: UNNotificationServiceExtension {
+    let actor: NotificationServiceExtensionActor
+    
+    override init() {
+        actor = NotificationServiceExtensionActor()
+        super.init()
+    }
+    
+    /// This wouldn't be allowed normally because we added `@Sendable` to the contentHandler which is not by default, however there's nothing we can do about it
+    /// since the `UNNotificationServiceExtension` does not support swift 6 concurency yet, so we need to use the `@preconcurrency import` to suppress
+    /// this error, and then we handle all the concurrency logic inside the actor that the NSE delegates all the logic to.
+    override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping @Sendable (UNNotificationContent) -> Void) {
+        let actor = actor
+        Task { await actor.handle(request, withContentHandler: contentHandler) }
+    }
+    
+    override func serviceExtensionTimeWillExpire() {
+        actor.serviceExtensionTimeWillExpire()
+    }
+}
+
+actor NotificationServiceExtensionActor {
     static let receivedWhileOfflineNotificationID = "io.element.elementx.receivedWhileOfflineNotification"
     
-    private static var targetConfiguration: Target.ConfigurationResult?
+    /// Process-wide target configuration, `Mutex`-protected so it can be read/written from any
+    /// thread (in particular, from the actor's synchronous `init` without spawning a Task).
+    private static let targetConfiguration = Mutex<Target.ConfigurationResult?>(nil)
     
+    @MainActor
     private static var hasHandledFirstNotificationSinceBoot = false
+    
     private static let firstNotificationThreshold: TimeInterval = 15 * 60
     
-    private let settings: CommonSettingsProtocol = AppSettings()
+    private let appSettings: AppSettings
     private let appHooks: AppHooks
     
-    private var notificationHandler: NotificationHandler?
+    /// This is nonisolated just because the expire function needs to be served ASAP so we should not call it from  a Task, however this is
+    /// always written and read in the actor isolated context, and only read nonisolated in `serviceExtensionTimeWillExpire` function
+    /// which is an acceptable compromise since it's a failure state, and the race condition will not make it worse and present a partial notification regardless.
+    private nonisolated(unsafe) var notificationHandler: NotificationHandler?
     private let keychainController = KeychainController(service: .sessions,
                                                         accessGroup: InfoPlistReader.main.keychainAccessGroupIdentifier)
     
-    private var cancellables: Set<AnyCancellable> = []
-    
-    /// We can make the whole NSE a MainActor after https://github.com/swiftlang/swift-evolution/blob/main/proposals/0371-isolated-synchronous-deinit.md
-    /// otherwise we wouldn't be able to log the tag in the deinit.
     deinit {
         ExtensionLogger.logMemory(with: tag)
         MXLog.info("\(tag) deinit")
     }
     
-    override init() {
+    init() {
+        guard let userDefaults = TrackedUserDefaults(suiteName: AppSettings.suiteName) else {
+            fatalError("Catastrophic error retrieving user defaults for \(AppSettings.suiteName)")
+        }
+        appSettings = AppSettings(store: userDefaults)
+        
         appHooks = AppHooks()
         appHooks.setUp()
         
@@ -61,79 +91,67 @@ class NotificationServiceExtension: UNNotificationServiceExtension {
         // the target configuration will fail. We could call exit(0) here, however with the
         // notification filtering entitlement that results in the notification being discarded
         // so we need to wait for the delegate method to be called and bail out there instead.
-        if !BootDetectionManager.isDeviceLockedAfterReboot(containerURL: URL.appGroupContainerDirectory),
-           Self.targetConfiguration == nil {
-            Self.targetConfiguration = Target.nse.configure(logLevel: settings.logLevel,
-                                                            traceLogPacks: settings.traceLogPacks,
-                                                            sentryURL: nil,
-                                                            rageshakeURL: settings.bugReportRageshakeURL,
-                                                            appHooks: appHooks)
+        // The `Mutex` guarantees `Target.nse.configure(...)` runs at most once per process even
+        // under concurrent NSE instance creation.
+        if !BootDetectionManager.isDeviceLockedAfterReboot(containerURL: URL.appGroupContainerDirectory) {
+            Self.targetConfiguration.withLock { state in
+                guard state == nil else { return }
+                state = Target.nse.configure(logLevel: appSettings.logLevel,
+                                             traceLogPacks: appSettings.traceLogPacks,
+                                             sentryURL: nil,
+                                             keychainController: keychainController,
+                                             appHooks: appHooks)
+            }
         }
-        
-        super.init()
     }
     
-    override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
-        Task { await handle(request, withContentHandler: contentHandler) }
-    }
-    
-    private func handle(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) async {
+    func handle(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) async {
         // If we skipped configuring the target it means we can't write to the app group, so we're unlikely to
         // be able to create a session (and even if we could, we would be missing the lightweightTokioRuntime).
         // Additionally, APNs servers only store the most recent notification when the device is powered off.
         // So lets a) skip processing the notification and b) deliver a special "offline" notification as a workaround.
-        guard Self.targetConfiguration != nil else {
+        guard Self.targetConfiguration.withLock({ $0 != nil }) else {
             // MXLog isn't configured:
             // swiftlint:disable:next print_deprecation
             print("Device is locked after reboot.")
             
-            if Self.hasHandledFirstNotificationSinceBoot {
+            if await Self.hasHandledFirstNotificationSinceBoot {
                 return contentHandler(request.content)
             } else {
-                Self.hasHandledFirstNotificationSinceBoot = true
+                await MainActor.run { Self.hasHandledFirstNotificationSinceBoot = true }
                 deliverReceivedWhileOfflineNotification(for: request)
                 return contentHandler(.init())
             }
         }
         
-        guard !shouldDeliverReceivedWhileOfflineNotification() else {
-            // Don't log until the app hooks have been run:
-            // swiftlint:disable:next print_deprecation
-            print("Device is unlocked but may have missed notifications while offline.")
+        // Make sure the target's configuration is kept up-to-date across runs.
+        Self.targetConfiguration.withLock { $0?.context.update() }
+        
+        guard await !shouldDeliverReceivedWhileOfflineNotification() else {
+            MXLog.info("Device is unlocked but may have missed notifications while offline.")
             deliverReceivedWhileOfflineNotification(for: request)
             return contentHandler(.init())
         }
         
         guard let roomID = request.content.roomID else {
-            // Don't log until the app hooks have been run:
-            // swiftlint:disable:next print_deprecation
-            print("Missing roomID, bailing out.")
+            MXLog.error("Missing roomID, bailing out.")
             return contentHandler(request.content)
         }
         
         guard let eventID = request.content.eventID else {
-            // Don't log until the app hooks have been run:
-            // swiftlint:disable:next print_deprecation
-            print("Missing eventID, bailing out.")
+            MXLog.error("Missing eventID, bailing out.")
             return contentHandler(request.content)
         }
         
         guard let clientID = request.content.pusherNotificationClientIdentifier else {
-            // Don't log until the app hooks have been run:
-            // swiftlint:disable:next print_deprecation
-            print("Missing clientID, bailing out.")
+            MXLog.error("Missing clientID, bailing out.")
             return contentHandler(request.content)
         }
         
         guard let credentials = keychainController.restorationTokens().first(where: { $0.restorationToken.pusherNotificationClientIdentifier == clientID }) else {
-            // Don't log until the app hooks have been run:
-            // swiftlint:disable:next print_deprecation
-            print("Credentials not found, bailing out.")
+            MXLog.error("Credentials not found, bailing out.")
             return contentHandler(request.content)
         }
-        
-        let homeserverURL = credentials.restorationToken.session.homeserverUrl
-        await appHooks.remoteSettingsHook.loadCache(forHomeserver: homeserverURL, applyingTo: settings)
         
         guard let mutableContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
             return contentHandler(request.content)
@@ -149,11 +167,10 @@ class NotificationServiceExtension: UNNotificationServiceExtension {
             let userSession = try await NSEUserSession(credentials: credentials,
                                                        roomID: roomID,
                                                        clientSessionDelegate: keychainController,
-                                                       appHooks: appHooks,
-                                                       appSettings: settings)
+                                                       appSettings: appSettings,
+                                                       appHooks: appHooks)
             
             notificationHandler = NotificationHandler(userSession: userSession,
-                                                      settings: settings,
                                                       contentHandler: contentHandler,
                                                       notificationContent: mutableContent,
                                                       tag: tag)
@@ -167,7 +184,7 @@ class NotificationServiceExtension: UNNotificationServiceExtension {
         }
     }
     
-    override func serviceExtensionTimeWillExpire() {
+    nonisolated func serviceExtensionTimeWillExpire() {
         notificationHandler?.handleTimeExpiration()
     }
     
@@ -180,23 +197,23 @@ class NotificationServiceExtension: UNNotificationServiceExtension {
     ///
     /// Note that this only handles the first-boot case. When the SDK is able to compute the unread count, we should start to use the NSE,
     /// remote-notifications (content-available) and background app refreshes to fetch and deliver our notifications as a more robust solution.
-    private func shouldDeliverReceivedWhileOfflineNotification() -> Bool {
-        if Self.hasHandledFirstNotificationSinceBoot {
+    private func shouldDeliverReceivedWhileOfflineNotification() async -> Bool {
+        if await Self.hasHandledFirstNotificationSinceBoot {
             // If we've already handled the first notification in this process there's no need to continue.
             return false
         }
         
-        Self.hasHandledFirstNotificationSinceBoot = true
+        await MainActor.run { Self.hasHandledFirstNotificationSinceBoot = true }
         
         guard let currentBootTime = BootDetectionManager.systemBootTime() else {
             // There's not much we can do if the boot time is unknown, so don't show the offline notification.
             return false
         }
         
-        guard let lastKnownBootTime = settings.lastNotificationBootTime else {
+        guard let lastKnownBootTime = appSettings.lastNotificationBootTime else {
             // Assume a missing boot time indicates a fresh installation…
             // So store the current boot time but let the notification through.
-            settings.lastNotificationBootTime = currentBootTime
+            appSettings.lastNotificationBootTime = currentBootTime
             return false
         }
         
@@ -205,7 +222,7 @@ class NotificationServiceExtension: UNNotificationServiceExtension {
         }
         
         // This is the first notification since boot, store the boot time.
-        settings.lastNotificationBootTime = currentBootTime
+        appSettings.lastNotificationBootTime = currentBootTime
         
         // At this point it becomes a trade-off. Once the device has been powered on for a long enough amount
         // of time it is a reasonable assumption that the device has now connected to a network and that any
@@ -224,14 +241,13 @@ class NotificationServiceExtension: UNNotificationServiceExtension {
     /// Note: it is safe to call this method multiple times as it simply replaces any existing instance of the notification
     /// with a fresh copy, meaning it won't queue multiple copies but will still re-play the notification sound.
     private func deliverReceivedWhileOfflineNotification(for originalRequest: UNNotificationRequest) {
-        // This is intended to be called before the app hooks have been run, so don't log:
+        // This can be called before the target has been configured, so don't log:
         // swiftlint:disable:next print_deprecation
         print("Delivering the 'received while offline' notification.")
         
         let content = UNMutableNotificationContent()
         content.body = L10n.notificationReceivedWhileOfflineIos
-        content.badge = originalRequest.content.unreadCount as NSNumber?
-        content.sound = .init(named: settings.notificationSoundName.publisher.value)
+        content.sound = NotificationTone.default.notificationSound // Use the default sound as missed notifications could be for any account.
         
         let request = UNNotificationRequest(identifier: Self.receivedWhileOfflineNotificationID, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
@@ -239,7 +255,7 @@ class NotificationServiceExtension: UNNotificationServiceExtension {
     
     // MARK: - Logging
     
-    private var tag: String {
+    private nonisolated var tag: String {
         "[NSE][\(Unmanaged.passUnretained(self).toOpaque())][\(Unmanaged.passUnretained(Thread.current).toOpaque())][\(ProcessInfo.processInfo.processIdentifier)]"
     }
 }

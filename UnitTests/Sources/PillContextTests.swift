@@ -15,19 +15,20 @@ import Testing
 struct PillContextTests {
     @Test
     func user() async {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let id = "@test:matrix.org"
         let proxyMock = JoinedRoomProxyMock(.init(name: "Test"))
         let subject = CurrentValueSubject<[RoomMemberProxyProtocol], Never>([])
         proxyMock.membersPublisher = subject.asCurrentValuePublisher()
         let mock = TimelineViewModel(roomProxy: proxyMock,
-                                     timelineController: MockTimelineController(),
+                                     timelineController: TimelineControllerMock(.init()),
                                      userSession: UserSessionMock(.init()),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .user(userID: id), font: .preferredFont(forTextStyle: .body)))
@@ -46,19 +47,20 @@ struct PillContextTests {
     
     @Test
     func ownUser() {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let id = "@test:matrix.org"
         let proxyMock = JoinedRoomProxyMock(.init(name: "Test", ownUserID: id))
         let subject = CurrentValueSubject<[RoomMemberProxyProtocol], Never>([])
         proxyMock.membersPublisher = subject.asCurrentValuePublisher()
         let mock = TimelineViewModel(roomProxy: proxyMock,
-                                     timelineController: MockTimelineController(),
+                                     timelineController: TimelineControllerMock(.init()),
                                      userSession: UserSessionMock(.init()),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .user(userID: id), font: .preferredFont(forTextStyle: .body)))
@@ -68,21 +70,21 @@ struct PillContextTests {
     
     @Test
     func allUsers() {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let avatarURL = URL(string: "https://matrix.jpg")
         let id = "test_room"
         let displayName = "Test"
         let proxyMock = JoinedRoomProxyMock(.init(id: id, name: displayName, avatarURL: avatarURL))
-        let mockController = MockTimelineController()
-        mockController.roomProxy = proxyMock
+        let mockController = TimelineControllerMock(.init(roomProxy: proxyMock))
         let mock = TimelineViewModel(roomProxy: proxyMock,
                                      timelineController: mockController,
                                      userSession: UserSessionMock(.init()),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .allUsers, font: .preferredFont(forTextStyle: .body)))
@@ -93,20 +95,20 @@ struct PillContextTests {
     
     @Test
     func roomIDMention() {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let proxyMock = JoinedRoomProxyMock(.init())
-        let mockController = MockTimelineController()
+        let mockController = TimelineControllerMock(.init(roomProxy: proxyMock))
         let clientMock = ClientProxyMock(.init())
         clientMock.roomSummaryForIdentifierReturnValue = .mock(id: "1", name: "Foundation 🔭🪐🌌")
-        mockController.roomProxy = proxyMock
         let mock = TimelineViewModel(roomProxy: proxyMock,
                                      timelineController: mockController,
                                      userSession: UserSessionMock(.init(clientProxy: clientMock)),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .roomID("1"), font: .preferredFont(forTextStyle: .body)))
@@ -118,18 +120,18 @@ struct PillContextTests {
     
     @Test
     func roomIDMentionMissingRoom() {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let proxyMock = JoinedRoomProxyMock(.init())
-        let mockController = MockTimelineController()
-        mockController.roomProxy = proxyMock
+        let mockController = TimelineControllerMock(.init(roomProxy: proxyMock))
         let mock = TimelineViewModel(roomProxy: proxyMock,
                                      timelineController: mockController,
                                      userSession: UserSessionMock(.init()),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .roomID("1"), font: .preferredFont(forTextStyle: .body)))
@@ -141,9 +143,10 @@ struct PillContextTests {
     
     @Test
     func roomAliasMention() {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let proxyMock = JoinedRoomProxyMock(.init())
-        let mockController = MockTimelineController()
-        mockController.roomProxy = proxyMock
+        let mockController = TimelineControllerMock(.init(roomProxy: proxyMock))
         let clientMock = ClientProxyMock(.init())
         clientMock.roomSummaryForAliasReturnValue = .mock(id: "2",
                                                           name: "Foundation and Empire",
@@ -152,11 +155,10 @@ struct PillContextTests {
                                      timelineController: mockController,
                                      userSession: UserSessionMock(.init(clientProxy: clientMock)),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .roomAlias("#foundation-and-empire:matrix.org"), font: .preferredFont(forTextStyle: .body)))
@@ -168,18 +170,18 @@ struct PillContextTests {
     
     @Test
     func roomAliasMentionMissingRoom() {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let proxyMock = JoinedRoomProxyMock(.init())
-        let mockController = MockTimelineController()
-        mockController.roomProxy = proxyMock
+        let mockController = TimelineControllerMock(.init(roomProxy: proxyMock))
         let mock = TimelineViewModel(roomProxy: proxyMock,
                                      timelineController: mockController,
                                      userSession: UserSessionMock(.init()),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .roomAlias("#foundation-and-empire:matrix.org"), font: .preferredFont(forTextStyle: .body)))
@@ -191,20 +193,20 @@ struct PillContextTests {
     
     @Test
     func eventOnRoomIDMention() {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let proxyMock = JoinedRoomProxyMock(.init())
-        let mockController = MockTimelineController()
-        mockController.roomProxy = proxyMock
+        let mockController = TimelineControllerMock(.init(roomProxy: proxyMock))
         let clientMock = ClientProxyMock(.init())
         clientMock.roomSummaryForIdentifierReturnValue = .mock(id: "1", name: "Foundation 🔭🪐🌌")
         let mock = TimelineViewModel(roomProxy: proxyMock,
                                      timelineController: mockController,
                                      userSession: UserSessionMock(.init(clientProxy: clientMock)),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .event(room: .roomID("1")), font: .preferredFont(forTextStyle: .body)))
@@ -216,18 +218,18 @@ struct PillContextTests {
     
     @Test
     func eventOnRoomIDMentionMissingRoom() {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let proxyMock = JoinedRoomProxyMock(.init())
-        let mockController = MockTimelineController()
-        mockController.roomProxy = proxyMock
+        let mockController = TimelineControllerMock(.init(roomProxy: proxyMock))
         let mock = TimelineViewModel(roomProxy: proxyMock,
                                      timelineController: mockController,
                                      userSession: UserSessionMock(.init()),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .event(room: .roomID("1")), font: .preferredFont(forTextStyle: .body)))
@@ -239,9 +241,10 @@ struct PillContextTests {
     
     @Test
     func eventOnRoomAliasMention() {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let proxyMock = JoinedRoomProxyMock(.init())
-        let mockController = MockTimelineController()
-        mockController.roomProxy = proxyMock
+        let mockController = TimelineControllerMock(.init(roomProxy: proxyMock))
         let clientMock = ClientProxyMock(.init())
         clientMock.roomSummaryForAliasReturnValue = .mock(id: "2",
                                                           name: "Foundation and Empire",
@@ -250,11 +253,10 @@ struct PillContextTests {
                                      timelineController: mockController,
                                      userSession: UserSessionMock(.init(clientProxy: clientMock)),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .event(room: .roomAlias("#foundation-and-empire:matrix.org")), font: .preferredFont(forTextStyle: .body)))
@@ -266,18 +268,18 @@ struct PillContextTests {
     
     @Test
     func eventOnRoomAliasMentionMissingRoom() {
+        let userIndicatorController = UserIndicatorControllerMock()
+        
         let proxyMock = JoinedRoomProxyMock(.init())
-        let mockController = MockTimelineController()
-        mockController.roomProxy = proxyMock
+        let mockController = TimelineControllerMock(.init(roomProxy: proxyMock))
         let mock = TimelineViewModel(roomProxy: proxyMock,
                                      timelineController: mockController,
                                      userSession: UserSessionMock(.init()),
                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                     appMediator: AppMediatorMock.default,
-                                     appSettings: ServiceLocator.shared.settings,
-                                     analyticsService: ServiceLocator.shared.analytics,
-                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                     userIndicatorController: userIndicatorController,
+                                     appMediator: AppMediatorMock(.init()),
+                                     analyticsService: AnalyticsServiceMock(.init()),
+                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                      linkMetadataProvider: LinkMetadataProvider(),
                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
         let context = PillContext(timelineContext: mock.context, data: PillTextAttachmentData(type: .event(room: .roomAlias("#foundation-and-empire:matrix.org")), font: .preferredFont(forTextStyle: .body)))

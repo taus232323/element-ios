@@ -19,7 +19,7 @@ struct SpaceAddRoomsScreenViewState: BindableState {
     var bindings = SpaceAddRoomsScreenViewStateBindings()
     
     struct Section {
-        enum SectionType: Equatable { case searchResults, suggestions }
+        nonisolated enum SectionType: Equatable { case searchResults, suggestions }
         let type: SectionType
         
         let rooms: [SpaceAddRoomsScreenRoom]
@@ -66,7 +66,7 @@ extension SpaceAddRoomsScreenRoom {
     
     init(roomProxy: JoinedRoomProxyProtocol) {
         self.init(id: roomProxy.id,
-                  title: roomProxy.infoPublisher.value.displayName ?? roomProxy.id,
+                  title: roomProxy.infoPublisher.value.displayNameOrID,
                   description: roomProxy.infoPublisher.value.roomListDescription,
                   avatar: roomProxy.infoPublisher.value.avatar)
     }
@@ -82,7 +82,7 @@ private extension RoomInfoProxyProtocol {
             return alias
         }
         
-        guard heroes.count > 0 else {
+        guard !heroes.isEmpty else {
             return ""
         }
         

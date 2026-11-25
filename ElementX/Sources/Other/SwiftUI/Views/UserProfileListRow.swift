@@ -11,7 +11,7 @@ import MatrixRustSDK
 import SwiftUI
 
 struct UserProfileListRow: View {
-    let user: UserProfileProxy
+    let user: UserProfile
     let membership: MembershipState?
     let mediaProvider: MediaProviderProtocol?
     
@@ -44,7 +44,7 @@ struct UserProfileListRow: View {
     var avatar: LoadableAvatarImage {
         LoadableAvatarImage(url: user.avatarURL,
                             name: user.displayName,
-                            contentID: user.userID,
+                            contentID: user.id,
                             avatarSize: .user(on: .startChat),
                             mediaProvider: mediaProvider)
     }
@@ -68,21 +68,21 @@ struct UserProfileCell_Previews: PreviewProvider, TestablePreview {
     
     static var previews: some View {
         Form {
-            UserProfileListRow(user: .mockAlice, membership: nil, mediaProvider: MediaProviderMock(configuration: .init()),
+            UserProfileListRow(user: .mockAlice, membership: nil, mediaProvider: MediaProviderMock(.init()),
                                kind: .multiSelection(isSelected: true, action: action))
             
-            UserProfileListRow(user: .mockBob, membership: nil, mediaProvider: MediaProviderMock(configuration: .init()),
+            UserProfileListRow(user: .mockBob, membership: nil, mediaProvider: MediaProviderMock(.init()),
                                kind: .multiSelection(isSelected: false, action: action))
             
-            UserProfileListRow(user: .mockCharlie, membership: .join, mediaProvider: MediaProviderMock(configuration: .init()),
+            UserProfileListRow(user: .mockCharlie, membership: .join, mediaProvider: MediaProviderMock(.init()),
                                kind: .multiSelection(isSelected: true, action: action))
                 .disabled(true)
             
-            UserProfileListRow(user: .init(userID: "@someone:matrix.org"), membership: .join, mediaProvider: MediaProviderMock(configuration: .init()),
+            UserProfileListRow(user: .init(userID: "@someone:matrix.org"), membership: .join, mediaProvider: MediaProviderMock(.init()),
                                kind: .multiSelection(isSelected: false, action: action))
                 .disabled(true)
             
-            UserProfileListRow(user: .init(userID: "@someone:matrix.org"), membership: nil, mediaProvider: MediaProviderMock(configuration: .init()),
+            UserProfileListRow(user: .init(userID: "@someone:matrix.org"), membership: nil, mediaProvider: MediaProviderMock(.init()),
                                kind: .multiSelection(isSelected: false, action: action))
         }
         .compoundList()

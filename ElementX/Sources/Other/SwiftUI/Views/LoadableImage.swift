@@ -100,6 +100,7 @@ struct LoadableImage<TransformerView: View, PlaceholderView: View>: View {
 
 private struct LoadableImageContent<TransformerView: View, PlaceholderView: View>: View, ImageDataProvider {
     @Environment(\.shouldAutomaticallyLoadImages) private var loadAutomatically
+    @Environment(\.showsIconForHiddenImages) private var showsIconForHiddenImages
     
     private let mediaSource: MediaSourceProxy
     private let mediaType: LoadableImageMediaType
@@ -185,7 +186,9 @@ private struct LoadableImageContent<TransformerView: View, PlaceholderView: View
     var placeholderOverlay: some View {
         switch mediaType {
         case .avatar, .generic:
-            EmptyView()
+            if !shouldRender, showsIconForHiddenImages {
+                hiddenImageIcon
+            }
         case .timelineItem:
             if shouldRender {
                 ProgressView(L10n.commonLoading)
@@ -228,19 +231,39 @@ private struct LoadableImageContent<TransformerView: View, PlaceholderView: View
         }
     }
     
+    var hiddenImageIcon: some View {
+        Image.compound.image
+            .resizable()
+            .scaledToFit()
+            .foregroundStyle(.compound.iconSecondary)
+            .contentShape(.rect)
+            .onTapGesture {
+                loadManually = true
+            }
+    }
+    
     // MARK: - ImageDataProvider
     
-    var cacheKey: String {
+    nonisolated var cacheKey: String {
         mediaSource.url.absoluteString
     }
     
-    func data(handler: @escaping (Result<Data, Error>) -> Void) {
-        guard case let .gifData(data) = contentLoader.content else {
-            fatalError("Shouldn't reach this point without any gif data")
+    nonisolated func data(handler: @escaping @Sendable (Result<Data, Error>) -> Void) {
+        // Kingfisher isn't annotated and doesn't guarantee the provider is invoked on the main
+        // thread so hop onto the main actor.
+        Task { @MainActor in
+            guard case let .gifData(data) = contentLoader.content else {
+                handler(.failure(LoadableImageError.missingGIFData))
+                return
+            }
+            
+            handler(.success(data))
         }
-        
-        handler(.success(data))
     }
+}
+
+private enum LoadableImageError: Error {
+    case missingGIFData
 }
 
 private class ContentLoader: ObservableObject {
@@ -279,7 +302,6 @@ private class ContentLoader: ObservableObject {
         self.mediaProvider = mediaProvider
     }
     
-    @MainActor
     func load() async {
         if isGIF {
             if case let .success(data) = await mediaProvider?.loadImageDataFromSource(mediaSource) {
@@ -311,6 +333,8 @@ private class ContentLoader: ObservableObject {
 extension EnvironmentValues {
     /// Whether or not images should be loaded inside `LoadableImage` without a user interaction.
     @Entry var shouldAutomaticallyLoadImages = true
+    /// Whether or not `LoadableImage` shows an icon in place of an image that isn't loaded automatically, loading it when tapped.
+    @Entry var showsIconForHiddenImages = false
 }
 
 // MARK: - Previews
@@ -358,7 +382,7 @@ struct LoadableImage_Previews: PreviewProvider, TestablePreview {
                           mediaProvider: loadingMediaProvider,
                           placeholder: placeholder)
                 .layout(title: "Loading (avatar)")
-
+            
             LoadableImage(url: "mxc://wherever/345",
                           mediaType: .timelineItem(uniqueID: .init("id")),
                           blurhash: "KbLM^j]q$jT|EfR-3rtjXk",
@@ -388,7 +412,7 @@ struct LoadableImage_Previews: PreviewProvider, TestablePreview {
     static func placeholder() -> some View {
         Color.compound._bgBubbleIncoming
     }
-
+    
     static func transformer(_ view: AnyView) -> some View {
         view.overlay {
             Image(systemSymbol: .playCircleFill)
@@ -398,13 +422,12 @@ struct LoadableImage_Previews: PreviewProvider, TestablePreview {
     }
     
     static func makeMediaProvider(isLoading: Bool = false) -> MediaProviderProtocol {
-        let mediaProvider = MediaProviderMock(configuration: .init())
+        let mediaProvider = MediaProviderMock(.init())
         
         if isLoading {
             mediaProvider.imageFromSourceSizeClosure = { _, _ in nil }
             mediaProvider.loadFileFromSourceFilenameClosure = { _, _ in .failure(.failedRetrievingFile) }
             mediaProvider.loadImageDataFromSourceClosure = { _ in .failure(.failedRetrievingImage) }
-            mediaProvider.loadImageFromSourceSizeClosure = { _, _ in .failure(.failedRetrievingImage) }
             mediaProvider.loadThumbnailForSourceSourceSizeClosure = { _, _ in .failure(.failedRetrievingThumbnail) }
             mediaProvider.loadImageRetryingOnReconnectionSizeClosure = { _, _ in
                 Task { throw MediaProviderError.failedRetrievingImage }

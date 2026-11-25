@@ -6,13 +6,11 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-// periphery:ignore:all - this is just a labs remove this comment once generating the final file
-
 import Combine
 import SwiftUI
 
 struct LabsScreenCoordinatorParameters {
-    let appSettings: AppSettings
+    let userSettings: UserSettings
 }
 
 enum LabsScreenCoordinatorAction {
@@ -30,7 +28,7 @@ final class LabsScreenCoordinator: CoordinatorProtocol {
     private var cancellables = Set<AnyCancellable>()
     
     init(parameters: LabsScreenCoordinatorParameters) {
-        viewModel = LabsScreenViewModel(labsOptions: parameters.appSettings)
+        viewModel = LabsScreenViewModel(labsOptions: parameters.userSettings.app)
     }
     
     func start() {
@@ -44,7 +42,7 @@ final class LabsScreenCoordinator: CoordinatorProtocol {
             }
             .store(in: &cancellables)
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(LabsScreen(context: viewModel.context))
     }

@@ -39,13 +39,13 @@ struct UserIndicatorControllerTests {
         
         indicatorController.retractAllIndicators()
         
-        #expect(indicatorController.indicatorQueue.count == 0)
+        #expect(indicatorController.indicatorQueue.isEmpty)
     }
     
     @Test
     mutating func chainedPresentation() async throws {
-        indicatorController.minimumDisplayDuration = 0.25
-        indicatorController.nonPersistentDisplayDuration = 2.5
+        indicatorController.minimumDisplayDuration = 0.05
+        indicatorController.nonPersistentDisplayDuration = 0.5
         
         indicatorController.submitIndicator(.init(id: "First", title: ""))
         indicatorController.submitIndicator(.init(id: "Second", title: ""))
@@ -66,8 +66,8 @@ struct UserIndicatorControllerTests {
     
     @Test
     mutating func minimumDisplayDuration() async throws {
-        indicatorController.minimumDisplayDuration = 0.25
-        indicatorController.nonPersistentDisplayDuration = 2.5
+        indicatorController.minimumDisplayDuration = 0.05
+        indicatorController.nonPersistentDisplayDuration = 0.5
         
         indicatorController.submitIndicator(.init(id: "First", title: ""))
         indicatorController.submitIndicator(.init(id: "Second", title: ""))
@@ -94,7 +94,7 @@ struct UserIndicatorControllerTests {
         
         try await fulfillment.fulfill()
         
-        #expect(indicatorController.indicatorQueue.count == 0)
+        #expect(indicatorController.indicatorQueue.isEmpty)
         #expect(indicatorController.activeIndicator == nil)
     }
 }

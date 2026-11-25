@@ -8,12 +8,17 @@
 
 import Foundation
 
-protocol BugReportHookProtocol {
-    func update(_ bugReport: BugReport) -> BugReport
+nonisolated protocol BugReportHookProtocol: Sendable {
+    @MainActor func update(_ viewState: BugReportScreenViewState, for flow: BugReportService.Flow) -> BugReportScreenViewState
+    @MainActor func update(_ bugReport: BugReport, for flow: BugReportService.Flow) -> BugReport
 }
 
 struct DefaultBugReportHook: BugReportHookProtocol {
-    func update(_ bugReport: BugReport) -> BugReport {
+    func update(_ viewState: BugReportScreenViewState, for flow: BugReportService.Flow) -> BugReportScreenViewState {
+        viewState
+    }
+    
+    func update(_ bugReport: BugReport, for flow: BugReportService.Flow) -> BugReport {
         bugReport
     }
 }

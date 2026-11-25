@@ -32,23 +32,24 @@ struct RoomPermissionsSetting: Identifiable {
             value = newValue.powerLevelValue
         }
     }
-        
+    
     /// The `RoomPermissions` property that this setting is for.
     let keyPath: KeyPath<RoomPermissions, Int64>
-    /// The `RoomPowerLevelChanges` property that this setting is saved into.
-    var rustKeyPath: WritableKeyPath<RoomPowerLevelChanges, Int64?> {
+    /// The `RoomPowerLevelChanges` properties that this setting is saved into.
+    var rustKeyPaths: Set<WritableKeyPath<RoomPowerLevelChanges, Int64?>> {
         switch keyPath {
-        case \.ban: \.ban
-        case \.invite: \.invite
-        case \.kick: \.kick
-        case \.redact: \.redact
-        case \.eventsDefault: \.eventsDefault
-        case \.stateDefault: \.stateDefault
-        case \.usersDefault: \.usersDefault
-        case \.roomName: \.roomName
-        case \.roomAvatar: \.roomAvatar
-        case \.roomTopic: \.roomTopic
-        case \.spaceChild: \.spaceChild
+        case \.ban: [\.ban]
+        case \.invite: [\.invite]
+        case \.kick: [\.kick]
+        case \.redact: [\.redact]
+        case \.eventsDefault: [\.eventsDefault]
+        case \.stateDefault: [\.stateDefault]
+        case \.usersDefault: [\.usersDefault]
+        case \.roomName: [\.roomName]
+        case \.roomAvatar: [\.roomAvatar]
+        case \.roomTopic: [\.roomTopic]
+        case \.spaceChild: [\.spaceChild]
+        case \.liveLocation: [\.beacon, \.beaconInfo]
         default: fatalError("Unexpected key path: \(keyPath)")
         }
     }
@@ -73,7 +74,7 @@ struct RoomPermissionsSetting: Identifiable {
     }
 }
 
-struct RoomPermissions {
+nonisolated struct RoomPermissions {
     /// The level required to ban a user.
     var ban: Int64
     /// The level required to invite a user.
@@ -96,6 +97,8 @@ struct RoomPermissions {
     var roomTopic: Int64
     /// The level required to add/remove childrens from a space.
     var spaceChild: Int64
+    /// The level required to send live location updates
+    var liveLocation: Int64
 }
 
 extension RoomPermissions {
@@ -112,5 +115,6 @@ extension RoomPermissions {
         roomAvatar = powerLevels.roomAvatar
         roomTopic = powerLevels.roomTopic
         spaceChild = powerLevels.spaceChild
+        liveLocation = max(powerLevels.beacon, powerLevels.beaconInfo)
     }
 }

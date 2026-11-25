@@ -21,6 +21,7 @@ enum CreateRoomScreenViewModelAction {
     case createdRoom(JoinedRoomProxyProtocol, SpaceRoomListProxyProtocol?)
     case displayMediaPicker
     case displayCameraPicker
+    case displayFilePicker
     case dismiss
 }
 
@@ -30,6 +31,7 @@ struct CreateRoomScreenViewState: BindableState {
     var roomName: String
     let serverName: String
     let isKnockingFeatureEnabled: Bool
+    var isPublicAccessAllowed = true
     let canSelectSpace: Bool
     var aliasLocalPart: String
     var editableSpaces: [SpaceServiceRoom] = []
@@ -50,18 +52,8 @@ struct CreateRoomScreenViewState: BindableState {
     var canCreateRoom: Bool {
         !roomName.isEmpty && aliasErrors.isEmpty
     }
-
+    
     var aliasErrors: Set<CreateRoomScreenAliasErrorState> = []
-    var aliasErrorDescription: String? {
-        if aliasErrors.contains(.alreadyExists) {
-            L10n.errorRoomAddressAlreadyExists
-        } else if aliasErrors.contains(.invalidSymbols) {
-            L10n.errorRoomAddressInvalidSymbols
-        } else {
-            nil
-        }
-    }
-        
     var availableAccessTypes: [CreateRoomScreenAccessType] {
         var availableAccessTypes: [CreateRoomScreenAccessType] = []
         if isSpace {
@@ -78,6 +70,11 @@ struct CreateRoomScreenViewState: BindableState {
             }
         }
         availableAccessTypes.append(.private)
+        
+        if !isPublicAccessAllowed {
+            availableAccessTypes.removeAll { $0 == .public }
+        }
+        
         return availableAccessTypes
     }
     
@@ -114,6 +111,7 @@ enum CreateRoomScreenViewAction {
     case createRoom
     case displayCameraPicker
     case displayMediaPicker
+    case displayFilePicker
     case removeImage
     case updateRoomName(String)
     case updateAliasLocalPart(String)

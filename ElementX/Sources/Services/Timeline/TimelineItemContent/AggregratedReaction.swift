@@ -9,7 +9,7 @@
 import Foundation
 
 /// Represents all reactions of the same type for a single event.
-struct AggregatedReaction: Hashable, Identifiable {
+nonisolated struct AggregatedReaction: Hashable, Identifiable {
     /// Length at which we ellipsize a reaction key for display
     /// Reactions can be free text, so we need to limit the length
     /// displayed on screen.
@@ -28,14 +28,14 @@ struct AggregatedReaction: Hashable, Identifiable {
 }
 
 /// Details of who sent the reaction
-struct ReactionSender: Hashable, Identifiable {
+nonisolated struct ReactionSender: Hashable, Identifiable {
     /// The id of the user who sent the reaction
     let id: String
     /// The time that the reaction was received on the original homeserver
     let timestamp: Date
 }
 
-extension AggregatedReaction {
+nonisolated extension AggregatedReaction {
     /// The number of times this reactions was sent.
     var count: Int {
         senders.count
@@ -48,6 +48,11 @@ extension AggregatedReaction {
     
     /// The key to be displayed on screen. See `maxDisplayChars`.
     var displayKey: String {
-        key.ellipsize(length: Self.maxDisplayChars)
+        imageURL == nil ? key.ellipsize(length: Self.maxDisplayChars) : L10n.commonReaction
+    }
+    
+    /// The custom image to display instead of the key, when the key is an `mxc://` URI (MSC4027).
+    var imageURL: URL? {
+        key.hasPrefix("mxc://") ? URL(string: key) : nil
     }
 }

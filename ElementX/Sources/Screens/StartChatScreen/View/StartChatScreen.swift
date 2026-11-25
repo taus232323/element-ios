@@ -44,16 +44,14 @@ struct StartChatScreen: View {
             JoinRoomByAddressView(context: context)
         }
     }
-
+    
     // MARK: - Private
-
+    
     /// The content shown in the form when the search query is empty.
     @ViewBuilder
     private var mainContent: some View {
         createRoomSection
-        if context.viewState.isRoomDirectoryEnabled {
-            roomDirectorySearch
-        }
+        roomDirectorySearch
         inviteFriendsSection
         joinRoomByAddressSection
         usersSection
@@ -106,7 +104,7 @@ struct StartChatScreen: View {
             .accessibilityIdentifier(A11yIdentifiers.startChatScreen.inviteFriends)
         }
     }
-
+    
     @ViewBuilder
     private var inviteFriendsRowContent: some View {
         switch context.viewState.inviteShareLinkState {
@@ -135,7 +133,7 @@ struct StartChatScreen: View {
     private var usersSection: some View {
         if !context.viewState.usersSection.users.isEmpty {
             Section {
-                ForEach(context.viewState.usersSection.users, id: \.userID) { user in
+                ForEach(context.viewState.usersSection.users, id: \.id) { user in
                     UserProfileListRow(user: user,
                                        membership: nil,
                                        mediaProvider: context.mediaProvider,
@@ -177,16 +175,14 @@ struct StartChatScreen: View {
 
 struct StartChatScreen_Previews: PreviewProvider, TestablePreview {
     static let viewModel = {
-        let appSettings = AppSettings()
-        appSettings.publicSearchEnabled = true
+        let userSettings = UserSettings.mock()
         let userSession = UserSessionMock(.init(clientProxy: ClientProxyMock(.init(userID: "@userid:example.com"))))
         let userDiscoveryService = UserDiscoveryServiceMock()
         userDiscoveryService.searchProfilesWithReturnValue = .success([.mockAlice])
         return StartChatScreenViewModel(userSession: userSession,
-                                        analytics: ServiceLocator.shared.analytics,
+                                        analytics: AnalyticsServiceMock(.init()),
                                         userIndicatorController: UserIndicatorControllerMock(),
-                                        userDiscoveryService: userDiscoveryService,
-                                        appSettings: appSettings)
+                                        userDiscoveryService: userDiscoveryService)
     }()
     
     static var previews: some View {

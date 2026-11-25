@@ -70,7 +70,7 @@ struct SessionVerificationScreen: View {
                     accessibilityFocus = .title
                 }
                 .accessibilityFocused($accessibilityFocus, equals: .title)
-
+            
             Text(context.viewState.message)
                 .font(.compound.bodyMD)
                 .multilineTextAlignment(.center)
@@ -85,10 +85,12 @@ struct SessionVerificationScreen: View {
             switch context.viewState.flow {
             case .deviceResponder(let details):
                 SessionVerificationRequestDetailsView(details: details,
+                                                      ownProfile: context.viewState.ownProfile,
                                                       isUserVerification: false,
                                                       mediaProvider: context.mediaProvider)
             case .userResponder(let details):
                 SessionVerificationRequestDetailsView(details: details,
+                                                      ownProfile: context.viewState.ownProfile,
                                                       isUserVerification: true,
                                                       mediaProvider: context.mediaProvider)
             case .userInitiator:
@@ -153,20 +155,14 @@ struct SessionVerificationScreen: View {
                 }
                 .buttonStyle(.compound(.primary))
             }
-        
-        case .showingChallenge:
+            
+        case .showingChallenge, .acceptingChallenge, .decliningChallenge:
             VStack(spacing: 16) {
-                Button(L10n.screenSessionVerificationTheyMatch) {
-                    context.send(viewAction: .accept)
-                }
-                .buttonStyle(.compound(.primary))
-                .accessibilityIdentifier(A11yIdentifiers.sessionVerificationScreen.acceptChallenge)
+                acceptChallengeButton
                 
-                Button(L10n.screenSessionVerificationTheyDontMatch) {
-                    context.send(viewAction: .decline)
-                }
-                .buttonStyle(.compound(.tertiary))
-                .accessibilityIdentifier(A11yIdentifiers.sessionVerificationScreen.declineChallenge)
+                declineChallengeButton
+                    .opacity(context.viewState.isWaiting ? 0 : 1) // Keeps the space so the accept button doesn't move.
+                    .disabled(context.viewState.isWaiting)
             }
             
         default:
@@ -206,6 +202,32 @@ struct SessionVerificationScreen: View {
         }
     }
     
+    private var acceptChallengeButton: some View {
+        Button {
+            context.send(viewAction: .accept)
+        } label: {
+            Label {
+                Text(context.viewState.isWaiting ? L10n.screenSessionVerificationPositiveButtonVerifyingOngoing : L10n.screenSessionVerificationTheyMatch)
+            } icon: {
+                if context.viewState.isWaiting {
+                    ProgressView()
+                        .tint(.compound.iconOnSolidPrimary)
+                }
+            }
+        }
+        .buttonStyle(.compound(.primary))
+        .disabled(context.viewState.isWaiting)
+        .accessibilityIdentifier(A11yIdentifiers.sessionVerificationScreen.acceptChallenge)
+    }
+    
+    private var declineChallengeButton: some View {
+        Button(L10n.screenSessionVerificationTheyDontMatch) {
+            context.send(viewAction: .decline)
+        }
+        .buttonStyle(.compound(.tertiary))
+        .accessibilityIdentifier(A11yIdentifiers.sessionVerificationScreen.declineChallenge)
+    }
+    
     struct EmojiView: View {
         let emoji: SessionVerificationEmoji
         
@@ -232,9 +254,9 @@ struct SessionVerification_Previews: PreviewProvider, TestablePreview {
         sessionVerificationScreen(state: .initial, flow: .userInitiator(userID: "@bob:matrix.org"))
             .previewDisplayName("Initial - User Initiator")
         
-        let details = SessionVerificationRequestDetails(senderProfile: UserProfileProxy(userID: "@bob:matrix.org",
-                                                                                        displayName: "Billy Bob",
-                                                                                        avatarURL: .mockMXCUserAvatar),
+        let details = SessionVerificationRequestDetails(senderProfile: UserProfile(userID: "@bob:matrix.org",
+                                                                                   displayName: "Billy Bob",
+                                                                                   avatarURL: .mockMXCUserAvatar),
                                                         flowID: "123",
                                                         deviceID: "CODEMISTAKE",
                                                         deviceDisplayName: "Bob's Arcana iOS",
@@ -289,8 +311,7 @@ struct SessionVerification_Previews: PreviewProvider, TestablePreview {
                                           flow: SessionVerificationScreenFlow = .deviceInitiator) -> some View {
         let viewModel = SessionVerificationScreenViewModel(sessionVerificationControllerProxy: SessionVerificationControllerProxyMock.configureMock(),
                                                            flow: flow,
-                                                           appSettings: AppSettings(),
-                                                           mediaProvider: MediaProviderMock(configuration: .init()),
+                                                           userSession: UserSessionMock(.init()),
                                                            verificationState: state)
         
         return SessionVerificationScreen(context: viewModel.context)

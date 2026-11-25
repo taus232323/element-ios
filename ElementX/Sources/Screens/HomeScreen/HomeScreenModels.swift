@@ -19,13 +19,12 @@ enum HomeScreenViewModelAction {
     case presentSpace(SpaceRoomListProxyProtocol)
     case roomLeft(roomIdentifier: String)
     case transferOwnership(roomIdentifier: String)
-    case presentSecureBackupSettings
     case presentRecoveryKeyScreen
     case presentEncryptionResetScreen
     case presentSettingsScreen
     case presentFeedbackScreen
     case presentStartChatScreen
-    case logout
+    case addAccount
 }
 
 enum HomeScreenViewAction {
@@ -42,6 +41,10 @@ enum HomeScreenViewAction {
     case resetEncryption
     case skipRecoveryKeyConfirmation
     case dismissNewSoundBanner
+    case screenAppeared
+    case multiAccountAnnouncementAppeared
+    case dismissMultiAccountAnnouncement
+    case addAccount
     case updateVisibleItemRange(Range<Int>)
     case spaceFilters
     case markRoomAsUnread(roomIdentifier: String)
@@ -51,17 +54,21 @@ enum HomeScreenViewAction {
     case acceptInvite(roomIdentifier: String)
     case declineInvite(roomIdentifier: String)
     
-    case selectUser(UserProfileProxy)
-    case createDM(user: UserProfileProxy)
+    case selectUser(UserProfile)
+    case createDM(user: UserProfile)
 }
 
 enum HomeScreenRoomListMode: CustomStringConvertible {
+    /// Shows nothing briefly on launch as the cached rooms usually publish in time to go straight to them.
+    case awaitingCachedRooms
     case skeletons
     case empty
     case rooms
     
     var description: String {
         switch self {
+        case .awaitingCachedRooms:
+            return "Awaiting cached rooms"
         case .skeletons:
             return "Showing placeholders"
         case .empty:
@@ -93,42 +100,38 @@ enum HomeScreenSecurityBannerMode: Equatable {
 }
 
 struct HomeScreenViewState: BindableState {
-    let userID: String
-    var userDisplayName: String?
-    var userAvatarURL: URL?
+    var userProfile: UserProfile
     
     var securityBannerMode = HomeScreenSecurityBannerMode.none
     var shouldShowNewSoundBanner = false
     
-    var requiresExtraAccountSetup = false
-        
     var rooms: [HomeScreenRoom] = []
-    var roomListMode: HomeScreenRoomListMode = .skeletons
+    var roomListMode: HomeScreenRoomListMode = .awaitingCachedRooms
     
     var hasPendingInvitations = false
-        
+    
     var selectedRoomID: String?
     
     var hideInviteAvatars = false
     
-    var roomListActivityVisibility: RoomListActivityVisibility = .current
-    
     var reportRoomEnabled = false
-        
+    
     var shouldShowSpaceFilters = false
     var selectedSpaceFilter: SpaceServiceFilter?
     
     /// People matching the home search query (directory / username lookup).
-    var peopleSearchResults: [UserProfileProxy] = []
+    var peopleSearchResults: [UserProfile] = []
+    /// Inline room list search is disabled when the dedicated global search tab is shown instead (see `UserSessionFlowCoordinator`).
+    var isRoomListSearchEnabled = true
     
     var visibleRooms: [HomeScreenRoom] {
-        if roomListMode == .skeletons {
+        if roomListMode == .skeletons || roomListMode == .awaitingCachedRooms {
             return placeholderRooms
         }
         
         return rooms
     }
-        
+    
     var bindings: HomeScreenViewStateBindings
     
     var placeholderRooms: [HomeScreenRoom] {
@@ -167,6 +170,7 @@ struct HomeScreenViewStateBindings {
     
     var spaceFiltersViewModel: ChatsSpaceFiltersScreenViewModel?
     var selectedUserToInvite: UserToInvite?
+    var isPresentingMultiAccountAnnouncement = false
 }
 
 enum CallBadgeType {
@@ -182,7 +186,7 @@ struct HomeScreenRoom: Identifiable, Equatable {
     }
     
     static let placeholderLastMessage = AttributedString("Hidden last message")
-        
+    
     /// The list item identifier is it's room identifier.
     let id: String
     
@@ -201,12 +205,11 @@ struct HomeScreenRoom: Identifiable, Equatable {
     let badges: Badges
     struct Badges: Equatable {
         let isDotShown: Bool
+        let notificationCount: UInt
         let isMentionShown: Bool
         let isMuteShown: Bool
         let callBadgeType: CallBadgeType
     }
-    
-    var hasUnreads = false
     
     let name: String
     
@@ -224,7 +227,9 @@ struct HomeScreenRoom: Identifiable, Equatable {
     let lastMessageState: LastMessageState?
     
     let avatar: RoomAvatar
-        
+    
+    let statusEmoji: Character?
+    
     let canonicalAlias: String?
     
     let isTombstoned: Bool
@@ -243,7 +248,7 @@ struct HomeScreenRoom: Identifiable, Equatable {
         HomeScreenRoom(id: UUID().uuidString,
                        roomID: nil,
                        type: .placeholder,
-                       badges: .init(isDotShown: false, isMentionShown: false, isMuteShown: false, callBadgeType: .none),
+                       badges: .init(isDotShown: false, notificationCount: 0, isMentionShown: false, isMuteShown: false, callBadgeType: .none),
                        name: "Placeholder room name",
                        isDirect: false,
                        isHighlighted: false,
@@ -252,6 +257,7 @@ struct HomeScreenRoom: Identifiable, Equatable {
                        lastMessage: placeholderLastMessage,
                        lastMessageState: nil,
                        avatar: .room(id: "", name: "", avatarURL: nil),
+                       statusEmoji: nil,
                        canonicalAlias: nil,
                        isTombstoned: false)
     }
@@ -259,16 +265,15 @@ struct HomeScreenRoom: Identifiable, Equatable {
 
 extension HomeScreenRoom {
     init(summary: RoomSummary,
-         roomListActivityVisibility: RoomListActivityVisibility = .current,
+         showAllActivity: Bool = true,
          seenInvites: Set<String> = []) {
         let roomID = summary.id
         
         let isUnseenInvite = summary.joinRequestType?.isInvite == true && !seenInvites.contains(roomID)
         
-        let isDotShown = switch roomListActivityVisibility {
-        case .current:
+        let isDotShown = if showAllActivity {
             summary.hasUnreadMessages || summary.hasUnreadMentions || summary.hasUnreadNotifications || summary.isMarkedUnread || isUnseenInvite
-        case .hide, .show:
+        } else {
             (!summary.isMuted && (summary.hasUnreadNotifications || summary.hasUnreadMentions)) || summary.isMarkedUnread || isUnseenInvite
         }
         
@@ -278,7 +283,9 @@ extension HomeScreenRoom {
         
         let callBadge = if summary.hasOngoingCall {
             summary.activeCallIntent == .audio ? CallBadgeType.voice : CallBadgeType.video
-        } else { CallBadgeType.none }
+        } else {
+            CallBadgeType.none
+        }
         
         let type: HomeScreenRoom.RoomType = switch summary.joinRequestType {
         case .invite(let inviter): .invite(inviterDetails: inviter.map { RoomInviterDetails(member: $0) })
@@ -290,10 +297,10 @@ extension HomeScreenRoom {
                   roomID: summary.id,
                   type: type,
                   badges: .init(isDotShown: isDotShown,
+                                notificationCount: summary.unreadNotificationsCount,
                                 isMentionShown: isMentionShown,
                                 isMuteShown: isMuteShown,
                                 callBadgeType: callBadge),
-                  hasUnreads: summary.hasUnreadMessages,
                   name: summary.name,
                   isDirect: summary.isDirect,
                   isHighlighted: isHighlighted,
@@ -302,6 +309,7 @@ extension HomeScreenRoom {
                   lastMessage: summary.lastMessage,
                   lastMessageState: summary.homeScreenLastMessageState,
                   avatar: summary.avatar,
+                  statusEmoji: summary.statusEmoji,
                   canonicalAlias: summary.canonicalAlias,
                   isTombstoned: summary.isTombstoned)
     }

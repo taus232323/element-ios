@@ -9,46 +9,46 @@ import Foundation
 
 enum ArcanaInviteShareClient {
     private static let decoder = JSONDecoder()
-
+    
     private static func baseURL() throws -> URL {
         guard let url = URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)") else {
             throw URLError(.badURL)
         }
         return url
     }
-
+    
     static func inviteURL(forUserID userID: String) -> URL {
         let path = percentEncodedInvitePathComponent(userID)
         return URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)/invite/\(path)")
             ?? URL(filePath: "/")
     }
-
+    
     static func createInvite(accessToken: String) async throws -> URL {
         let url = try baseURL()
             .appendingPathComponent("api")
             .appendingPathComponent("invite")
-
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-
+        
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, 200..<300 ~= httpResponse.statusCode else {
             throw URLError(.badServerResponse)
         }
-
+        
         let payload = try decoder.decode(ArcanaInviteShareResponse.self, from: data)
         if let webURL = payload.webURL.flatMap({ URL(string: $0) }) {
             return webURL
         }
-
+        
         let path = percentEncodedInvitePathComponent(payload.token)
         guard let inviteURL = URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)/invite/\(path)") else {
             throw URLError(.badURL)
         }
         return inviteURL
     }
-
+    
     private static func percentEncodedInvitePathComponent(_ value: String) -> String {
         var allowedCharacters = CharacterSet.alphanumerics
         allowedCharacters.insert(charactersIn: "-._~")
@@ -59,7 +59,7 @@ enum ArcanaInviteShareClient {
 private struct ArcanaInviteShareResponse: Decodable {
     let token: String
     let webURL: String?
-
+    
     enum CodingKeys: String, CodingKey {
         case token
         case webURL = "webUrl"

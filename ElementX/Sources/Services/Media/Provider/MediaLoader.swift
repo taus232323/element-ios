@@ -8,13 +8,8 @@
 
 import Combine
 import Foundation
-import UIKit
-
 @preconcurrency import MatrixRustSDK
-
-private final class MediaRequest {
-    var continuations: [CheckedContinuation<Data, Error>] = []
-}
+import UIKit
 
 actor MediaLoader: MediaLoaderProtocol {
     // We noticed that the keyboard appears to hold onto a reference to the `Context` of the last
@@ -28,8 +23,8 @@ actor MediaLoader: MediaLoaderProtocol {
     // bunch of workarounds in our preview tests to keep the mock provider alive as some ViewModels
     // don't have an accompanying ClientMock to own it.
     private weak var client: ClientProtocol?
-    private var ongoingRequests = [MediaSourceProxy: MediaRequest]()
-
+    private var ongoingRequests = [MediaSourceProxy: Task<Data, Error>]()
+    
     init(client: ClientProtocol) {
         self.client = client
     }
@@ -44,7 +39,7 @@ actor MediaLoader: MediaLoaderProtocol {
     func loadMediaThumbnailForSource(_ source: MediaSourceProxy, width: UInt, height: UInt) async throws -> Data {
         try await enqueueLoadMediaRequest(forSource: source) { [weak client] in
             guard let client else { throw MediaLoaderError.missingClient }
-            return try await client.getMediaThumbnail(mediaSource: source.underlyingSource, width: UInt64(width), height: UInt64(height))
+            return try await client.getMediaThumbnail(mediaSource: source.underlyingSource, width: UInt64(width), height: UInt64(height), animated: false)
         }
     }
     
@@ -61,30 +56,22 @@ actor MediaLoader: MediaLoaderProtocol {
     
     // MARK: - Private
     
-    private func enqueueLoadMediaRequest(forSource source: MediaSourceProxy, operation: @escaping () async throws -> Data) async throws -> Data {
+    private func enqueueLoadMediaRequest(forSource source: MediaSourceProxy, operation: @escaping @Sendable () async throws -> Data) async throws -> Data {
         if let ongoingRequest = ongoingRequests[source] {
-            return try await withCheckedThrowingContinuation { continuation in
-                ongoingRequest.continuations.append(continuation)
-            }
+            return try await ongoingRequest.value
         }
         
-        let ongoingRequest = MediaRequest()
+        // Wrap the SDK call in a Task so `ongoingRequests` is only mutated when resuming from
+        // `task.value` (a runtime-managed await that hops back onto the actor) rather than when
+        // resuming directly from the SDK's continuation, which can fire on a Rust thread and
+        // mutate the dictionary off-actor, corrupting its storage.
+        let ongoingRequest = Task { try await operation() }
         ongoingRequests[source] = ongoingRequest
         
         defer {
             ongoingRequests[source] = nil
         }
         
-        do {
-            let result = try await operation()
-            
-            ongoingRequest.continuations.forEach { $0.resume(returning: result) }
-            
-            return result
-            
-        } catch {
-            ongoingRequest.continuations.forEach { $0.resume(throwing: error) }
-            throw error
-        }
+        return try await ongoingRequest.value
     }
 }

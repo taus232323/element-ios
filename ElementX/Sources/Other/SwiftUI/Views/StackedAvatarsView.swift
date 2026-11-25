@@ -12,6 +12,8 @@ struct StackedAvatarInfo {
     let url: URL?
     let name: String?
     let contentID: String
+    /// Overrides the view's media provider, for an avatar on another homeserver.
+    var mediaProvider: MediaProviderProtocol?
 }
 
 struct StackedAvatarsView: View {
@@ -29,7 +31,7 @@ struct StackedAvatarsView: View {
                                     name: avatars[index].name,
                                     contentID: avatars[index].contentID,
                                     avatarSize: avatarSize,
-                                    mediaProvider: mediaProvider)
+                                    mediaProvider: avatars[index].mediaProvider ?? mediaProvider)
                     .padding(lineWidth)
                     .overlay {
                         Circle()
@@ -48,7 +50,7 @@ struct StackedAvatarsView_Previews: PreviewProvider, TestablePreview {
         .init(url: nil, name: "Charlie", contentID: "@charlie:matrix.org"),
         .init(url: nil, name: "Dan", contentID: "@charlie:matrix.org")
     ]
-
+    
     static var previews: some View {
         VStack(spacing: 10) {
             StackedAvatarsView(overlap: 16,

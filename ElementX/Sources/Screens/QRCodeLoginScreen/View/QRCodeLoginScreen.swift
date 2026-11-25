@@ -7,6 +7,7 @@
 //
 
 import Compound
+import MatrixRustSDKMocks
 import SwiftUI
 
 struct QRCodeLoginScreen: View {
@@ -75,12 +76,19 @@ struct QRCodeLoginScreen: View {
     
     private var linkDesktopInstructionsContent: some View {
         FullscreenDialog(topPadding: 24, horizontalPadding: 24) {
-            VStack(alignment: .leading, spacing: 40) {
+            VStack(alignment: .leading, spacing: 32) {
                 TitleAndIcon(title: L10n.screenLinkNewDeviceDesktopTitle(InfoPlistReader.main.productionAppName),
                              icon: \.computer,
                              iconStyle: .default)
+                    .padding(.bottom, 8)
                 
                 SFNumberedListView(items: context.viewState.instructions.linkDesktopItems)
+                
+                Text(L10n.screenLinkNewDeviceDesktopWarning)
+                    .font(.compound.bodyMDSemibold)
+                    .foregroundStyle(.compound.textCriticalPrimary)
+                    .padding(16)
+                    .background(.compound.bgCriticalSubtle, in: .rect(cornerRadius: 14))
             }
         } bottomContent: {
             Button(L10n.screenLinkNewDeviceDesktopSubmit) {
@@ -315,8 +323,6 @@ private struct QRScannerViewOverlay: View {
 }
 
 // MARK: - Previews
-
-import MatrixRustSDKMocks
 
 struct QRCodeLoginScreen_Previews: PreviewProvider, TestablePreview {
     // Instructions

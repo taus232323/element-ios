@@ -11,31 +11,39 @@ import Foundation
 
 enum EncryptionResetScreenViewModelAction {
     case requestPassword(passwordPublisher: PassthroughSubject<String, Never>)
-    case requestOIDCAuthorisation(url: URL)
+    case requestOAuthAuthorisation(url: URL)
     case resetFinished
     case cancel
+    case logoutWithoutConfirmation
+}
+
+/// How the reset is presented, depending on what else the user could do to confirm their identity.
+enum EncryptionResetScreenMode {
+    /// The user has another verified device or a recovery key, so resetting is a last resort.
+    case hasConfirmationOptions
+    /// The user can only reset, and has encrypted rooms whose history will be lost.
+    case noOptionsWithEncryptedRooms
+    /// The user can only reset, and has no encrypted rooms to lose.
+    case noOptionsWithoutEncryptedRooms
+    
+    /// - Parameter hasEncryptedRooms: Only evaluated when the user has no confirmation options, as it just chooses between the no options modes.
+    init(hasConfirmationOptions: Bool, hasEncryptedRooms: @MainActor () async -> Bool) async {
+        self = if hasConfirmationOptions {
+            .hasConfirmationOptions
+        } else if await hasEncryptedRooms() {
+            .noOptionsWithEncryptedRooms
+        } else {
+            .noOptionsWithoutEncryptedRooms
+        }
+    }
+    
+    var isResetTheOnlyOption: Bool {
+        self != .hasConfirmationOptions
+    }
 }
 
 struct EncryptionResetScreenViewState: BindableState {
-    private let listItem3AttributedText = {
-        let boldPlaceholder = "{bold}"
-        var finalString = AttributedString(L10n.screenCreateNewRecoveryKeyListItem3(boldPlaceholder))
-        var boldString = AttributedString(L10n.screenCreateNewRecoveryKeyListItem3ResetAll)
-        boldString.bold()
-        finalString.replace(boldPlaceholder, with: boldString)
-        return finalString
-    }()
-    
-    var listItems: [AttributedString] {
-        [
-            AttributedString(L10n.screenCreateNewRecoveryKeyListItem1(InfoPlistReader.main.productionAppName)),
-            AttributedString(L10n.screenCreateNewRecoveryKeyListItem2),
-            listItem3AttributedText,
-            AttributedString(L10n.screenCreateNewRecoveryKeyListItem4),
-            AttributedString(L10n.screenCreateNewRecoveryKeyListItem5)
-        ]
-    }
-
+    let mode: EncryptionResetScreenMode
     var bindings: EncryptionResetScreenViewStateBindings
 }
 
@@ -46,4 +54,5 @@ struct EncryptionResetScreenViewStateBindings {
 enum EncryptionResetScreenViewAction {
     case reset
     case cancel
+    case signOut
 }

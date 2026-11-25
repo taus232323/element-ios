@@ -19,7 +19,7 @@ class KnockRequestsListScreenViewModel: KnockRequestsListScreenViewModelType, Kn
     var actionsPublisher: AnyPublisher<KnockRequestsListScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(roomProxy: JoinedRoomProxyProtocol,
          mediaProvider: MediaProviderProtocol,
          userIndicatorController: UserIndicatorControllerProtocol) {
@@ -88,7 +88,7 @@ class KnockRequestsListScreenViewModel: KnockRequestsListScreenViewModelType, Kn
         let eventID = request.eventID
         state.handledEventIDs.insert(eventID)
         
-        Task {
+        Task { [self] in
             switch await request.accept() {
             case .success:
                 hideLoadingIndicator()
@@ -112,7 +112,7 @@ class KnockRequestsListScreenViewModel: KnockRequestsListScreenViewModelType, Kn
         let eventID = request.eventID
         state.handledEventIDs.insert(eventID)
         
-        Task {
+        Task { [self] in
             switch await request.decline() {
             case .success:
                 hideLoadingIndicator()
@@ -136,7 +136,7 @@ class KnockRequestsListScreenViewModel: KnockRequestsListScreenViewModelType, Kn
         let eventID = request.eventID
         state.handledEventIDs.insert(eventID)
         
-        Task {
+        Task { [self] in
             switch await request.ban() {
             case .success:
                 hideLoadingIndicator()
@@ -161,7 +161,7 @@ class KnockRequestsListScreenViewModel: KnockRequestsListScreenViewModelType, Kn
         showLoadingIndicator(title: L10n.screenKnockRequestsListAcceptAllLoadingTitle)
         state.handledEventIDs.formUnion(Set(requests.map(\.eventID)))
         
-        Task {
+        Task { [self] in
             let failedIDs = await withTaskGroup(of: (String, Result<Void, KnockRequestProxyError>).self) { group in
                 for request in requests {
                     group.addTask {

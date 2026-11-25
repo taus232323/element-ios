@@ -13,7 +13,7 @@ final class ArcanaAppSettingsHookTests {
     @Test
     func configureSetsArcanaAuthenticationDefaults() {
         let appSettings = ArcanaAppSettingsHook().configure(AppSettings())
-
+        
         #expect(appSettings.accountProviders == [InfoPlistReader.main.arcanaAccountProvider])
         #expect(!appSettings.allowOtherAccountProviders)
         #expect(appSettings.pushGatewayBaseURL == URL(string: "https://arcana.celesteai.ru"))

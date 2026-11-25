@@ -16,19 +16,19 @@ struct LocationSharingScreen: View {
         switch context.viewState.interactionMode {
         case .picker:
             mainContent
-                .sheet(isPresented: .constant(true)) {
+                .locationSheet {
                     LocationPickerSheet(context: context)
                         .alert(item: $context.alertInfo)
                 }
         case .viewStatic:
             mainContent
-                .sheet(isPresented: .constant(true)) {
+                .locationSheet {
                     StaticLocationSheet(context: context)
                         .alert(item: $context.alertInfo)
                 }
         case .viewLive:
             mainContent
-                .sheet(isPresented: .constant(true)) {
+                .locationSheet {
                     LiveLocationSheet(context: context)
                         .alert(item: $context.alertInfo)
                 }
@@ -40,7 +40,7 @@ struct LocationSharingScreen: View {
     private var mainContent: some View {
         mapView
             .ignoresSafeArea(edges: .bottom)
-            .track(screen: context.viewState.interactionMode == .picker ? .LocationSend : .LocationView)
+            .track(screen: context.viewState.interactionMode.isPicker ? .LocationSend : .LocationView)
             .navigationTitle(L10n.screenViewLocationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
@@ -71,7 +71,7 @@ struct LocationSharingScreen: View {
     }
     
     private var mapSafeAreaEdges: Edge.Set {
-        context.viewState.interactionMode == .picker ? .horizontal : [.horizontal, .bottom]
+        context.viewState.interactionMode.isPicker ? .horizontal : [.horizontal, .bottom]
     }
     
     @ToolbarContentBuilder
@@ -97,7 +97,7 @@ struct LocationSharingScreen: View {
                 .tint(.compound.iconPrimary)
                 .padding(13)
         } else {
-            CompoundIcon(context.viewState.isSharingUserLocation ? \.locationNavigatorCentred : \.locationNavigator)
+            CompoundIcon(context.viewState.isMapCenteredOnUser ? \.locationNavigatorCentred : \.locationNavigator)
                 .foregroundStyle(.compound.iconPrimary)
                 .padding(13)
         }
@@ -122,12 +122,28 @@ struct LocationSharingScreen: View {
     }
 }
 
+private extension View {
+    /// The Mac hides a sheet's parent sheet while it's presented, taking the close button with it.
+    @ViewBuilder
+    func locationSheet<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
+        if ProcessInfo.processInfo.isiOSAppOnMac {
+            safeAreaInset(edge: .bottom, spacing: 0) {
+                content()
+                    .fixedSize(horizontal: false, vertical: true)
+                    .background(.compound.bgCanvasDefault)
+            }
+        } else {
+            sheet(isPresented: .constant(true), content: content)
+        }
+    }
+}
+
 // MARK: - Previews
 
 struct LocationSharingScreen_Previews: PreviewProvider, TestablePreview {
     static let viewModel = LocationSharingScreenViewModel.mock(type: .staticSenderLocation)
     
-    static let withoutLiveSharingViewModel = LocationSharingScreenViewModel.mock(type: .picker, liveLocationSharingEnabled: false)
+    static let withoutLiveSharingViewModel = LocationSharingScreenViewModel.mock(type: .pickerWithoutLiveLocationOption)
     
     static let pinViewModel = LocationSharingScreenViewModel.mock(type: .staticPinLocation)
     

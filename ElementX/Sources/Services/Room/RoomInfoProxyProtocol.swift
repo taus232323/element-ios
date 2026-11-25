@@ -9,7 +9,7 @@
 import Foundation
 import MatrixRustSDK
 
-protocol BaseRoomInfoProxyProtocol {
+nonisolated protocol BaseRoomInfoProxyProtocol: Sendable {
     var id: String { get }
     var displayName: String? { get }
     var topic: String? { get }
@@ -25,38 +25,51 @@ protocol BaseRoomInfoProxyProtocol {
 }
 
 // sourcery: AutoMockable
-protocol RoomInfoProxyProtocol: BaseRoomInfoProxyProtocol {
+nonisolated protocol RoomInfoProxyProtocol: BaseRoomInfoProxyProtocol {
     var id: String { get }
+    // periphery:ignore - might be useful to have
     var creators: [String] { get }
     var displayName: String? { get }
+    // periphery:ignore - might be useful to have
     var rawName: String? { get }
     var topic: String? { get }
     /// The room's avatar URL. Use this for editing and favour ``avatar`` for display.
     var avatarURL: URL? { get }
-
+    
     var isEncrypted: Bool { get }
     var isDirect: Bool { get }
+    var isDM: Bool { get }
     var isSpace: Bool { get }
     var isFavourite: Bool { get }
     
     var canonicalAlias: String? { get }
     var alternativeAliases: [String] { get }
     var membership: Membership { get }
+    // periphery:ignore - might be useful to have
     var inviter: RoomMemberProxyProtocol? { get }
     
     var activeMembersCount: Int { get }
+    // periphery:ignore - might be useful to have
     var invitedMembersCount: Int { get }
     var joinedMembersCount: Int { get }
+    // periphery:ignore - might be useful to have
     var highlightCount: Int { get }
+    // periphery:ignore - might be useful to have
     var notificationCount: Int { get }
+    // periphery:ignore - might be useful to have
     var cachedUserDefinedNotificationMode: RoomNotificationMode? { get }
     var hasRoomCall: Bool { get }
     var activeRoomCallIntent: CallIntent? { get }
     var activeRoomCallParticipants: [String] { get }
+    // periphery:ignore - might be useful to have
     var isMarkedUnread: Bool { get }
+    // periphery:ignore - might be useful to have
     var unreadMessagesCount: UInt { get }
+    // periphery:ignore - might be useful to have
     var unreadNotificationsCount: UInt { get }
+    // periphery:ignore - might be useful to have
     var unreadMentionsCount: UInt { get }
+    var fullyReadEventID: String? { get }
     var pinnedEventIDs: Set<String> { get }
     var joinRule: JoinRule? { get }
     var historyVisibility: RoomHistoryVisibility { get }
@@ -76,10 +89,15 @@ extension BaseRoomInfoProxyProtocol {
         }
         
         if isDirect, avatarURL == nil, heroes.count == 1 {
-            return .heroes(heroes.map(UserProfileProxy.init))
+            return .heroes(heroes.map(UserProfile.init))
         }
         
         return .room(id: id, name: displayName, avatarURL: avatarURL)
+    }
+    
+    var statusEmoji: Character? {
+        guard case let .heroes(heroes) = avatar else { return nil }
+        return heroes.first?.status.displayed?.emoji
     }
 }
 
@@ -105,6 +123,11 @@ extension RoomInfoProxyProtocol {
         isDirect && activeMembersCount == 1
     }
     
+    /// The room's name, falling back to its identifier when it doesn't have one.
+    var displayNameOrID: String {
+        displayName ?? id
+    }
+    
     /// Find the first alias that matches the given homeserver
     /// - Parameters:
     ///   - serverName: the homserver in question
@@ -114,12 +137,12 @@ extension RoomInfoProxyProtocol {
         
         // Check if the canonical alias matches the homeserver
         if let canonicalAlias,
-           canonicalAlias.range(of: serverName) != nil {
+           canonicalAlias.contains(serverName) {
             return canonicalAlias
         }
         
         // Otherwise check the alternative aliases and return the first one that matches
-        if let matchingAlternativeAlias = alternativeAliases.filter({ $0.range(of: serverName) != nil }).first {
+        if let matchingAlternativeAlias = alternativeAliases.first(where: { $0.contains(serverName) }) {
             return matchingAlternativeAlias
         }
         
@@ -136,8 +159,7 @@ extension RoomInfoProxyProtocol {
         return alternativeAliases.first
     }
     
-    /// If present, the state of history sharing in this room. This *does not* consider the `enableKeyShareOnInvite`
-    /// feature flag, so consumers should be careful to check the flag is true before utilising this property.
+    /// If present, the state of history sharing in this room.
     var historySharingState: RoomHistorySharingState? {
         guard isEncrypted else {
             return nil

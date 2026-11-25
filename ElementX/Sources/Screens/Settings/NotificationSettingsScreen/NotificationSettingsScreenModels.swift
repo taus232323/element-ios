@@ -26,9 +26,13 @@ struct NotificationSettingsScreenViewState: BindableState {
     var showSystemNotificationsAlert: Bool {
         bindings.enableNotifications && isUserPermissionGranted == false
     }
-
+    
     var settings: NotificationSettingsScreenSettings?
     var applyingChange = false
+    var selectedAlertTone: NotificationTone
+    var availableCustomTones: [NotificationTone]
+    
+    let customToneSelectionEnabled: Bool
 }
 
 struct NotificationSettingsScreenViewStateBindings {
@@ -36,7 +40,10 @@ struct NotificationSettingsScreenViewStateBindings {
     var roomMentionsEnabled = false
     var callsEnabled = false
     var invitationsEnabled = false
+    var showAllRoomListActivity = true
     var alertInfo: AlertInfo<NotificationSettingsScreenErrorType>?
+    var shouldShowAlertSounds = false
+    var shouldShowCustomAlertTonePicker = false
 }
 
 struct NotificationSettingsScreenSettings {
@@ -87,8 +94,12 @@ enum NotificationSettingsScreenViewAction {
     case roomMentionChanged
     case callsChanged
     case invitationsChanged
+    case showAllRoomListActivityChanged
     case close
     case fixConfigurationMismatchTapped
+    case selectAlertTone(NotificationTone)
+    case addedCustomAlertTone(Result<URL, Error>)
+    case deleteCustomAlertTones([NotificationTone])
 }
 
 enum NotificationSettingsScreenErrorType: Hashable {

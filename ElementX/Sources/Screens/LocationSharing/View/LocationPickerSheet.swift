@@ -16,7 +16,7 @@ struct LocationPickerSheet: View {
     /// if the content doesn't meet a certain size
     /// additional insets are added.
     private var additionalHeight: CGFloat {
-        context.viewState.showLiveLocationSharingButton ? 0 : 28
+        context.viewState.interactionMode.shouldShowLiveLocationOption ? 0 : 28
     }
     
     var body: some View {
@@ -26,6 +26,7 @@ struct LocationPickerSheet: View {
                 .font(.compound.bodyLGSemibold)
                 .padding(.top, 29)
                 .padding(.bottom, 25)
+            
             Button {
                 context.send(viewAction: .selectLocation)
             } label: {
@@ -39,7 +40,8 @@ struct LocationPickerSheet: View {
                                         iconColor: .compound.iconSecondary)
                 }
             }
-            if context.viewState.showLiveLocationSharingButton {
+            
+            if context.viewState.interactionMode.shouldShowLiveLocationOption {
                 Button {
                     context.send(viewAction: .startLiveLocation)
                 } label: {

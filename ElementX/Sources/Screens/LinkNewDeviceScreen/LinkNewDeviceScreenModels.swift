@@ -8,15 +8,22 @@
 import Foundation
 
 enum LinkNewDeviceScreenViewModelAction {
-    case linkMobileDevice(LinkNewDeviceService.LinkMobileProgressPublisher)
+    case linkMobileDevice(LinkNewDeviceService.LinkMobileOperation)
     case linkDesktopComputer
+    case verifyWithAppLockPIN(CheckedContinuation<Bool, Never>)
     case dismiss
 }
 
 struct LinkNewDeviceScreenViewState: BindableState {
-    enum Mode: Equatable {
+    nonisolated enum Mode: Equatable {
+        enum ReadyState: Equatable {
+            case idle
+            case verifyingDeviceOwner
+            case generatingCode
+        }
+        
         case loading
-        case readyToLink(isGeneratingCode: Bool)
+        case readyToLink(ReadyState)
         case error(QRCodeLoginState.ErrorState)
     }
     

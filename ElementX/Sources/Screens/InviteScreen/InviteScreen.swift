@@ -14,29 +14,29 @@ struct InviteScreen: View {
     let webURL: URL
     let clientProxy: ClientProxyProtocol?
     let onOpenRoom: (String) -> Void
-
+    
     @Environment(\.dismiss) private var dismiss
     @State private var loadState: LoadState = .loading
     @State private var invite: ArcanaInvitePreview?
     @State private var errorMessage: String?
     @State private var isAccepting = false
     @State private var acceptErrorMessage: String?
-
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
                 AuthenticationStartLogo(size: 104, hideBrandChrome: false, isOnGradient: false)
-
+                
                 VStack(spacing: 12) {
                     Text(UntranslatedL10n.screenArcanaInviteTitleIos)
                         .font(.title2.weight(.semibold))
-
+                    
                     Text(UntranslatedL10n.screenArcanaInviteDescriptionIos)
                         .font(.body)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
                 }
-
+                
                 switch loadState {
                 case .loading:
                     ProgressView()
@@ -72,25 +72,25 @@ struct InviteScreen: View {
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.secondary)
                 }
-
+                
                 VStack(spacing: 12) {
                     Button {
                         guard let invite else {
                             webURL.openInSystemBrowser()
                             return
                         }
-
+                        
                         if invite.used == true, let roomID = invite.roomId {
                             dismiss()
                             onOpenRoom(roomID)
                             return
                         }
-
+                        
                         if clientProxy == nil {
                             webURL.openInSystemBrowser()
                             return
                         }
-
+                        
                         Task { await acceptInvite() }
                     } label: {
                         Text(primaryButtonTitle)
@@ -98,7 +98,7 @@ struct InviteScreen: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isAccepting)
-
+                    
                     Button {
                         webURL.openInSystemBrowser()
                     } label: {
@@ -106,7 +106,7 @@ struct InviteScreen: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
-
+                    
                     Button {
                         dismiss()
                     } label: {
@@ -125,7 +125,7 @@ struct InviteScreen: View {
             await loadInvite()
         }
     }
-
+    
     private var primaryButtonTitle: String {
         guard let invite else {
             return UntranslatedL10n.actionOpenBrowserPageIos
@@ -138,7 +138,7 @@ struct InviteScreen: View {
         }
         return UntranslatedL10n.actionOpenBrowserPageIos
     }
-
+    
     @MainActor
     private func loadInvite() async {
         loadState = .loading
@@ -153,17 +153,14 @@ struct InviteScreen: View {
             loadState = .failed
         }
     }
-
+    
     @MainActor
     private func acceptInvite() async {
         guard let clientProxy else {
             webURL.openInSystemBrowser()
             return
         }
-        guard let invite else {
-            return
-        }
-        guard !isAccepting else {
+        guard let invite, !isAccepting else {
             return
         }
         if let inviterUserId = invite.inviterUserId,
@@ -171,7 +168,7 @@ struct InviteScreen: View {
             acceptErrorMessage = UntranslatedL10n.screenArcanaInviteOwnInviteIos
             return
         }
-
+        
         isAccepting = true
         acceptErrorMessage = nil
         do {
@@ -185,7 +182,7 @@ struct InviteScreen: View {
             MXLog.error("Failed accepting Arcana invite with error: \(error)")
         }
     }
-
+    
     private func infoCard(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
@@ -218,27 +215,27 @@ private struct ArcanaInvitePreview: Decodable {
     let webURL: String?
     let expiresAt: String?
     let used: Bool?
-
+    
     var inviterDisplayName: String? {
         inviter?.displayName
     }
-
+    
     var inviterUserId: String? {
         inviter?.userId
     }
-
+    
     var targetDisplayName: String? {
         target?.displayName
     }
-
+    
     var targetUserId: String? {
         target?.userId
     }
-
+    
     var roomName: String? {
         room?.roomName
     }
-
+    
     var roomId: String? {
         room?.roomId
     }
@@ -258,14 +255,14 @@ private struct ArcanaInviteRoom: Decodable {
 
 private enum ArcanaInviteClient {
     private static let decoder = JSONDecoder()
-
+    
     private static func baseURL() throws -> URL {
         guard let url = URL(string: "https://\(InfoPlistReader.main.arcanaInviteWebHost)") else {
             throw URLError(.badURL)
         }
         return url
     }
-
+    
     static func loadInvite(token: String) async throws -> ArcanaInvitePreview {
         let url = try baseURL()
             .appendingPathComponent("api")
@@ -277,14 +274,14 @@ private enum ArcanaInviteClient {
         }
         return try decoder.decode(ArcanaInvitePreview.self, from: data)
     }
-
+    
     static func acceptInvite(token: String, accessToken: String) async throws -> String {
         let url = try baseURL()
             .appendingPathComponent("api")
             .appendingPathComponent("invite")
             .appendingPathComponent(token)
             .appendingPathComponent("accept")
-
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -299,7 +296,7 @@ private enum ArcanaInviteClient {
         let payload = try decoder.decode(ArcanaInviteAcceptResponse.self, from: data)
         return payload.roomID
     }
-
+    
     static func errorMessage(from error: Error) -> String {
         if case let ArcanaInviteClientError.httpError(_, body) = error,
            let body,
@@ -324,7 +321,7 @@ private struct ArcanaInviteAcceptResponse: Decodable {
     let roomID: String
     let isNew: Bool?
     let openRoom: Bool?
-
+    
     enum CodingKeys: String, CodingKey {
         case roomID = "roomId"
         case isNew

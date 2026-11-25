@@ -29,7 +29,7 @@ struct CameraPicker: UIViewControllerRepresentable {
         self.userIndicatorController = userIndicatorController
         self.callback = callback
     }
-
+    
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let imagePicker = UIImagePickerController()
         imagePicker.sourceType = .camera
@@ -86,6 +86,10 @@ struct CameraPicker: UIViewControllerRepresentable {
             } else {
                 cameraPicker.callback(.error(.invalidOriginalImage))
             }
+        }
+        
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            cameraPicker.callback(.cancel)
         }
     }
 }

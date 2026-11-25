@@ -13,16 +13,17 @@ import Testing
 struct UserProfileScreenViewModelTests {
     @Test
     func initialState() async throws {
-        let profile = UserProfileProxy(userID: "@alice:matrix.org", displayName: "Alice", avatarURL: .mockMXCAvatar)
+        let userIndicatorController = UserIndicatorControllerMock()
+        
+        let profile = UserProfile(userID: "@alice:matrix.org", displayName: "Alice", avatarURL: .mockMXCAvatar)
         let clientProxy = ClientProxyMock(.init())
         clientProxy.profileForReturnValue = .success(profile)
         
-        let viewModel = UserProfileScreenViewModel(userID: profile.userID,
+        let viewModel = UserProfileScreenViewModel(userID: profile.id,
                                                    isPresentedModally: false,
                                                    userSession: UserSessionMock(.init(clientProxy: clientProxy)),
-                                                   userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                                   analytics: ServiceLocator.shared.analytics,
-                                                   appSettings: ServiceLocator.shared.settings)
+                                                   analytics: AnalyticsServiceMock(.init()),
+                                                   userIndicatorController: userIndicatorController)
         let context = viewModel.context
         
         let waitForMemberToLoad = deferFulfillment(context.observe(\.viewState.userProfile)) { $0 != nil }
@@ -35,16 +36,17 @@ struct UserProfileScreenViewModelTests {
     
     @Test
     func initialStateAccountOwner() async throws {
-        let profile = UserProfileProxy(userID: RoomMemberProxyMock.mockMe.userID, displayName: "Me", avatarURL: .mockMXCAvatar)
+        let userIndicatorController = UserIndicatorControllerMock()
+        
+        let profile = UserProfile(userID: RoomMemberProxyMock.mockMe.userID, displayName: "Me", avatarURL: .mockMXCAvatar)
         let clientProxy = ClientProxyMock(.init())
         clientProxy.profileForReturnValue = .success(profile)
         
-        let viewModel = UserProfileScreenViewModel(userID: profile.userID,
+        let viewModel = UserProfileScreenViewModel(userID: profile.id,
                                                    isPresentedModally: false,
                                                    userSession: UserSessionMock(.init(clientProxy: clientProxy)),
-                                                   userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                                   analytics: ServiceLocator.shared.analytics,
-                                                   appSettings: ServiceLocator.shared.settings)
+                                                   analytics: AnalyticsServiceMock(.init()),
+                                                   userIndicatorController: userIndicatorController)
         let context = viewModel.context
         
         let waitForMemberToLoad = deferFulfillment(context.observe(\.viewState.userProfile)) { $0 != nil }
@@ -57,28 +59,27 @@ struct UserProfileScreenViewModelTests {
     
     @Test
     func startingDmWithUnknownUserFetchesIdentity() async throws {
-        ServiceLocator.shared.settings.enableKeyShareOnInvite = true
+        let userIndicatorController = UserIndicatorControllerMock()
         
-        let profile = UserProfileProxy.mockAlice
+        let profile = UserProfile.mockAlice
         
         let clientProxy = ClientProxyMock(.init())
         clientProxy.directRoomForUserIDReturnValue = .success(nil)
         clientProxy.userIdentityForFallBackToServerReturnValue = .success(nil)
         
-        let viewModel = UserProfileScreenViewModel(userID: profile.userID,
+        let viewModel = UserProfileScreenViewModel(userID: profile.id,
                                                    isPresentedModally: false,
                                                    userSession: UserSessionMock(.init(clientProxy: clientProxy)),
-                                                   userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                                   analytics: ServiceLocator.shared.analytics,
-                                                   appSettings: ServiceLocator.shared.settings)
+                                                   analytics: AnalyticsServiceMock(.init()),
+                                                   userIndicatorController: userIndicatorController)
         
         let context = viewModel.context
         
         let waitForMemberToLoad = deferFulfillment(context.observe(\.viewState.userProfile)) { $0 != nil }
         try await waitForMemberToLoad.fulfill()
         
-        let deferred = deferFulfillment(context.observe(\.viewState.bindings).compactMap(\.inviteConfirmationUser), timeout: .seconds(5)) { $0.isUnknown }
-
+        let deferred = deferFulfillment(context.observe(\.viewState.bindings.inviteConfirmationUser), timeout: .seconds(5)) { $0?.isUnknown == true }
+        
         context.send(viewAction: .openDirectChat)
         try await deferred.fulfill()
     }

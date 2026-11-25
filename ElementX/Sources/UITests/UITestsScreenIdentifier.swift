@@ -25,7 +25,9 @@ enum UITestsScreenIdentifier: String {
     case encryptionSettings
     case encryptionSettingsOutOfSync
     case encryptionReset
+    case encryptionResetNoOptions
     case linkNewDevice
+    case linkNewDeviceWithAppLockPIN
     case roomLayoutBottom
     case roomLayoutMiddle
     case roomLayoutTop
@@ -41,6 +43,8 @@ enum UITestsScreenIdentifier: String {
     case roomWithDisclosedPolls
     case roomWithOutgoingPolls
     case roomWithUndisclosedPolls
+    case rootFlow
+    case rootFlowSignedIn
     case serverSelection
     case sessionVerification
     case startChatFlow

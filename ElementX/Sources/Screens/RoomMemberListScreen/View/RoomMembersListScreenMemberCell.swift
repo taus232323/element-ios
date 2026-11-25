@@ -13,7 +13,7 @@ struct RoomMembersListScreenMemberCell: View {
     let listEntry: RoomMemberListScreenEntry
     let isLast: Bool
     let context: RoomMembersListScreenViewModel.Context
-
+    
     var body: some View {
         Button {
             context.send(viewAction: .selectMember(listEntry.member))
@@ -28,10 +28,16 @@ struct RoomMembersListScreenMemberCell: View {
                 
                 HStack(alignment: .center, spacing: 4) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(title)
-                            .font(.compound.bodyLG)
-                            .foregroundColor(.compound.textPrimary)
-                            .lineLimit(1)
+                        HStack(spacing: 8) {
+                            Text(title)
+                                .lineLimit(1)
+                            
+                            if let statusEmoji {
+                                Text(String(statusEmoji))
+                            }
+                        }
+                        .font(.compound.bodyLG)
+                        .foregroundColor(.compound.textPrimary)
                         
                         if let subtitle {
                             Text(subtitle)
@@ -49,6 +55,12 @@ struct RoomMembersListScreenMemberCell: View {
                             .font(.compound.bodyLG)
                             .foregroundStyle(.compound.textSecondary)
                     }
+                    
+                    if listEntry.isActiveRoomCallParticipant {
+                        CompoundIcon(\.videoCallSolid, size: .small, relativeTo: .compound.bodyLG)
+                            .foregroundStyle(.compound.iconAccentPrimary)
+                            .accessibilityLabel(L10n.commonOnACall)
+                    }
                 }
                 .overlay(alignment: .bottom) {
                     if !isLast {
@@ -62,6 +74,7 @@ struct RoomMembersListScreenMemberCell: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
         }
+        .accessibilityIdentifier(A11yIdentifiers.roomMembersListScreen.member(listEntry.member.id))
     }
     
     var role: String? {
@@ -84,6 +97,10 @@ struct RoomMembersListScreenMemberCell: View {
         return listEntry.member.name ?? listEntry.member.id.matrixDisplayNameWithAt
     }
     
+    var statusEmoji: Character? {
+        listEntry.member.isBanned ? nil : listEntry.member.status.displayed?.emoji
+    }
+    
     var subtitle: String? {
         listEntry.member.isBanned ? nil : listEntry.member.id.matrixDisplayNameWithAt
     }
@@ -101,10 +118,15 @@ struct RoomMembersListMemberCell_Previews: PreviewProvider, TestablePreview {
     static let members: [RoomMemberListScreenEntry] = [
         .init(member: .init(withProxy: RoomMemberProxyMock.mockAlice),
               verificationState: .notVerified),
+        .init(member: .init(withProxy: RoomMemberProxyMock.mockErin),
+              verificationState: .notVerified),
         .init(member: .init(withProxy: RoomMemberProxyMock.mockAdmin),
               verificationState: .verified),
         .init(member: .init(withProxy: RoomMemberProxyMock.mockModerator),
               verificationState: .verificationViolation),
+        .init(member: .init(withProxy: RoomMemberProxyMock.mockFrank),
+              verificationState: .notVerified,
+              isActiveRoomCallParticipant: true),
         .init(member: .init(withProxy: RoomMemberProxyMock(with: .init(userID: "@nodisplayname:matrix.org",
                                                                        membership: .join))),
         verificationState: .notVerified),
@@ -131,8 +153,8 @@ struct RoomMembersListMemberCell_Previews: PreviewProvider, TestablePreview {
     
     static let viewModel = RoomMembersListScreenViewModel(userSession: UserSessionMock(.init()),
                                                           roomProxy: JoinedRoomProxyMock(.init(name: "Some room", members: [])),
-                                                          userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                                          analytics: ServiceLocator.shared.analytics)
+                                                          userIndicatorController: UserIndicatorControllerMock(),
+                                                          analytics: AnalyticsServiceMock(.init()))
     static var previews: some View {
         VStack(spacing: 0) {
             Section("Invited/Joined") {

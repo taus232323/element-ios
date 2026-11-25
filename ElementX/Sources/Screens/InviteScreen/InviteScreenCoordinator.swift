@@ -17,11 +17,11 @@ struct InviteScreenCoordinatorParameters {
 
 final class InviteScreenCoordinator: CoordinatorProtocol {
     private let parameters: InviteScreenCoordinatorParameters
-
+    
     init(parameters: InviteScreenCoordinatorParameters) {
         self.parameters = parameters
     }
-
+    
     func toPresentable() -> AnyView {
         AnyView(InviteScreen(token: parameters.token,
                              webURL: parameters.webURL,

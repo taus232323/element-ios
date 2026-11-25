@@ -8,11 +8,13 @@
 
 import CoreLocation
 import Foundation
+import MapLibreInterface
 import MatrixRustSDK
 
 enum LocationSharingViewAlert: Hashable {
     case missingAuthorization
     case missingAlwaysAuthorization
+    case missingLiveLocationSharingPermission
     case liveLocationDisclaimer
     case liveLocationDurationSelection
     case mapError(MapLibreError)
@@ -24,22 +26,34 @@ enum LocationSharingScreenViewModelAction {
 }
 
 enum LocationSharingInteractionMode: Hashable {
-    case picker
+    case picker(shouldShowLiveLocationOption: Bool)
     case viewStatic(StaticLocationData)
     case viewLive(sender: TimelineItemSender?, initialLiveLocationShare: LiveLocationShare?)
+    
+    var isPicker: Bool {
+        if case .picker = self {
+            return true
+        }
+        return false
+    }
+    
+    var shouldShowLiveLocationOption: Bool {
+        if case .picker(let shouldShowLiveLocationOption) = self {
+            return shouldShowLiveLocationOption
+        }
+        return false
+    }
 }
 
 struct LocationSharingScreenViewState: BindableState {
     init(interactionMode: LocationSharingInteractionMode,
          mapURLBuilder: MapTilerURLBuilderProtocol,
-         showLiveLocationSharingButton: Bool,
          ownUserID: String) {
         self.interactionMode = interactionMode
         self.mapURLBuilder = mapURLBuilder
-        self.showLiveLocationSharingButton = showLiveLocationSharingButton
         self.ownUserID = ownUserID
         
-        let initialProfile: UserProfileProxy = switch interactionMode {
+        let initialProfile: UserProfile = switch interactionMode {
         case .viewStatic(let locationData):
             .init(sender: locationData.sender)
         case .viewLive(let sender, _):
@@ -51,7 +65,7 @@ struct LocationSharingScreenViewState: BindableState {
         case .picker:
             .init(userID: ownUserID)
         }
-        userProfiles = [initialProfile.userID: initialProfile]
+        userProfiles = [initialProfile.id: initialProfile]
         
         if case .viewLive(_, let initialLiveLocationShare) = interactionMode, let initialLiveLocationShare {
             liveLocationShares = [initialLiveLocationShare]
@@ -62,14 +76,15 @@ struct LocationSharingScreenViewState: BindableState {
         case .viewStatic, .viewLive: .show
         }
     }
-
+    
     let interactionMode: LocationSharingInteractionMode
     let mapURLBuilder: MapTilerURLBuilderProtocol
-    let showLiveLocationSharingButton: Bool
     let ownUserID: String
-    var userProfiles: [String: UserProfileProxy]
+    var userProfiles: [String: UserProfile]
     var liveLocationShares: [LiveLocationShare] = []
     var isStoppingLiveLocation = false
+    /// Whether this device has an active live location sharing session in the room.
+    var isSharingLiveLocationOnThisDevice = false
     
     var annotations: [LocationAnnotation] {
         switch interactionMode {
@@ -85,12 +100,14 @@ struct LocationSharingScreenViewState: BindableState {
         case .viewLive:
             return liveLocationShares.compactMap { share in
                 guard let geoURI = share.geoURI else { return nil }
-                if share.userID == ownUserID, isStoppingLiveLocation { return nil }
+                if share.userID == ownUserID, isStoppingLiveLocation {
+                    return nil
+                }
                 
-                let profile = userProfiles[share.userID] ?? UserProfileProxy(userID: share.userID)
+                let profile = userProfiles[share.userID] ?? UserProfile(userID: share.userID)
                 let kind = LocationMarkerKind.liveUser(profile)
                 let coordinate = CLLocationCoordinate2D(latitude: geoURI.latitude, longitude: geoURI.longitude)
-                return LocationAnnotation(id: profile.userID, coordinate: coordinate, kind: kind)
+                return LocationAnnotation(id: profile.id, coordinate: coordinate, kind: kind)
             }
         case .picker:
             return []
@@ -101,11 +118,30 @@ struct LocationSharingScreenViewState: BindableState {
         userID == ownUserID
     }
     
+    /// Whether the own user has an active live location share in the room, from any of their devices.
+    var isOwnUserSharingLiveLocation: Bool {
+        liveLocationShares.contains { isOwnUser($0.userID) }
+    }
+    
+    /// Whether the own user's live location share in the room originates from this very device,
+    /// requiring both the room's share and this device's sharing session to be active.
+    var isOwnUserSharingLiveLocationOnThisDevice: Bool {
+        isOwnUserSharingLiveLocation && isSharingLiveLocationOnThisDevice
+    }
+    
     var bindings = LocationSharingScreenBindings(showsUserLocationMode: .hide)
- 
+    
     /// Indicates whether the user is sharing his current location
     var isSharingUserLocation: Bool {
         bindings.isLocationAuthorized == true && bindings.showsUserLocationMode == .showAndFollow
+    }
+    
+    /// Whether the map is centered on the user, following either their dot or their own live marker.
+    var isMapCenteredOnUser: Bool {
+        if case .hideAndFollowMarker = bindings.showsUserLocationMode {
+            return true
+        }
+        return isSharingUserLocation
     }
     
     var initialMapCenter: CLLocationCoordinate2D {
@@ -131,14 +167,19 @@ struct LocationSharingScreenViewState: BindableState {
         if case .picker = interactionMode {
             // In picker mode permissions are requested immediately so returns true
             // if the user's location has not yet been determined while location permissions are given or not yet set
-            !bindings.hasLoadedUserLocation && bindings.isLocationAuthorized != false
-        } else {
-            // In other modes permissions are requested only if the center to user button is tapped
-            // So we only display the loader if the user's location has not yet been determined while location permissions are given.
-            !bindings.hasLoadedUserLocation && bindings.isLocationAuthorized == true
+            return !bindings.hasLoadedUserLocation && bindings.isLocationAuthorized != false
         }
+        
+        // The dot is hidden in favour of the own user's marker, there is no location to wait for.
+        if case .viewLive = interactionMode, isOwnUserSharingLiveLocationOnThisDevice {
+            return false
+        }
+        
+        // In other modes permissions are requested only if the center to user button is tapped
+        // So we only display the loader if the user's location has not yet been determined while location permissions are given.
+        return !bindings.hasLoadedUserLocation && bindings.isLocationAuthorized == true
     }
-
+    
     var zoomLevel: Double {
         15.0
     }
@@ -184,7 +225,7 @@ struct LocationSharingScreenBindings {
     
     /// Information describing the currently displayed alert.
     var alertInfo: AlertInfo<LocationSharingViewAlert>?
-
+    
     var sharedAnnotation: LocationAnnotation?
 }
 
@@ -216,6 +257,10 @@ extension AlertInfo where T == LocationSharingViewAlert {
                       message: L10n.dialogPermissionLiveLocationDescriptionIos(InfoPlistReader.main.bundleDisplayName),
                       primaryButton: primaryButton,
                       secondaryButton: secondaryButton)
+        case .missingLiveLocationSharingPermission:
+            self.init(id: alertID,
+                      title: L10n.screenShareLocationLiveLocationMissingPermissions,
+                      primaryButton: primaryButton)
         case .liveLocationDisclaimer:
             self.init(id: alertID,
                       title: L10n.screenShareLocationLiveLocationDisclaimerTitle,
@@ -243,8 +288,8 @@ extension AlertInfo where T == LocationSharingViewAlert {
 
 enum LocationMarkerKind: Equatable {
     case pin
-    case staticUser(UserProfileProxy)
-    case liveUser(UserProfileProxy)
+    case staticUser(UserProfile)
+    case liveUser(UserProfile)
     case placeholder
     
     var id: String {
@@ -252,7 +297,7 @@ enum LocationMarkerKind: Equatable {
         case .pin, .placeholder:
             UUID().uuidString
         case .staticUser(let profile), .liveUser(let profile):
-            profile.userID
+            profile.id
         }
     }
     
@@ -265,7 +310,7 @@ enum LocationMarkerKind: Equatable {
         }
     }
     
-    var userProfile: UserProfileProxy? {
+    var userProfile: UserProfile? {
         switch self {
         case .pin, .placeholder:
             nil

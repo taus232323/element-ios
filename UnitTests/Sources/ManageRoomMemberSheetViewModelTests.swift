@@ -32,8 +32,8 @@ struct ManageRoomMemberSheetViewModelTests {
                                                    permissions: .init(canKick: true, canBan: true, ownPowerLevel: RoomMemberProxyMock.mockAdmin.powerLevel),
                                                    roomProxy: roomProxy,
                                                    userIndicatorController: UserIndicatorControllerMock(),
-                                                   analyticsService: ServiceLocator.shared.analytics,
-                                                   mediaProvider: MediaProviderMock(configuration: .init()))
+                                                   analyticsService: AnalyticsServiceMock(.init()),
+                                                   mediaProvider: MediaProviderMock(.init()))
         
         let deferred = deferFulfillment(context.observe(\.viewState.bindings.alertInfo)) { $0 != nil }
         let deferredAction = deferFulfillment(viewModel.actions) { action in
@@ -64,8 +64,8 @@ struct ManageRoomMemberSheetViewModelTests {
                                                    permissions: .init(canKick: true, canBan: true, ownPowerLevel: RoomMemberProxyMock.mockAdmin.powerLevel),
                                                    roomProxy: roomProxy,
                                                    userIndicatorController: UserIndicatorControllerMock(),
-                                                   analyticsService: ServiceLocator.shared.analytics,
-                                                   mediaProvider: MediaProviderMock(configuration: .init()))
+                                                   analyticsService: AnalyticsServiceMock(.init()),
+                                                   mediaProvider: MediaProviderMock(.init()))
         
         let deferred = deferFulfillment(context.observe(\.viewState.bindings.alertInfo)) { $0 != nil }
         context.send(viewAction: .ban)
@@ -87,8 +87,8 @@ struct ManageRoomMemberSheetViewModelTests {
                                                    permissions: .init(canKick: true, canBan: true, ownPowerLevel: RoomMemberProxyMock.mockAdmin.powerLevel),
                                                    roomProxy: roomProxy,
                                                    userIndicatorController: UserIndicatorControllerMock(),
-                                                   analyticsService: ServiceLocator.shared.analytics,
-                                                   mediaProvider: MediaProviderMock(configuration: .init()))
+                                                   analyticsService: AnalyticsServiceMock(.init()),
+                                                   mediaProvider: MediaProviderMock(.init()))
         
         let deferredAction = deferFulfillment(viewModel.actions) { action in
             action == .dismiss(shouldShowDetails: true)
@@ -96,5 +96,23 @@ struct ManageRoomMemberSheetViewModelTests {
         context.send(viewAction: .displayDetails)
         try await deferredAction.fulfill()
         #expect(context.alertInfo == nil)
+    }
+    
+    @Test
+    mutating func displayAvatar() async throws {
+        let member = RoomMemberDetails(withProxy: RoomMemberProxyMock.mockDan)
+        viewModel = ManageRoomMemberSheetViewModel(memberDetails: .memberDetails(roomMember: member),
+                                                   permissions: .init(canKick: true, canBan: true, ownPowerLevel: RoomMemberProxyMock.mockAdmin.powerLevel),
+                                                   roomProxy: JoinedRoomProxyMock(.init()),
+                                                   userIndicatorController: UserIndicatorControllerMock(),
+                                                   analyticsService: AnalyticsServiceMock(.init()),
+                                                   mediaProvider: MediaProviderMock(.init()))
+        
+        let avatarURL = try #require(member.avatarURL)
+        let deferred = deferFulfillment(context.observe(\.viewState.bindings.mediaPreviewItem)) { $0 != nil }
+        context.send(viewAction: .displayAvatar(avatarURL))
+        try await deferred.fulfill()
+        
+        #expect(context.mediaPreviewItem?.previewItemTitle == member.name)
     }
 }

@@ -27,6 +27,7 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
     
     init(authenticationService: AuthenticationServiceProtocol,
          provisioningParameters: AccountProvisioningParameters?,
+         isAddingAccount: Bool,
          isBugReportServiceEnabled: Bool,
          appSettings: AppSettings,
          mediaProvider: MediaProviderProtocol?,
@@ -36,8 +37,10 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
         self.appSettings = appSettings
         self.userIndicatorController = userIndicatorController
         canReportProblem = isBugReportServiceEnabled
-
-        let initialViewState = AuthenticationStartScreenViewState(showCreateAccountButton: appSettings.showCreateAccountButton,
+        
+        let mode: AuthenticationStartScreenViewState.Mode = isAddingAccount ? .addAccount : .welcome
+        let initialViewState = AuthenticationStartScreenViewState(mode: mode,
+                                                                  showCreateAccountButton: appSettings.showCreateAccountButton,
                                                                   hideBrandChrome: appSettings.hideBrandChrome,
                                                                   legalNotice: Self.makeLegalNotice(termsURL: appSettings.acceptableUseURL,
                                                                                                     privacyURL: appSettings.privacyURL))
@@ -57,6 +60,8 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
             Task { await login() }
         case .register:
             Task { await register() }
+        case .cancelAddingAccount:
+            actionsSubject.send(.cancelAddingAccount)
         }
     }
     
@@ -81,11 +86,16 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
         return notice
     }
     
+    /// The only homeserver Arcana allows. Users cannot pick another server.
+    private var fixedServerNameOrBaseURL: String {
+        appSettings.accountProviders[0].serverNameOrBaseURL
+    }
+    
     private func login() async {
         startLoading()
         defer { stopLoading() }
         
-        if case .failure = await authenticationService.configure(for: appSettings.accountProviders[0], flow: .login) {
+        if case .failure = await authenticationService.configure(for: fixedServerNameOrBaseURL, flow: .login) {
             displayError()
             return
         }
@@ -99,7 +109,7 @@ class AuthenticationStartScreenViewModel: AuthenticationStartScreenViewModelType
         
         // Native registration reads the homeserver URL from the configured client.
         // Without this step, startNativeRegistration fails with `.failedLoggingIn`.
-        if case .failure = await authenticationService.configure(for: appSettings.accountProviders[0], flow: .register) {
+        if case .failure = await authenticationService.configure(for: fixedServerNameOrBaseURL, flow: .register) {
             displayError()
             return
         }

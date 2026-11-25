@@ -9,7 +9,8 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-extension String {
+nonisolated extension String {
+    // periphery:ignore - might be useful to have
     /// Returns the string as an `AttributedString` with the specified character tinted in a different color.
     /// - Parameters:
     ///   - character: The character to be tinted.
@@ -50,23 +51,7 @@ extension String {
     }
 }
 
-extension String {
-    static func generateBreakableWhitespaceEnd(whitespaceCount: Int, layoutDirection: LayoutDirection) -> String {
-        guard whitespaceCount > 0 else {
-            return ""
-        }
-
-        var whiteSpaces = layoutDirection.isolateLayoutUnicodeString
-
-        // fixed size whitespace of size 1/3 em per character
-        whiteSpaces += String(repeating: "\u{2004}", count: whitespaceCount)
-
-        // braille whitespace, which is non breakable but makes previous whitespaces breakable
-        return whiteSpaces + "\u{2800}"
-    }
-}
-
-extension String {
+nonisolated extension String {
     func ellipsize(length: Int) -> String {
         guard count > length else {
             return self
@@ -75,10 +60,11 @@ extension String {
     }
 }
 
-extension String {
+nonisolated extension String {
+    /// Drops stray new lines everywhere but paragraphs and lists when other paragraphs follow them
     func replacingHtmlBreaksOccurrences() -> String {
         var result = self
-        let pattern = #"</p>(\n+)<p>"#
+        let pattern = #"</(p|ul|ol)>(\n+)(?=<p[ >])"#
         
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
             return result
@@ -87,11 +73,12 @@ extension String {
         
         for match in matches.reversed() {
             guard let range = Range(match.range, in: self),
-                  let innerMatchRange = Range(match.range(at: 1), in: self) else {
+                  let tagRange = Range(match.range(at: 1), in: self),
+                  let innerMatchRange = Range(match.range(at: 2), in: self) else {
                 continue
             }
             let numberOfBreaks = (self[innerMatchRange].components(separatedBy: "\n").count - 1)
-            let replacement = "<br>" + String(repeating: "<br>", count: numberOfBreaks)
+            let replacement = "</\(self[tagRange])>" + String(repeating: "<br>", count: numberOfBreaks)
             result.replaceSubrange(range, with: replacement)
         }
         
@@ -99,14 +86,14 @@ extension String {
     }
 }
 
-extension String {
+nonisolated extension String {
     /// detects if the string is empty or contains only whitespaces and newlines
     var isBlank: Bool {
         trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
-extension String {
+nonisolated extension String {
     static func makeCanonicalAlias(aliasLocalPart: Self?, serverName: Self?) -> Self? {
         guard let aliasLocalPart, !aliasLocalPart.isEmpty,
               let serverName, !serverName.isEmpty else {
@@ -116,7 +103,7 @@ extension String {
     }
 }
 
-extension String {
+nonisolated extension String {
     var validatedFileExtension: String {
         let fileExtension = (self as NSString).pathExtension
         guard !fileExtension.isEmpty else {
@@ -126,7 +113,25 @@ extension String {
     }
 }
 
-extension String {
+nonisolated extension String {
+    /// The direction of the first character with a strong BiDi direction, or `nil` when there
+    /// isn't one (e.g. the string only contains emojis, digits or punctuation). Mirrors the Unicode
+    /// BiDi "first strong" rule used by TextKit to resolve a paragraph's direction.
+    var firstStrongCharacterDirection: NSWritingDirection? {
+        guard let value = unicodeScalars.first(where: \.properties.isAlphabetic)?.value else {
+            return nil
+        }
+        
+        // Strong RTL: Hebrew, Arabic, Syriac, Thaana, NKo, Samaritan, Mandaic,
+        // Arabic Extended, and their presentation forms.
+        let isRTL = (0x0590...0x08FF).contains(value) ||
+            (0xFB1D...0xFDFF).contains(value) ||
+            (0xFE70...0xFEFF).contains(value)
+        return isRTL ? .rightToLeft : .leftToRight
+    }
+}
+
+nonisolated extension String {
     /// To be used if the string is actually a URL
     var asSanitizedLink: String {
         var link = self

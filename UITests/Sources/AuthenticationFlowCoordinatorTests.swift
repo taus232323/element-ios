@@ -27,7 +27,7 @@ class AuthenticationFlowCoordinatorUITests: XCTestCase {
         // Login Screen: Enter valid credentials
         app.textFields[A11yIdentifiers.loginScreen.emailUsername].clearAndTypeText("alice\n", app: app)
         app.secureTextFields[A11yIdentifiers.loginScreen.password].clearAndTypeText("12345678", app: app)
-
+        
         try await app.assertScreenshot()
         
         // Login Screen: Tap next
@@ -48,7 +48,7 @@ class AuthenticationFlowCoordinatorUITests: XCTestCase {
         // Login Screen: Enter invalid credentials
         app.textFields[A11yIdentifiers.loginScreen.emailUsername].clearAndTypeText("alice", app: app)
         app.secureTextFields[A11yIdentifiers.loginScreen.password].clearAndTypeText("87654321", app: app)
-
+        
         // Login Screen: Tap continue
         XCTAssertTrue(continueButton.isEnabled)
         continueButton.tap()
@@ -142,6 +142,8 @@ class AuthenticationFlowCoordinatorUITests: XCTestCase {
         // Splash Screen: Tap get started button
         app.buttons[A11yIdentifiers.authenticationStartScreen.signIn].tap()
         
+        // Arcana does not let the user pick a server; login continues on the fixed homeserver.
+        
         // Login Screen: Wait for continue button to appear
         let continueButton = app.buttons[A11yIdentifiers.loginScreen.continue]
         XCTAssertTrue(continueButton.waitForExistence(timeout: 2.0))
@@ -157,7 +159,7 @@ class AuthenticationFlowCoordinatorUITests: XCTestCase {
     func verifyReportBugButton(_ app: XCUIApplication) async throws {
         // Splash Screen: Open the report problem flow.
         app.buttons[A11yIdentifiers.authenticationStartScreen.reportProblem].tap()
-
+        
         // Bug report: Make sure it exists then cancel.
         XCTAssert(app.textFields[A11yIdentifiers.bugReportScreen.report].exists)
         app.buttons[A11yIdentifiers.bugReportScreen.cancel].tap()

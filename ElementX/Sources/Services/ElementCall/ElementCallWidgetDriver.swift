@@ -37,6 +37,7 @@ struct ElementCallWidgetMessage: Codable {
     let action: Action
     var data: Data = .init()
     
+    // periphery:ignore - part of the encoded payload
     let widgetId: String
     var requestId = "widgetapi-\(UUID())"
     
@@ -105,7 +106,7 @@ final class ElementCallWidgetDriver: WidgetCapabilitiesProvider, ElementCallWidg
         }
         
         let languageTag = "\(Locale.current.language.languageCode ?? "en")-\(Locale.current.language.region ?? "US")"
-        let theme = colorScheme == .light ? "light" : "dark"
+        let theme = "dark"
         
         let urlString: String
         do {
@@ -132,7 +133,7 @@ final class ElementCallWidgetDriver: WidgetCapabilitiesProvider, ElementCallWidg
         
         self.widgetDriver.withLock { $0 = widgetDriver }
         
-        Task.detached { [weak self, widgetDriver, messagePublisher] in
+        Task.detached { [weak self, widgetDriver] in
             MXLog.debug("Started message receiving loop")
             
             defer {
@@ -144,10 +145,9 @@ final class ElementCallWidgetDriver: WidgetCapabilitiesProvider, ElementCallWidg
                     return
                 }
                 
-                messagePublisher.send(receivedMessage)
                 MXLog.debug("Received message: \(receivedMessage)")
                 
-                self?.handleMessageIfNeeded(receivedMessage)
+                await self?.receiveMessage(receivedMessage)
             }
         }
         
@@ -170,7 +170,7 @@ final class ElementCallWidgetDriver: WidgetCapabilitiesProvider, ElementCallWidg
             return .failure(.driverNotSetup)
         }
         
-        let result = await widgetDriver.handle.send(msg: message)
+        let result = widgetDriver.handle.send(msg: message)
         MXLog.debug("Sent message: \(message) with result: \(result)")
         
         handleMessageIfNeeded(message)
@@ -180,11 +180,17 @@ final class ElementCallWidgetDriver: WidgetCapabilitiesProvider, ElementCallWidg
     
     // MARK: - WidgetCapabilitiesProvider
     
-    func acquireCapabilities(capabilities: WidgetCapabilities) -> WidgetCapabilities {
+    /// Called by the SDK from arbitrary threads, only touches Sendable state.
+    nonisolated func acquireCapabilities(capabilities: WidgetCapabilities) -> WidgetCapabilities {
         getElementCallRequiredPermissions(ownUserId: room.ownUserId(), ownDeviceId: deviceID)
     }
     
     // MARK: - Private
+    
+    private func receiveMessage(_ message: String) {
+        messagePublisher.send(message)
+        handleMessageIfNeeded(message)
+    }
     
     func handleMessageIfNeeded(_ message: String) {
         guard let data = message.data(using: .utf8) else {

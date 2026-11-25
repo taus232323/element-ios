@@ -12,7 +12,6 @@ import SwiftState
 
 enum SpacesTabFlowCoordinatorAction {
     case showSettings
-    case presentCallScreen(roomProxy: JoinedRoomProxyProtocol, isVoiceCall: Bool)
     case verifyUser(userID: String)
 }
 
@@ -24,7 +23,9 @@ class SpacesTabFlowCoordinator: FlowCoordinatorProtocol {
     private let sidebarNavigationStackCoordinator: NavigationStackCoordinator
     private let detailNavigationStackCoordinator: NavigationStackCoordinator
     
+    // periphery:ignore - retaining purpose
     private var spaceFlowCoordinator: SpaceFlowCoordinator?
+    // periphery:ignore - retaining purpose
     private var startChatFlowCoordinator: StartChatFlowCoordinator?
     
     enum State: StateType {
@@ -100,7 +101,7 @@ class SpacesTabFlowCoordinator: FlowCoordinatorProtocol {
         stateMachine.addRoutes(event: .start, transitions: [.initial => .spacesScreen(selectedSpaceID: nil)]) { [weak self] _ in
             self?.presentSpacesScreen()
         }
-                
+        
         stateMachine.addRouteMapping { event, fromState, userInfo in
             guard event == .selectSpace, case .spacesScreen = fromState else { return nil }
             guard let spaceRoomListProxy = userInfo as? SpaceRoomListProxyProtocol else { fatalError("A space proxy must be provided.") }
@@ -146,7 +147,6 @@ class SpacesTabFlowCoordinator: FlowCoordinatorProtocol {
     private func presentSpacesScreen() {
         let parameters = SpacesScreenCoordinatorParameters(userSession: userSession,
                                                            selectedSpacePublisher: selectedSpaceSubject.asCurrentValuePublisher(),
-                                                           appSettings: flowParameters.appSettings,
                                                            userIndicatorController: flowParameters.userIndicatorController)
         let coordinator = SpacesScreenCoordinator(parameters: parameters)
         coordinator.actionsPublisher
@@ -178,8 +178,6 @@ class SpacesTabFlowCoordinator: FlowCoordinatorProtocol {
                 guard let self else { return }
                 
                 switch action {
-                case .presentCallScreen(let roomProxy, let isVoiceCall):
-                    actionsSubject.send(.presentCallScreen(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
                 case .verifyUser(let userID):
                     actionsSubject.send(.verifyUser(userID: userID))
                 case .finished:

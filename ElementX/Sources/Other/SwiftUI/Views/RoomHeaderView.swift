@@ -9,12 +9,18 @@
 import Combine
 import Compound
 import SwiftUI
+import SwiftUIIntrospect
 
 struct RoomHeaderView: View {
+    struct DMRecipientDetails {
+        var statusEmoji: Character?
+        var verification: UserIdentityVerificationState?
+    }
+    
     let roomName: String
     var roomSubtitle: String?
     let roomAvatar: RoomAvatar
-    var dmRecipientVerificationState: UserIdentityVerificationState?
+    var dmRecipientDetails = DMRecipientDetails()
     var roomHistorySharingState: RoomHistorySharingState?
     
     let mediaProvider: MediaProviderProtocol?
@@ -47,28 +53,41 @@ struct RoomHeaderView: View {
             avatarImage
                 .accessibilityHidden(true)
             
-            HStack(spacing: 4) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(roomName)
+            VStack(alignment: .leading, spacing: 0) {
+                roomDetails
+                
+                if let roomSubtitle {
+                    Text(roomSubtitle)
                         .lineLimit(1)
-                        .font(.compound.bodyMDSemibold)
-                        .accessibilityIdentifier(A11yIdentifiers.roomScreen.name)
-                    if let roomSubtitle {
-                        Text(roomSubtitle)
-                            .lineLimit(1)
-                            .font(.compound.bodyXS)
-                            .foregroundStyle(.compound.textSecondary)
-                    }
+                        .font(.compound.bodyXS)
+                        .foregroundStyle(.compound.textSecondary)
                 }
+            }
+        }
+    }
+    
+    private var roomDetails: some View {
+        HStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Text(roomName)
+                    .lineLimit(1)
+                    .font(.compound.bodyMDSemibold)
+                    .foregroundStyle(.compound.textPrimary)
+                    .accessibilityIdentifier(A11yIdentifiers.roomScreen.name)
                 
-                if let dmRecipientVerificationState {
-                    VerificationBadge(verificationState: dmRecipientVerificationState, size: .xSmall, relativeTo: .compound.bodyMDSemibold)
+                if let statusEmoji = dmRecipientDetails.statusEmoji {
+                    Text(String(statusEmoji))
+                        .font(.compound.bodyLG)
+                        .foregroundStyle(.compound.textPrimary)
                 }
-                
-                if let historySharingIcon {
-                    CompoundIcon(historySharingIcon, size: .xSmall, relativeTo: .compound.bodyMDSemibold)
-                        .foregroundStyle(.compound.iconInfoPrimary)
-                }
+            }
+            if let verificationState = dmRecipientDetails.verification {
+                VerificationBadge(verificationState: verificationState, size: .xSmall, relativeTo: .compound.bodyMDSemibold)
+            }
+            
+            if let historySharingIcon {
+                CompoundIcon(historySharingIcon, size: .xSmall, relativeTo: .compound.bodyMDSemibold)
+                    .foregroundStyle(.compound.iconInfoPrimary)
             }
         }
     }
@@ -108,39 +127,130 @@ private extension View {
     }
 }
 
+extension View {
+    // TODO: Remove this workaround once Apple fixes the bug.
+    /// Works around an iOS 26+ bug where cancelling the interactive pop gesture leaves the `RoomHeaderView`
+    /// at its full width, covering the trailing toolbar items. Apply it to every screen using the header as its title.
+    @ViewBuilder
+    func fixesTitleViewOnCancelledPop() -> some View {
+        if #available(iOS 26, *) {
+            modifier(CancelledPopTitleViewFixModifier())
+        } else {
+            self
+        }
+    }
+}
+
+@available(iOS 26, *)
+private struct CancelledPopTitleViewFixModifier: ViewModifier {
+    // Gesture recognizers don't retain their targets, so the view keeps the fix alive.
+    @State private var fix = CancelledPopTitleViewFix()
+    
+    func body(content: Content) -> some View {
+        content
+            .introspect(.navigationStack, on: .supportedVersions, scope: .ancestor) { [fix] navigationController in
+                fix.observe(navigationController)
+            }
+    }
+}
+
+@available(iOS 26, *)
+private final class CancelledPopTitleViewFix: NSObject {
+    private weak var navigationController: UINavigationController?
+    
+    isolated deinit {
+        stopObserving()
+    }
+    
+    func observe(_ navigationController: UINavigationController) {
+        guard navigationController !== self.navigationController else { return }
+        
+        stopObserving()
+        self.navigationController = navigationController
+        navigationController.interactivePopGestureRecognizer?.addTarget(self, action: #selector(popGestureChanged))
+        navigationController.interactiveContentPopGestureRecognizer?.addTarget(self, action: #selector(popGestureChanged))
+    }
+    
+    @objc private func popGestureChanged(_ gesture: UIGestureRecognizer) {
+        guard gesture.state == .began,
+              let navigationController,
+              let transitionCoordinator = navigationController.transitionCoordinator else {
+            return
+        }
+        
+        transitionCoordinator.animate(alongsideTransition: nil) { context in
+            guard context.isCancelled else { return }
+            // UIKit restores the title view's container but never lays the title view out inside it again.
+            navigationController.navigationBar.topItem?.titleView?.superview?.setNeedsLayout()
+        }
+    }
+    
+    private func stopObserving() {
+        navigationController?.interactivePopGestureRecognizer?.removeTarget(self, action: #selector(popGestureChanged))
+        navigationController?.interactiveContentPopGestureRecognizer?.removeTarget(self, action: #selector(popGestureChanged))
+    }
+}
+
 // MARK: - Previews
 
 struct RoomHeaderView_Previews: PreviewProvider, TestablePreview {
     static var previews: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            makeHeader(avatarURL: nil, verificationState: .notVerified)
-            makeHeader(avatarURL: .mockMXCAvatar, verificationState: .notVerified)
-            makeHeader(avatarURL: .mockMXCAvatar, verificationState: .verified)
-            makeHeader(avatarURL: .mockMXCAvatar, verificationState: .verificationViolation)
-            makeHeader(avatarURL: .mockMXCAvatar,
-                       roomSubtitle: "Subtitle",
-                       verificationState: .verified)
-            makeHeader(avatarURL: .mockMXCAvatar, verificationState: .notVerified, historySharingState: .shared)
-            makeHeader(avatarURL: .mockMXCAvatar, verificationState: .notVerified, historySharingState: .worldReadable)
-            makeHeader(avatarURL: .mockMXCAvatar, verificationState: .verified, historySharingState: .shared)
-            makeHeader(avatarURL: .mockMXCAvatar, verificationState: .verificationViolation, historySharingState: .worldReadable)
+        VStack(alignment: .leading, spacing: 32) {
+            VStack(alignment: .leading, spacing: 16) {
+                makeHeader(avatarURL: nil)
+                makeHeader(avatarURL: .mockMXCAvatar)
+                
+                makeHeader(avatarURL: .mockMXCAvatar, historySharingState: .shared)
+                makeHeader(avatarURL: .mockMXCAvatar, historySharingState: .worldReadable)
+            }
+            
+            VStack(alignment: .leading, spacing: 16) {
+                makeHeader(avatarURL: .mockMXCUserAvatar, verificationState: .verified)
+                makeHeader(avatarURL: .mockMXCUserAvatar, verificationState: .verificationViolation)
+                
+                makeHeader(avatarURL: .mockMXCUserAvatar,
+                           userStatus: .mockHoliday,
+                           verificationState: .notVerified)
+                makeHeader(avatarURL: .mockMXCUserAvatar,
+                           userStatus: .mockCall,
+                           verificationState: .verificationViolation)
+                makeHeader(avatarURL: .mockMXCUserAvatar,
+                           roomSubtitle: "Subtitle",
+                           userStatus: .mockFocussing,
+                           verificationState: .verified)
+                
+                makeHeader(avatarURL: .mockMXCUserAvatar,
+                           roomSubtitle: "Subtitle",
+                           verificationState: .verified)
+                
+                makeHeader(avatarURL: .mockMXCUserAvatar,
+                           userStatus: .mockHoliday,
+                           verificationState: .verified,
+                           historySharingState: .shared)
+                makeHeader(avatarURL: .mockMXCUserAvatar,
+                           verificationState: .verificationViolation,
+                           historySharingState: .worldReadable)
+            }
         }
         .previewLayout(.sizeThatFits)
     }
     
+    @ViewBuilder
     static func makeHeader(avatarURL: URL?,
                            roomSubtitle: String? = nil,
-                           verificationState: UserIdentityVerificationState,
+                           userStatus: UserStatus? = nil,
+                           verificationState: UserIdentityVerificationState? = nil,
                            historySharingState: RoomHistorySharingState? = nil) -> some View {
-        RoomHeaderView(roomName: "Some Room name",
+        let roomName = verificationState == nil ? "Some Room Name" : "Some User Name"
+        RoomHeaderView(roomName: roomName,
                        roomSubtitle: roomSubtitle,
                        roomAvatar: .room(id: "1",
-                                         name: "Some Room Name",
+                                         name: roomName,
                                          avatarURL: avatarURL),
-                       dmRecipientVerificationState: verificationState,
+                       dmRecipientDetails: .init(statusEmoji: userStatus?.displayed?.emoji,
+                                                 verification: verificationState),
                        roomHistorySharingState: historySharingState,
                        
-                       mediaProvider: MediaProviderMock(configuration: .init())) { }
-            .padding()
+                       mediaProvider: MediaProviderMock(.init())) { }
     }
 }

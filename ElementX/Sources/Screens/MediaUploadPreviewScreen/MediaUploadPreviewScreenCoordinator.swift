@@ -11,9 +11,12 @@ import SwiftUI
 
 struct MediaUploadPreviewScreenCoordinatorParameters {
     let mediaURLs: [URL]
+    let caption: NSAttributedString?
     let title: String?
-    let isRoomEncrypted: Bool
     let shouldShowCaptionWarning: Bool
+    /// When `false`, multiple attachments are sent as individual messages.
+    let galleryEnabled: Bool
+    let imageDrawingEnabled: Bool
     let mediaUploadingPreprocessor: MediaUploadingPreprocessor
     let timelineController: TimelineControllerProtocol
     let clientProxy: ClientProxyProtocol
@@ -35,9 +38,11 @@ final class MediaUploadPreviewScreenCoordinator: CoordinatorProtocol {
     
     init(parameters: MediaUploadPreviewScreenCoordinatorParameters) {
         viewModel = MediaUploadPreviewScreenViewModel(mediaURLs: parameters.mediaURLs,
+                                                      caption: parameters.caption,
                                                       title: parameters.title,
-                                                      isRoomEncrypted: parameters.isRoomEncrypted,
                                                       shouldShowCaptionWarning: parameters.shouldShowCaptionWarning,
+                                                      galleryEnabled: parameters.galleryEnabled,
+                                                      imageDrawingEnabled: parameters.imageDrawingEnabled,
                                                       mediaUploadingPreprocessor: parameters.mediaUploadingPreprocessor,
                                                       timelineController: parameters.timelineController,
                                                       clientProxy: parameters.clientProxy,

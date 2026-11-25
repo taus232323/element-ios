@@ -6,8 +6,6 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-// periphery:ignore:all - this is just a reportInvite remove this comment once generating the final file
-
 import Combine
 import SwiftUI
 
@@ -23,19 +21,16 @@ enum DeclineAndBlockScreenCoordinatorAction {
 }
 
 final class DeclineAndBlockScreenCoordinator: CoordinatorProtocol {
-    private let parameters: DeclineAndBlockScreenCoordinatorParameters
     private let viewModel: DeclineAndBlockScreenViewModelProtocol
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
     private let actionsSubject: PassthroughSubject<DeclineAndBlockScreenCoordinatorAction, Never> = .init()
     var actionsPublisher: AnyPublisher<DeclineAndBlockScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
     
     init(parameters: DeclineAndBlockScreenCoordinatorParameters) {
-        self.parameters = parameters
-        
         viewModel = DeclineAndBlockScreenViewModel(userID: parameters.userID,
                                                    roomID: parameters.roomID,
                                                    clientProxy: parameters.clientProxy,
@@ -54,7 +49,7 @@ final class DeclineAndBlockScreenCoordinator: CoordinatorProtocol {
         }
         .store(in: &cancellables)
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(DeclineAndBlockScreen(context: viewModel.context))
     }

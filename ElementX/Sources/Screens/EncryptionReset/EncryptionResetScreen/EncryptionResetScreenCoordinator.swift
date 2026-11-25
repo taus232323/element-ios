@@ -10,31 +10,32 @@ import Combine
 import SwiftUI
 
 enum EncryptionResetScreenCoordinatorAction {
-    case requestOIDCAuthorisation(URL)
+    case requestOAuthAuthorisation(URL)
     case requestPassword(passwordPublisher: PassthroughSubject<String, Never>)
     case resetFinished
     case cancel
+    case logoutWithoutConfirmation
 }
 
 struct EncryptionResetScreenCoordinatorParameters {
     let clientProxy: ClientProxyProtocol
+    let mode: EncryptionResetScreenMode
     let userIndicatorController: UserIndicatorControllerProtocol
 }
 
 final class EncryptionResetScreenCoordinator: CoordinatorProtocol {
-    private let parameters: EncryptionResetScreenCoordinatorParameters
     private let viewModel: EncryptionResetScreenViewModelProtocol
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
     private let actionsSubject: PassthroughSubject<EncryptionResetScreenCoordinatorAction, Never> = .init()
     var actionsPublisher: AnyPublisher<EncryptionResetScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
     
     init(parameters: EncryptionResetScreenCoordinatorParameters) {
-        self.parameters = parameters
         viewModel = EncryptionResetScreenViewModel(clientProxy: parameters.clientProxy,
+                                                   mode: parameters.mode,
                                                    userIndicatorController: parameters.userIndicatorController)
     }
     
@@ -44,14 +45,16 @@ final class EncryptionResetScreenCoordinator: CoordinatorProtocol {
             
             guard let self else { return }
             switch action {
-            case .requestOIDCAuthorisation(let url):
-                self.actionsSubject.send(.requestOIDCAuthorisation(url))
+            case .requestOAuthAuthorisation(let url):
+                self.actionsSubject.send(.requestOAuthAuthorisation(url))
             case .requestPassword(let passwordPublisher):
                 self.actionsSubject.send(.requestPassword(passwordPublisher: passwordPublisher))
             case .resetFinished:
                 self.actionsSubject.send(.resetFinished)
             case .cancel:
                 self.actionsSubject.send(.cancel)
+            case .logoutWithoutConfirmation:
+                self.actionsSubject.send(.logoutWithoutConfirmation)
             }
         }
         .store(in: &cancellables)
@@ -60,7 +63,7 @@ final class EncryptionResetScreenCoordinator: CoordinatorProtocol {
     func stop() {
         viewModel.stop()
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(EncryptionResetScreen(context: viewModel.context))
     }

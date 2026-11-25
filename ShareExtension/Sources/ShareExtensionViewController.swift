@@ -12,13 +12,17 @@ import SwiftUI
 
 class ShareExtensionViewController: UIViewController {
     private static var targetConfiguration: Target.ConfigurationResult?
-    private let appSettings: CommonSettingsProtocol = AppSettings()
+    private let appSettings: AppSettings = {
+        guard let userDefaults = TrackedUserDefaults(suiteName: AppSettings.suiteName) else {
+            fatalError("Catastrophic error retrieving user defaults for \(AppSettings.suiteName)")
+        }
+        return AppSettings(store: userDefaults)
+    }()
+    
     private var appHooks: AppHooks!
     
     private let keychainController = KeychainController(service: .sessions,
                                                         accessGroup: InfoPlistReader.main.keychainAccessGroupIdentifier)
-    
-    private var cancellables: Set<AnyCancellable> = []
     
     private let hostingController = UIHostingController(rootView: ShareExtensionView())
     
@@ -28,11 +32,14 @@ class ShareExtensionViewController: UIViewController {
         appHooks = AppHooks()
         appHooks.setUp()
         
-        if Self.targetConfiguration == nil {
+        if let targetConfiguration = Self.targetConfiguration {
+            // Make sure the target's configuration is kept up-to-date across runs.
+            targetConfiguration.context.update()
+        } else {
             Self.targetConfiguration = Target.shareExtension.configure(logLevel: appSettings.logLevel,
                                                                        traceLogPacks: appSettings.traceLogPacks,
                                                                        sentryURL: nil,
-                                                                       rageshakeURL: appSettings.bugReportRageshakeURL,
+                                                                       keychainController: keychainController,
                                                                        appHooks: appHooks)
         }
         
@@ -46,7 +53,7 @@ class ShareExtensionViewController: UIViewController {
         
         if let credentials = keychainController.restorationTokens().first {
             let homeserverURL = credentials.restorationToken.session.homeserverUrl
-            appHooks.remoteSettingsHook.loadCache(forHomeserver: homeserverURL, applyingTo: appSettings)
+            _ = appHooks.userSessionHook.configure(appSettings.userSettings(for: credentials.userID), forHomeserver: homeserverURL)
         } else {
             // We should really show a different state when there isn't a logged in user, but for now this is fine.
             MXLog.error("Not logged in, launching app to show the authentication flow.")

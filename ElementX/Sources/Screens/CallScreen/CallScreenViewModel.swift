@@ -17,8 +17,8 @@ class CallScreenViewModel: CallScreenViewModelType, CallScreenViewModelProtocol 
     private let elementCallService: ElementCallServiceProtocol
     private let configuration: ElementCallConfiguration
     private let isPictureInPictureAllowed: Bool
-    private let appSettings: AppSettings
-    private let analyticsService: AnalyticsService
+    private let userSettings: UserSettings
+    private let analyticsService: AnalyticsServiceProtocol
     
     private let widgetDriver: ElementCallWidgetDriverProtocol
     
@@ -29,59 +29,23 @@ class CallScreenViewModel: CallScreenViewModelType, CallScreenViewModelProtocol 
     
     @CancellableTask
     private var timeoutTask: Task<Void, Never>?
-        
-    /// Designated initialiser
-    /// - Parameters:
-    ///   - elementCallService: service responsible for setting up CallKit
-    ///   - roomProxy: The room in which the call should be created
-    ///   - callBaseURL: Which Element Call instance should be used
-    ///   - clientID: Something to identify the current client on the Element Call side
-    init(elementCallService: ElementCallServiceProtocol,
+    
+    init(userSession: UserSessionProtocol,
          configuration: ElementCallConfiguration,
          allowPictureInPicture: Bool,
-         appHooks: AppHooks,
-         appSettings: AppSettings,
-         analyticsService: AnalyticsService) {
-        self.elementCallService = elementCallService
+         analyticsService: AnalyticsServiceProtocol) {
+        elementCallService = userSession.elementCallService
         self.configuration = configuration
-        self.appSettings = appSettings
+        userSettings = userSession.userSettings
         self.analyticsService = analyticsService
         isPictureInPictureAllowed = allowPictureInPicture
         
-        var isGenericCallLink = false
-        switch configuration.kind {
-        case .genericCallLink(let url):
-            widgetDriver = GenericCallLinkWidgetDriver(url: url)
-            isGenericCallLink = true
-        case .roomCall(let roomProxy, let clientProxy, _, _, _, _, _):
-            guard let deviceID = clientProxy.deviceID else { fatalError("Missing device ID for the call.") }
-            widgetDriver = roomProxy.elementCallWidgetDriver(deviceID: deviceID)
-        }
+        guard let deviceID = configuration.clientProxy.deviceID else { fatalError("Missing device ID for the call.") }
+        widgetDriver = configuration.roomProxy.elementCallWidgetDriver(deviceID: deviceID)
         
-        super.init(initialViewState: CallScreenViewState(script: CallScreenJavaScriptMessageName.allCasesInjectionScript,
-                                                         isGenericCallLink: isGenericCallLink,
-                                                         certificateValidator: appHooks.certificateValidatorHook))
+        super.init(initialViewState: CallScreenViewState(script: CallScreenJavaScriptMessageName.allCasesInjectionScript))
         
-        elementCallService.actions
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] action in
-                guard let self else { return }
-                
-                switch action {
-                case let .setAudioEnabled(enabled, roomID):
-                    guard roomID == configuration.callRoomID else {
-                        MXLog.error("Received mute request for a different room: \(roomID) != \(configuration.callRoomID)")
-                        return
-                    }
-                    
-                    Task {
-                        await self.setAudioEnabled(enabled)
-                    }
-                default:
-                    break
-                }
-            }
-            .store(in: &cancellables)
+        state.swiftUICallViewCoordinator = .init(viewModelContext: context)
         
         widgetDriver.messagePublisher
             .receive(on: DispatchQueue.main)
@@ -102,8 +66,9 @@ class CallScreenViewModel: CallScreenViewModelType, CallScreenViewModelProtocol 
                 switch action {
                 case .callEnded:
                     actionsSubject.send(.dismiss)
-                case .mediaStateChanged(let audioEnabled, _):
-                    elementCallService.setAudioEnabled(audioEnabled, roomID: configuration.callRoomID)
+                case .mediaStateChanged:
+                    // CallKit never tracks web calls, so their mute isn't relayed.
+                    break
                 }
             }
             .store(in: &cancellables)
@@ -145,12 +110,12 @@ class CallScreenViewModel: CallScreenViewModelType, CallScreenViewModelProtocol 
             await hangup()
         }
         
-        elementCallService.tearDownCallSession()
+        elementCallService.tearDownCallSession(roomID: configuration.callRoomID)
         UIDevice.current.isProximityMonitoringEnabled = false
     }
     
     // MARK: - Private
-
+    
     private func handleWidgetAction(message: String) async {
         if timeoutTask != nil,
            let decodedMessage = try? DecodedWidgetMessage.decode(message: message),
@@ -162,69 +127,64 @@ class CallScreenViewModel: CallScreenViewModelType, CallScreenViewModelProtocol 
     }
     
     private func setupCall() {
-        switch configuration.kind {
-        case .genericCallLink(let url):
-            state.url = url
-            // We need widget messaging to work before enabling CallKit, otherwise mute, hangup etc do nothing.
+        Task { [weak self] in
+            guard let self else { return }
             
-        case .roomCall(let roomProxy, _, let clientID, let voiceOnly, let elementCallBaseURL, let elementCallBaseURLOverride, let colorScheme):
-            Task { [weak self] in
-                guard let self else { return }
-                
-                let baseURL = if let elementCallBaseURLOverride {
-                    elementCallBaseURLOverride
-                } else {
-                    elementCallBaseURL
-                }
-                
-                // Arcana: never send call analytics to Element infrastructure.
-                let analyticsConfiguration: ElementCallAnalyticsConfiguration? = if analyticsService.isEnabled,
-                                                                                    !appSettings.elementCallPosthogAPIHost.isEmpty,
-                                                                                    !appSettings.elementCallPosthogAPIKey.isEmpty {
-                    .init(posthogAPIHost: appSettings.elementCallPosthogAPIHost,
-                          posthogAPIKey: appSettings.elementCallPosthogAPIKey,
-                          sentryDSN: appSettings.elementCallPosthogSentryDSN)
-                } else {
-                    nil
-                }
-                let rageshakeURL: String? = if case let .url(baseURL) = appSettings.bugReportRageshakeURL.publisher.value {
-                    baseURL.absoluteString
-                } else {
-                    nil
-                }
-                
-                switch await widgetDriver.start(baseURL: baseURL,
-                                                clientID: clientID,
-                                                colorScheme: colorScheme,
-                                                voiceOnly: voiceOnly,
-                                                rageshakeURL: rageshakeURL,
-                                                analyticsConfiguration: analyticsConfiguration) {
-                case .success(let url):
-                    state.url = url
-                case .failure(let error):
-                    MXLog.error("Failed starting ElementCall Widget Driver with error: \(error)")
-                    state.bindings.alertInfo = .init(id: UUID(),
-                                                     title: L10n.errorUnknown,
-                                                     primaryButton: .init(title: L10n.actionOk) {
-                                                         self.actionsSubject.send(.dismiss)
-                                                     })
-                    return
-                }
-                
-                await elementCallService.setupCallSession(roomID: roomProxy.id,
-                                                          roomDisplayName: roomProxy.infoPublisher.value.displayName ?? roomProxy.id)
+            let baseURL = if let baseURLOverride = configuration.elementCallBaseURLOverride {
+                baseURLOverride
+            } else {
+                configuration.elementCallBaseURL
             }
             
-            timeoutTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(10))
-                guard !Task.isCancelled, let self else { return }
-                MXLog.error("Failed to join call: Timeout")
+            // Arcana: never send call analytics to Element infrastructure.
+            let analyticsConfiguration: ElementCallAnalyticsConfiguration? = if analyticsService.isEnabled,
+                                                                                !userSettings.app.elementCallPosthogAPIHost.isEmpty,
+                                                                                !userSettings.app.elementCallPosthogAPIKey.isEmpty {
+                .init(posthogAPIHost: userSettings.app.elementCallPosthogAPIHost,
+                      posthogAPIKey: userSettings.app.elementCallPosthogAPIKey,
+                      sentryDSN: userSettings.app.elementCallPosthogSentryDSN)
+            } else {
+                nil
+            }
+            let rageshakeURL: String? = if case let .url(baseURL) = userSettings.account.bugReportRageshakeConfiguration.publisher.value {
+                baseURL.absoluteString
+            } else {
+                nil
+            }
+            
+            switch await widgetDriver.start(baseURL: baseURL,
+                                            clientID: configuration.clientID,
+                                            colorScheme: configuration.colorScheme,
+                                            voiceOnly: configuration.voiceOnly,
+                                            rageshakeURL: rageshakeURL,
+                                            analyticsConfiguration: analyticsConfiguration) {
+            case .success(let url):
+                state.url = url
+            case .failure(let error):
+                MXLog.error("Failed starting ElementCall Widget Driver with error: \(error)")
                 state.bindings.alertInfo = .init(id: UUID(),
-                                                 title: L10n.commonError,
-                                                 message: L10n.errorUnknown,
-                                                 primaryButton: .init(title: L10n.actionDismiss) { [weak self] in self?.actionsSubject.send(.dismiss) })
-                timeoutTask = nil
+                                                 title: L10n.errorUnknown,
+                                                 primaryButton: .init(title: L10n.actionOk) {
+                                                     self.actionsSubject.send(.dismiss)
+                                                 })
+                return
             }
+            
+            await elementCallService.setupCallSession(roomID: configuration.roomProxy.id,
+                                                      roomDisplayName: configuration.roomProxy.infoPublisher.value.displayNameOrID,
+                                                      isVideo: !configuration.voiceOnly,
+                                                      kind: .webView)
+        }
+        
+        timeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(10))
+            guard !Task.isCancelled, let self else { return }
+            MXLog.error("Failed to join Element Call: Timeout")
+            state.bindings.alertInfo = .init(id: UUID(),
+                                             title: L10n.commonError,
+                                             message: L10n.errorUnknown,
+                                             primaryButton: .init(title: L10n.actionDismiss) { [weak self] in self?.actionsSubject.send(.dismiss) })
+            timeoutTask = nil
         }
     }
     
@@ -251,14 +211,6 @@ class CallScreenViewModel: CallScreenViewModelType, CallScreenViewModelProtocol 
         case .failure:
             actionsSubject.send(.dismiss)
         }
-    }
-    
-    private func setAudioEnabled(_ enabled: Bool) async {
-        let message = ElementCallWidgetMessage(direction: .toWidget,
-                                               action: .mediaState,
-                                               data: .init(audioEnabled: enabled),
-                                               widgetId: widgetDriver.widgetID)
-        await postMessageToWidget(message)
     }
     
     func hangup() async {

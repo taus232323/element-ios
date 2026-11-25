@@ -10,7 +10,6 @@ import Foundation
 
 enum StartChatScreenErrorType: Error {
     case failedCreatingRoom
-    case unknown
 }
 
 enum StartChatScreenViewModelAction: Equatable {
@@ -26,7 +25,7 @@ struct StartChatScreenViewState: BindableState {
     var usersSection: UserDiscoverySection = .init(type: .suggestions, users: [])
     var isRoomDirectoryEnabled = false
     var inviteShareLinkState: InviteShareLinkState = .loading
-
+    
     var isSearching: Bool {
         !bindings.searchQuery.isEmpty
     }
@@ -53,8 +52,8 @@ struct StartChatScreenViewStateBindings {
 enum StartChatScreenViewAction {
     case close
     case createRoom
-    case createDM(user: UserProfileProxy)
-    case selectUser(UserProfileProxy)
+    case createDM(user: UserProfile)
+    case selectUser(UserProfile)
     case joinRoomByAddress
     case openRoomDirectorySearch
 }

@@ -47,7 +47,7 @@ struct EmojiPickerScreen: View {
                 }
                 .padding(.horizontal, 6)
             }
-            .navigationTitle(L10n.commonReactions)
+            .navigationTitle(context.viewState.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
             .isSearching($isSearching)
@@ -100,11 +100,11 @@ struct EmojiPickerScreen: View {
 
 // MARK: - Previews
 
+@available(iOS 26.0, *)
 struct EmojiPickerScreen_Previews: PreviewProvider, TestablePreview {
-    static let viewModel = EmojiPickerScreenViewModel(itemID: .randomEvent,
-                                                      selectedEmojis: ["😀", "😄"],
-                                                      emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
-                                                      timelineController: MockTimelineController())
+    static let viewModel = EmojiPickerScreenViewModel(selectedEmojis: ["😀", "😄"],
+                                                      emojiProvider: EmojiProvider(userSettings: .mock()),
+                                                      continuation: AsyncStream<String>.makeStream().continuation)
     
     static var previews: some View {
         EmojiPickerScreen(context: viewModel.context)
@@ -114,10 +114,9 @@ struct EmojiPickerScreen_Previews: PreviewProvider, TestablePreview {
 }
 
 struct EmojiPickerScreenSheet_Previews: PreviewProvider {
-    static let viewModel = EmojiPickerScreenViewModel(itemID: .randomEvent,
-                                                      selectedEmojis: ["😀", "😄"],
-                                                      emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
-                                                      timelineController: MockTimelineController())
+    static let viewModel = EmojiPickerScreenViewModel(selectedEmojis: ["😀", "😄"],
+                                                      emojiProvider: EmojiProvider(userSettings: .mock()),
+                                                      continuation: AsyncStream<String>.makeStream().continuation)
     
     static var previews: some View {
         Text("Timeline view")

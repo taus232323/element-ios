@@ -6,8 +6,6 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-// periphery:ignore:all - this is just a knockRequestsList remove this comment once generating the final file
-
 import Combine
 import SwiftUI
 
@@ -17,14 +15,17 @@ struct KnockRequestsListScreenCoordinatorParameters {
     let userIndicatorController: UserIndicatorControllerProtocol
 }
 
+// periphery:ignore - required for the architecture
 enum KnockRequestsListScreenCoordinatorAction { }
 
 final class KnockRequestsListScreenCoordinator: CoordinatorProtocol {
     private let viewModel: KnockRequestsListScreenViewModelProtocol
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
+    // periphery:ignore - required for the architecture
     private let actionsSubject: PassthroughSubject<KnockRequestsListScreenCoordinatorAction, Never> = .init()
+    // periphery:ignore - required for the architecture
     var actionsPublisher: AnyPublisher<KnockRequestsListScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
@@ -35,8 +36,12 @@ final class KnockRequestsListScreenCoordinator: CoordinatorProtocol {
                                                      userIndicatorController: parameters.userIndicatorController)
     }
     
-    func start() { }
-        
+    func start() {
+        viewModel.actionsPublisher
+            .sink { _ in }
+            .store(in: &cancellables)
+    }
+    
     func toPresentable() -> AnyView {
         AnyView(KnockRequestsListScreen(context: viewModel.context))
     }

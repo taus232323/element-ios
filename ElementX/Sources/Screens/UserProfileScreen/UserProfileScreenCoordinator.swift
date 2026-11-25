@@ -13,14 +13,12 @@ struct UserProfileScreenCoordinatorParameters {
     let userID: String
     let isPresentedModally: Bool
     let userSession: UserSessionProtocol
+    let analytics: AnalyticsServiceProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
-    let analytics: AnalyticsService
-    let appSettings: AppSettings
 }
 
 enum UserProfileScreenCoordinatorAction {
     case openDirectChat(roomID: String)
-    case startCall(roomProxy: JoinedRoomProxyProtocol, isVoiceCall: Bool)
     case dismiss
 }
 
@@ -38,9 +36,8 @@ final class UserProfileScreenCoordinator: CoordinatorProtocol {
         viewModel = UserProfileScreenViewModel(userID: parameters.userID,
                                                isPresentedModally: parameters.isPresentedModally,
                                                userSession: parameters.userSession,
-                                               userIndicatorController: parameters.userIndicatorController,
                                                analytics: parameters.analytics,
-                                               appSettings: parameters.appSettings)
+                                               userIndicatorController: parameters.userIndicatorController)
     }
     
     func start() {
@@ -50,8 +47,6 @@ final class UserProfileScreenCoordinator: CoordinatorProtocol {
             switch action {
             case .openDirectChat(let roomID):
                 actionsSubject.send(.openDirectChat(roomID: roomID))
-            case .startCall(let roomProxy, let isVoiceCall):
-                actionsSubject.send(.startCall(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
             case .dismiss:
                 actionsSubject.send(.dismiss)
             }

@@ -14,24 +14,24 @@ typealias NativeRegistrationScreenViewModelType = StateStoreViewModelV2<NativeRe
 final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModelType, NativeRegistrationScreenViewModelProtocol {
     private let authenticationService: AuthenticationServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
-
+    
     private var completedUserSession: UserSessionProtocol?
     private var identityBootstrapPassword: String?
-
+    
     private var actionsSubject: PassthroughSubject<NativeRegistrationScreenViewModelAction, Never> = .init()
     var actionsPublisher: AnyPublisher<NativeRegistrationScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(authenticationService: AuthenticationServiceProtocol,
          userIndicatorController: UserIndicatorControllerProtocol) {
         self.authenticationService = authenticationService
         self.userIndicatorController = userIndicatorController
-
+        
         let viewState = NativeRegistrationScreenViewState()
         super.init(initialViewState: viewState)
     }
-
+    
     override func process(viewAction: NativeRegistrationScreenViewAction) {
         switch viewAction {
         case .next:
@@ -44,12 +44,12 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
             Task { await finalizeDeviceSecurity() }
         }
     }
-
+    
     func stopLoading() {
         state.isLoading = false
         userIndicatorController.retractIndicatorWithId(Self.loadingIndicatorIdentifier)
     }
-
+    
     private func submit() {
         startLoading()
         Task {
@@ -108,7 +108,7 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
             }
         }
     }
-
+    
     private func finalizeDeviceSecurity() async {
         guard let password = identityBootstrapPassword, completedUserSession != nil else {
             // Already past account creation — stay on this step and offer retry.
@@ -121,7 +121,7 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
                                                  })
             return
         }
-
+        
         state.isLoading = true
         switch await authenticationService.bootstrapNativeDeviceIdentity(password: password) {
         case .success:
@@ -139,7 +139,7 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
                                                  })
         }
     }
-
+    
     private func resendVerificationCode() {
         guard let pendingRegistration = state.pendingRegistration else { return }
         startLoading()
@@ -154,7 +154,7 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
             }
         }
     }
-
+    
     private func goBack() {
         switch state.step {
         case .email:
@@ -168,9 +168,9 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
             break
         }
     }
-
+    
     private static let loadingIndicatorIdentifier = "\(NativeRegistrationScreenViewModel.self)-Loading"
-
+    
     private func startLoading() {
         state.isLoading = true
         userIndicatorController.submitIndicator(UserIndicator(id: Self.loadingIndicatorIdentifier,
@@ -178,10 +178,10 @@ final class NativeRegistrationScreenViewModel: NativeRegistrationScreenViewModel
                                                               title: ArcanaLocalization.loading,
                                                               persistent: true))
     }
-
+    
     private func handleError(_ error: AuthenticationServiceError) {
         MXLog.info("Registration error occurred: \(error)")
-
+        
         switch error {
         case .invalidVerificationCode:
             state.bindings.alertInfo = AlertInfo(id: .invalidVerificationCodeAlert,

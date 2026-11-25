@@ -13,8 +13,7 @@ struct StartChatScreenCoordinatorParameters {
     let userSession: UserSessionProtocol
     let userDiscoveryService: UserDiscoveryServiceProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
-    let appSettings: AppSettings
-    let analytics: AnalyticsService
+    let analytics: AnalyticsServiceProtocol
 }
 
 enum StartChatScreenCoordinatorAction {
@@ -25,23 +24,19 @@ enum StartChatScreenCoordinatorAction {
 }
 
 final class StartChatScreenCoordinator: CoordinatorProtocol {
-    private let parameters: StartChatScreenCoordinatorParameters
     private var viewModel: StartChatScreenViewModelProtocol
     private var cancellables = Set<AnyCancellable>()
-        
+    
     private let actionsSubject: PassthroughSubject<StartChatScreenCoordinatorAction, Never> = .init()
     var actions: AnyPublisher<StartChatScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
     
     init(parameters: StartChatScreenCoordinatorParameters) {
-        self.parameters = parameters
-        
         viewModel = StartChatScreenViewModel(userSession: parameters.userSession,
                                              analytics: parameters.analytics,
                                              userIndicatorController: parameters.userIndicatorController,
-                                             userDiscoveryService: parameters.userDiscoveryService,
-                                             appSettings: parameters.appSettings)
+                                             userDiscoveryService: parameters.userDiscoveryService)
     }
     
     func start() {
@@ -60,7 +55,7 @@ final class StartChatScreenCoordinator: CoordinatorProtocol {
         }
         .store(in: &cancellables)
     }
-        
+    
     // MARK: - Public
     
     func toPresentable() -> AnyView {

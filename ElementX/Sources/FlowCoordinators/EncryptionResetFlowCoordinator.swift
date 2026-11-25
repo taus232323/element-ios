@@ -15,23 +15,27 @@ enum EncryptionResetFlowCoordinatorAction: Equatable {
     case resetComplete
     /// The flow was cancelled.
     case cancel
+    /// The user chose to sign out instead of resetting.
+    case logoutWithoutConfirmation
 }
 
 struct EncryptionResetFlowCoordinatorParameters {
     let userSession: UserSessionProtocol
-    let appSettings: AppSettings
+    let appMediator: AppMediatorProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
     let navigationStackCoordinator: NavigationStackCoordinator
     let windowManger: WindowManagerProtocol
+    var mode: EncryptionResetScreenMode = .hasConfirmationOptions
 }
 
 class EncryptionResetFlowCoordinator: FlowCoordinatorProtocol {
     private let userSession: UserSessionProtocol
-    private let appSettings: AppSettings
+    private let appMediator: AppMediatorProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
     
     private let navigationStackCoordinator: NavigationStackCoordinator
     private let windowManager: WindowManagerProtocol
+    private let mode: EncryptionResetScreenMode
     
     enum State: StateType {
         /// The state machine hasn't started.
@@ -62,10 +66,11 @@ class EncryptionResetFlowCoordinator: FlowCoordinatorProtocol {
     
     init(parameters: EncryptionResetFlowCoordinatorParameters) {
         userSession = parameters.userSession
-        appSettings = parameters.appSettings
+        appMediator = parameters.appMediator
         userIndicatorController = parameters.userIndicatorController
         navigationStackCoordinator = parameters.navigationStackCoordinator
         windowManager = parameters.windowManger
+        mode = parameters.mode
         
         stateMachine = .init(state: .initial)
         configureStateMachine()
@@ -113,18 +118,21 @@ class EncryptionResetFlowCoordinator: FlowCoordinatorProtocol {
     
     private func presentEncryptionResetScreen() {
         let coordinator = EncryptionResetScreenCoordinator(parameters: .init(clientProxy: userSession.clientProxy,
+                                                                             mode: mode,
                                                                              userIndicatorController: userIndicatorController))
         
         coordinator.actionsPublisher.sink { [weak self] action in
             guard let self else { return }
             
             switch action {
-            case .requestOIDCAuthorisation(let url):
-                presentOIDCAuthorization(for: url)
+            case .requestOAuthAuthorisation(let url):
+                presentOAuthAuthorization(for: url)
             case .requestPassword(let passwordPublisher):
                 stateMachine.tryEvent(.confirmPassword, userInfo: passwordPublisher)
             case .cancel:
                 actionsSubject.send(.cancel)
+            case .logoutWithoutConfirmation:
+                actionsSubject.send(.logoutWithoutConfirmation)
             case .resetFinished:
                 actionsSubject.send(.resetComplete)
             }
@@ -152,13 +160,14 @@ class EncryptionResetFlowCoordinator: FlowCoordinatorProtocol {
         }
     }
     
-    private var accountSettingsPresenter: OIDCAccountSettingsPresenter?
-    private func presentOIDCAuthorization(for url: URL) {
+    private var accountSettingsPresenter: OAuthAccountSettingsPresenter?
+    private func presentOAuthAuthorization(for url: URL) {
         // Note to anyone in the future if you come back here to make this open in Safari instead of a WAS.
         // As of iOS 16, there is an issue on the simulator with accessing the cookie but it works on a device. 🤷‍♂️
-        accountSettingsPresenter = OIDCAccountSettingsPresenter(accountURL: url,
-                                                                presentationAnchor: windowManager.mainWindow,
-                                                                appSettings: appSettings)
+        accountSettingsPresenter = OAuthAccountSettingsPresenter(accountURL: url,
+                                                                 presentationAnchor: windowManager.mainWindow,
+                                                                 appMediator: appMediator,
+                                                                 userSession: userSession)
         accountSettingsPresenter?.start()
     }
 }

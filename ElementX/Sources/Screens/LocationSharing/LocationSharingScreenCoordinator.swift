@@ -12,14 +12,12 @@ import SwiftUI
 struct LocationSharingScreenCoordinatorParameters {
     let interactionMode: LocationSharingInteractionMode
     let mapURLBuilder: MapTilerURLBuilderProtocol
-    let liveLocationSharingEnabled: Bool
     let roomProxy: JoinedRoomProxyProtocol
     let timelineController: TimelineControllerProtocol
-    let liveLocationManager: LiveLocationManagerProtocol
+    let userSession: UserSessionProtocol
     let appMediator: AppMediatorProtocol
-    let analytics: AnalyticsService
+    let analytics: AnalyticsServiceProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
-    let mediaProvider: MediaProviderProtocol
 }
 
 enum LocationSharingScreenCoordinatorAction {
@@ -42,13 +40,11 @@ final class LocationSharingScreenCoordinator: CoordinatorProtocol {
         
         viewModel = LocationSharingScreenViewModel(interactionMode: parameters.interactionMode,
                                                    mapURLBuilder: parameters.mapURLBuilder,
-                                                   liveLocationSharingEnabled: parameters.liveLocationSharingEnabled,
                                                    roomProxy: parameters.roomProxy,
                                                    timelineController: parameters.timelineController,
-                                                   liveLocationManager: parameters.liveLocationManager,
+                                                   userSession: parameters.userSession,
                                                    analytics: parameters.analytics,
-                                                   userIndicatorController: parameters.userIndicatorController,
-                                                   mediaProvider: parameters.mediaProvider)
+                                                   userIndicatorController: parameters.userIndicatorController)
     }
     
     // MARK: - Public

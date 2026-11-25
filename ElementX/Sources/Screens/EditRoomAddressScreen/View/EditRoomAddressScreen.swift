@@ -16,7 +16,9 @@ struct EditRoomAddressScreen: View {
         Form {
             Section {
                 EditRoomAddressListRow(aliasLocalPart: $context.desiredAliasLocalPart,
-                                       serverName: context.viewState.serverName, shouldDisplayError: context.viewState.aliasErrors.errorDescription != nil)
+                                       serverName: context.viewState.serverName,
+                                       errorDescription: context.viewState.aliasErrors.errorDescription,
+                                       footerText: L10n.screenEditRoomAddressRoomAddressSectionFooter)
                     .onChange(of: context.desiredAliasLocalPart) { _, newAliasLocalPart in
                         context.desiredAliasLocalPart = newAliasLocalPart.lowercased()
                     }
@@ -30,12 +32,10 @@ struct EditRoomAddressScreen: View {
                     if let errorDescription = context.viewState.aliasErrors.errorDescription {
                         Label(errorDescription, icon: \.errorSolid, iconSize: .xSmall, relativeTo: .compound.bodySM)
                             .foregroundStyle(.compound.textCriticalPrimary)
-                            .font(.compound.bodySM)
                     }
                     Text(L10n.screenEditRoomAddressRoomAddressSectionFooter)
-                        .compoundListSectionFooter()
-                        .font(.compound.bodySM)
                 }
+                .compoundListSectionFooter()
             }
         }
         .compoundList()

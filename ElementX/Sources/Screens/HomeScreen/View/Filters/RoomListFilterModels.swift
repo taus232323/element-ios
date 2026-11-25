@@ -17,9 +17,10 @@ enum RoomListFilter: Int, CaseIterable, Identifiable {
     }
     
     case unreads
+    case mentions
+    case favourites
     case people
     case rooms
-    case favourites
     case invites
     case lowPriority
     
@@ -35,6 +36,8 @@ enum RoomListFilter: Int, CaseIterable, Identifiable {
             return L10n.screenRoomlistFilterRooms
         case .unreads:
             return L10n.screenRoomlistFilterUnreads
+        case .mentions:
+            return L10n.screenRoomlistFilterMention
         case .favourites:
             return L10n.screenRoomlistFilterFavourites
         case .invites:
@@ -52,10 +55,12 @@ enum RoomListFilter: Int, CaseIterable, Identifiable {
             return [.people, .invites]
         case .unreads:
             return [.invites]
+        case .mentions:
+            return [.invites]
         case .favourites:
             return [.invites, .lowPriority]
         case .invites:
-            return [.rooms, .people, .unreads, .favourites, .lowPriority]
+            return [.rooms, .people, .unreads, .mentions, .favourites, .lowPriority]
         case .lowPriority:
             return [.favourites, .invites]
         }
@@ -68,7 +73,9 @@ enum RoomListFilter: Int, CaseIterable, Identifiable {
         case .rooms:
             return .all(filters: [.category(expect: .group), .joined])
         case .unreads:
-            return .all(filters: [.unread, .joined])
+            return .all(filters: [.readReceipts(expect: .notifications), .joined])
+        case .mentions:
+            return .all(filters: [.readReceipts(expect: .mentions), .joined])
         case .favourites:
             return .all(filters: [.favourite, .joined])
         case .invites:
@@ -82,18 +89,35 @@ enum RoomListFilter: Int, CaseIterable, Identifiable {
 
 struct RoomListFiltersState {
     private(set) var activeFilters: OrderedSet<RoomListFilter>
-    private let appSettings: AppSettings
+    /// Whether there are pending invites, or `nil` when they aren't checked because the prominent invites filter is off.
+    var hasInvites: Bool?
+    private let userSettings: UserSettings
     
-    init(activeFilters: OrderedSet<RoomListFilter> = [], appSettings: AppSettings) {
+    init(activeFilters: OrderedSet<RoomListFilter> = [],
+         hasInvites: Bool? = nil,
+         userSettings: UserSettings) {
         self.activeFilters = .init(activeFilters)
-        self.appSettings = appSettings
+        self.hasInvites = hasInvites
+        self.userSettings = userSettings
     }
     
     var availableFilters: [RoomListFilter] {
         var availableFilters = OrderedSet(RoomListFilter.availableFilters)
         
-        if !appSettings.lowPriorityFilterEnabled {
+        if let hasInvites {
+            availableFilters.remove(.invites)
+            
+            if hasInvites {
+                availableFilters.insert(.invites, at: 0)
+            }
+        }
+        
+        if !userSettings.app.lowPriorityFilterEnabled {
             availableFilters.remove(.lowPriority)
+        }
+        
+        if !userSettings.app.mentionsFilterEnabled {
+            availableFilters.remove(.mentions)
         }
         
         for filter in activeFilters {
@@ -109,10 +133,8 @@ struct RoomListFiltersState {
     }
     
     mutating func activateFilter(_ filter: RoomListFilter) {
-        filter.incompatibleFilters.forEach { incompatibleFilter in
-            if activeFilters.contains(incompatibleFilter) {
-                fatalError("[RoomListFiltersState] adding mutually exclusive filters is not allowed")
-            }
+        if filter.incompatibleFilters.contains(where: { activeFilters.contains($0) }) {
+            return
         }
         
         // We always want the most recently enabled filter to be at the bottom of the others.

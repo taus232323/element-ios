@@ -37,6 +37,8 @@ targets:
       - package: Kingfisher
       - package: Collections
       - package: Compound
+      - package: BuildExtensions
+        product: Macros
       - package: DeviceKit
       - package: LRUCache
       - package: Version
@@ -52,6 +54,7 @@ targets:
         baseBundleIdentifier: $(BASE_BUNDLE_IDENTIFIER)
         keychainAccessGroupIdentifier: $(KEYCHAIN_ACCESS_GROUP_IDENTIFIER)
         productionAppName: $(PRODUCTION_APP_NAME)
+        isNightlyBuild: $(IS_NIGHTLY_BUILD)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationServiceExtension
@@ -76,58 +79,63 @@ targets:
         CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
         SWIFT_OBJC_INTERFACE_HEADER_NAME: GeneratedInterface-Swift.h
+        SWIFT_VERSION: 6
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
         OTHER_SWIFT_FLAGS:
         - "-DIS_NSE"
         - "-DAPP_EXTENSION"
-        
+
     sources:
     - path: ../Sources
     - path: ../SupportingFiles
-    - path: ../../arcana/Sources/AppHooks/AppHooks.swift
-    - path: ../../arcana/Sources/AppHooks/Hooks/TracingHook.swift
-    - path: ../../arcana/Sources/AppHooks/Hooks/ClientBuilderHook.swift
-    - path: ../../arcana/Sources/AppHooks/Hooks/RemoteSettingsHook.swift
-    - path: ../../Secrets/Secrets.swift
-    - path: ../../arcana/Sources/Application/Settings
-    - path: ../../arcana/Sources/Application/TargetConfiguration.swift
-    - path: ../../arcana/Sources/Generated/Assets.swift
-    - path: ../../arcana/Sources/Generated/Strings.swift
-    - path: ../../arcana/Sources/Other/Avatars.swift
-    - path: ../../arcana/Sources/Other/CurrentValuePublisher.swift
-    - path: ../../arcana/Sources/Other/ExpiringTaskRunner.swift
-    - path: ../../arcana/Sources/Other/Extensions/AttributedString.swift
-    - path: ../../arcana/Sources/Other/Extensions/Bundle.swift
-    - path: ../../arcana/Sources/Other/Extensions/ClientBuilder.swift
-    - path: ../../arcana/Sources/Other/Extensions/Date.swift
-    - path: ../../arcana/Sources/Other/Extensions/Dictionary.swift
-    - path: ../../arcana/Sources/Other/Extensions/FileManager.swift
-    - path: ../../arcana/Sources/Other/Extensions/ImageCache.swift
-    - path: ../../arcana/Sources/Other/Extensions/LayoutDirection.swift
-    - path: ../../arcana/Sources/Other/Extensions/NSRegularExpresion.swift
-    - path: ../../arcana/Sources/Other/Extensions/ProcessInfo.swift
-    - path: ../../arcana/Sources/Other/Extensions/String.swift
-    - path: ../../arcana/Sources/Other/Extensions/Task.swift
-    - path: ../../arcana/Sources/Other/Extensions/UNNotificationContent.swift
-    - path: ../../arcana/Sources/Other/Extensions/URL.swift
-    - path: ../../arcana/Sources/Other/Extensions/UTType.swift
-    - path: ../../arcana/Sources/Other/Extensions/CharacterSet.swift
-    - path: ../../arcana/Sources/Other/HTMLParsing
-    - path: ../../arcana/Sources/Other/InfoPlistReader.swift
-    - path: ../../arcana/Sources/Other/Logging
-    - path: ../../arcana/Sources/Other/MatrixEntityRegex.swift
-    - path: ../../arcana/Sources/Other/NetworkMonitor
-    - path: ../../arcana/Sources/Other/Pills/PillUtilities.swift
-    - path: ../../arcana/Sources/Other/Pills/PlainMentionBuilder.swift
-    - path: ../../arcana/Sources/Other/SDKListener.swift
-    - path: ../../arcana/Sources/Other/SwiftUI/Views/PlaceholderAvatarImage.swift
-    - path: ../../arcana/Sources/Other/TestablePreview/TestablePreview.swift
-    - path: ../../arcana/Sources/Other/UserAgentBuilder.swift
-    - path: ../../arcana/Sources/Services/ElementCall/ElementCallServiceConstants.swift
-    - path: ../../arcana/Sources/Services/Keychain/KeychainController.swift
-    - path: ../../arcana/Sources/Services/Keychain/KeychainControllerProtocol.swift
-    - path: ../../arcana/Sources/Services/Media/Provider
-    - path: ../../arcana/Sources/Services/Notification/NotificationConstants.swift
-    - path: ../../arcana/Sources/Services/Room/RoomSummary/RoomMessageEventStringBuilder.swift
-    - path: ../../arcana/Sources/Services/UserSession/RestorationToken.swift
-    - path: ../../arcana/Sources/Services/UserSession/SessionDirectories.swift
-    - path: ../../arcana/Sources/UITests/UITestsScreenIdentifier.swift
+    - path: ../../ElementX/Sources/AppHooks/AppHooks.swift
+    - path: ../../ElementX/Sources/AppHooks/Hooks/TracingHook.swift
+    - path: ../../ElementX/Sources/AppHooks/Hooks/ClientFactoryHook.swift
+    - path: ../../ElementX/Sources/AppHooks/Hooks/UserSessionHook.swift
+    - path: ../../Components/Secrets/Secrets.swift
+    - path: ../../ElementX/Sources/Application/Settings
+    - path: ../../ElementX/Sources/Application/Target.swift
+    - path: ../../ElementX/Sources/Generated/Strings.swift
+    - path: ../../ElementX/Sources/Other/Avatars.swift
+    - path: ../../ElementX/Sources/Other/CurrentValuePublisher.swift
+    - path: ../../ElementX/Sources/Other/ExpiringTaskRunner.swift
+    - path: ../../ElementX/Sources/Other/Extensions/AttributedString.swift
+    - path: ../../ElementX/Sources/Other/Extensions/Bundle.swift
+    - path: ../../ElementX/Sources/Other/Extensions/Date.swift
+    - path: ../../ElementX/Sources/Other/Extensions/Dictionary.swift
+    - path: ../../ElementX/Sources/Other/Extensions/FileManager.swift
+    - path: ../../ElementX/Sources/Other/Extensions/ImageCache.swift
+    - path: ../../ElementX/Sources/Other/Extensions/NSRegularExpresion.swift
+    - path: ../../ElementX/Sources/Other/Extensions/ProcessInfo.swift
+    - path: ../../ElementX/Sources/Other/Extensions/String.swift
+    - path: ../../ElementX/Sources/Other/Extensions/Task.swift
+    - path: ../../ElementX/Sources/Other/Extensions/UNNotificationContent.swift
+    - path: ../../ElementX/Sources/Other/Extensions/URL.swift
+    - path: ../../ElementX/Sources/Other/Extensions/UTType.swift
+    - path: ../../ElementX/Sources/Other/Extensions/CharacterSet.swift
+    - path: ../../ElementX/Sources/Other/HTMLParsing
+    - path: ../../ElementX/Sources/Other/InfoPlistReader.swift
+    - path: ../../ElementX/Sources/Other/Logging
+    - path: ../../ElementX/Sources/Other/MatrixEntityRegex.swift
+    - path: ../../ElementX/Sources/Other/NetworkMonitor/NetworkMonitorProtocol.swift
+    - path: ../../ElementX/Sources/Other/Pills/PillUtilities.swift
+    - path: ../../ElementX/Sources/Other/Pills/PlainMentionBuilder.swift
+    - path: ../../ElementX/Sources/Other/SDKListener.swift
+    - path: ../../ElementX/Sources/Other/SwiftUI/Views/PlaceholderAvatarImage.swift
+    - path: ../../ElementX/Sources/Other/TestablePreview/TestablePreview.swift
+    - path: ../../ElementX/Sources/Other/UserAgentBuilder.swift
+    - path: ../../ElementX/Sources/Services/AlertTones/NotificationTone.swift
+    - path: ../../ElementX/Sources/Services/AlertTones/NotificationToneManager.swift
+    - path: ../../ElementX/Sources/Services/AlertTones/NotificationToneManagerProtocol.swift
+    - path: ../../ElementX/Sources/Services/Client/ClientBuilderFactory.swift
+    - path: ../../ElementX/Sources/Services/Client/ClientFactory.swift
+    - path: ../../ElementX/Sources/Services/Client/ClientFactoryProtocol.swift
+    - path: ../../ElementX/Sources/Services/ElementCall/ElementCallServiceConstants.swift
+    - path: ../../ElementX/Sources/Services/Keychain/KeychainController.swift
+    - path: ../../ElementX/Sources/Services/Keychain/KeychainControllerProtocol.swift
+    - path: ../../ElementX/Sources/Services/Media/Provider
+    - path: ../../ElementX/Sources/Services/Notification/NotificationConstants.swift
+    - path: ../../ElementX/Sources/Services/Room/RoomSummary/RoomMessageEventStringBuilder.swift
+    - path: ../../ElementX/Sources/Services/UserSession/RestorationToken.swift
+    - path: ../../ElementX/Sources/Services/UserSession/SessionDirectories.swift
+    - path: ../../ElementX/Sources/UITests/UITestsScreenIdentifier.swift

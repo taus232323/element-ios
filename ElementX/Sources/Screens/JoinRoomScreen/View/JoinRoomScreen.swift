@@ -26,7 +26,7 @@ struct JoinRoomScreen: View {
         }
         return context.viewState.mode == .knocked ? 151 : 32
     }
-
+    
     var body: some View {
         FullscreenDialog(topPadding: topPadding) {
             if context.viewState.mode == .loading {
@@ -41,6 +41,7 @@ struct JoinRoomScreen: View {
         .background()
         .backgroundStyle(.compound.bgCanvasDefault)
         .toolbarRole(RoomHeaderView.toolbarRole)
+        .fixesTitleViewOnCancelledPop()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
         .shouldScrollOnKeyboardDidShow(focus == .knockMessage, to: Focus.knockMessage)
@@ -130,7 +131,7 @@ struct JoinRoomScreen: View {
             }
         }
     }
-        
+    
     private var knockMessage: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 0) {
@@ -386,7 +387,6 @@ struct JoinRoomScreenSpace_Previews: PreviewProvider, TestablePreview {
     }
 }
 
-@MainActor
 struct JoinRoomScreenPreviewWrapper: Identifiable {
     let id = UUID()
     let viewModel: JoinRoomScreenViewModel
@@ -402,9 +402,6 @@ struct JoinRoomScreenPreviewWrapper: Identifiable {
         self.mode = mode
         self.isSpace = isSpace
         self.customPreviewName = customPreviewName
-        
-        let appSettings = AppSettings()
-        appSettings.knockingEnabled = true
         
         let clientProxy = ClientProxyMock(.init(hideInviteAvatars: hideInviteAvatars))
         clientProxy.canJoinRoomWithReturnValue = canJoinRoom
@@ -457,9 +454,8 @@ struct JoinRoomScreenPreviewWrapper: Identifiable {
         }
         
         viewModel = JoinRoomScreenViewModel(source: source,
-                                            appSettings: appSettings,
                                             userSession: UserSessionMock(.init(clientProxy: clientProxy)),
-                                            userIndicatorController: ServiceLocator.shared.userIndicatorController)
+                                            userIndicatorController: UserIndicatorControllerMock())
     }
     
     var previewDisplayName: String {

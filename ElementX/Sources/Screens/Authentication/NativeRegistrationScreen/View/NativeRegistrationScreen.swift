@@ -13,15 +13,15 @@ struct NativeRegistrationScreen: View {
     @FocusState private var isVerificationCodeFocused: Bool
     @FocusState private var isUsernameFocused: Bool
     @FocusState private var isPasswordFocused: Bool
-
+    
     @Bindable var context: NativeRegistrationScreenViewModel.Context
-
+    
     var body: some View {
         VStack(spacing: 0) {
             header
                 .padding(.top, UIConstants.titleTopPaddingToNavigationBar)
                 .padding(.bottom, 32)
-
+            
             form
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -47,18 +47,18 @@ struct NativeRegistrationScreen: View {
         }
         .alert(item: $context.alertInfo)
     }
-
+    
     var header: some View {
         VStack(spacing: 8) {
             ArcanaMark(size: 208)
                 .padding(.top, 8)
                 .padding(.bottom, 8)
-
+            
             Text(title)
                 .font(.compound.headingMDBold)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.compound.textPrimary)
-
+            
             Text(subtitle)
                 .font(.compound.bodyMD)
                 .multilineTextAlignment(.center)
@@ -66,7 +66,7 @@ struct NativeRegistrationScreen: View {
         }
         .padding(.horizontal, 16)
     }
-
+    
     var title: String {
         switch context.viewState.step {
         case .email:
@@ -79,7 +79,7 @@ struct NativeRegistrationScreen: View {
             ArcanaLocalization.loginDeviceSecurityTitle
         }
     }
-
+    
     var subtitle: String {
         switch context.viewState.step {
         case .email:
@@ -92,7 +92,7 @@ struct NativeRegistrationScreen: View {
             ArcanaLocalization.loginDeviceSecuritySubtitle
         }
     }
-
+    
     var form: some View {
         VStack(alignment: .leading, spacing: 0) {
             switch context.viewState.step {
@@ -125,7 +125,7 @@ struct NativeRegistrationScreen: View {
                     }
                 }
                 .padding(.bottom, 20)
-
+                
                 Button(action: { context.send(viewAction: .resendVerificationCode) }, label: {
                     Text(ArcanaLocalization.nativeRegistrationResendEmail)
                 })
@@ -142,7 +142,7 @@ struct NativeRegistrationScreen: View {
                 .submitLabel(.next)
                 .onSubmit { isPasswordFocused = true }
                 .padding(.bottom, 20)
-
+                
                 SecureField(text: $context.password) {
                     Text(ArcanaLocalization.passwordLabel).foregroundColor(.compound.textSecondary)
                 }
@@ -159,17 +159,17 @@ struct NativeRegistrationScreen: View {
                     Spacer()
                 }
                 .padding(.vertical, 32)
-
+                
                 Text(ArcanaLocalization.loginDeviceSecurityBody)
                     .font(.compound.bodyMD)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.compound.textSecondary)
                     .frame(maxWidth: .infinity)
             }
-
+            
             if context.viewState.step != .securingDevice {
                 Spacer().frame(height: 24)
-
+                
                 Button(action: submit) {
                     Text(context.viewState.step == .credentials ? ArcanaLocalization.nativeRegistrationCreateAccount : ArcanaLocalization.continueAction)
                 }
@@ -178,7 +178,7 @@ struct NativeRegistrationScreen: View {
             }
         }
     }
-
+    
     private func submit() {
         guard context.viewState.canSubmit else { return }
         context.send(viewAction: .next)

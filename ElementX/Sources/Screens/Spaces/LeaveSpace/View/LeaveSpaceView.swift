@@ -7,6 +7,8 @@
 //
 
 import Compound
+import MatrixRustSDK
+import MatrixRustSDKMocks
 import SwiftUI
 
 struct LeaveSpaceView: View {
@@ -126,9 +128,6 @@ struct LeaveSpaceView: View {
 
 // MARK: - Previews
 
-import MatrixRustSDK
-import MatrixRustSDKMocks
-
 struct LeaveSpaceView_Previews: PreviewProvider, TestablePreview {
     static let manyViewModel = makeViewModel(mode: .manyRooms)
     static let onlyAdminViewModel = makeViewModel(mode: .roomsNeedNewOwner)
@@ -177,6 +176,6 @@ struct LeaveSpaceView_Previews: PreviewProvider, TestablePreview {
                                    canEditRolesAndPermissions: true,
                                    leaveHandle: leaveHandle,
                                    userIndicatorController: UserIndicatorControllerMock(),
-                                   mediaProvider: MediaProviderMock(configuration: .init()))
+                                   mediaProvider: MediaProviderMock(.init()))
     }
 }

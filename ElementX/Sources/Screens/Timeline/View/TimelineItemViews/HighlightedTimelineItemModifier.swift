@@ -87,21 +87,20 @@ struct HighlightedTimelineItemModifier_Previews: PreviewProvider, TestablePrevie
 struct HighlightedTimelineItemTimeline_Previews: PreviewProvider {
     static let roomProxyMock = JoinedRoomProxyMock(.init(name: "Preview room"))
     static let roomViewModel = RoomScreenViewModel.mock(roomProxyMock: roomProxyMock)
-    static let focussedEventID = "RoomTimelineItemFixtures.default.5"
+    static let focussedEventID = "TimelineFixtures.default.5"
     static let composerViewModel = ComposerToolbarViewModel.mock()
     static let timelineViewModel = TimelineViewModel(roomProxy: roomProxyMock,
                                                      focussedEventID: focussedEventID,
-                                                     timelineController: MockTimelineController(),
+                                                     timelineController: TimelineControllerMock(.init()),
                                                      userSession: UserSessionMock(.init()),
                                                      mediaPlayerProvider: MediaPlayerProviderMock(),
-                                                     userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                                     appMediator: AppMediatorMock.default,
-                                                     appSettings: ServiceLocator.shared.settings,
-                                                     analyticsService: ServiceLocator.shared.analytics,
-                                                     emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                     userIndicatorController: UserIndicatorControllerMock(),
+                                                     appMediator: AppMediatorMock(.init()),
+                                                     analyticsService: AnalyticsServiceMock(.init()),
+                                                     emojiProvider: EmojiProvider(userSettings: .mock()),
                                                      linkMetadataProvider: LinkMetadataProvider(),
                                                      timelineControllerFactory: TimelineControllerFactoryMock(.init()))
-
+    
     static var previews: some View {
         ElementNavigationStack {
             RoomScreen(context: roomViewModel.context,

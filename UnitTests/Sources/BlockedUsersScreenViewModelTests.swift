@@ -19,9 +19,9 @@ struct BlockedUsersScreenViewModelTests {
         
         let viewModel = BlockedUsersScreenViewModel(hideProfiles: true,
                                                     userSession: UserSessionMock(.init(clientProxy: clientProxy)),
-                                                    userIndicatorController: ServiceLocator.shared.userIndicatorController)
+                                                    userIndicatorController: UserIndicatorControllerMock())
         
-        let deferred = deferFailure(viewModel.context.observe(\.viewState.blockedUsers), timeout: .seconds(1)) { $0.contains { $0.displayName != nil } }
+        let deferred = deferFailure(viewModel.context.observe(\.viewState.blockedUsers), timeout: .milliseconds(300)) { $0.contains { $0.displayName != nil } }
         try await deferred.fulfill()
         
         #expect(!viewModel.context.viewState.blockedUsers.isEmpty)
@@ -34,12 +34,30 @@ struct BlockedUsersScreenViewModelTests {
         
         let viewModel = BlockedUsersScreenViewModel(hideProfiles: false,
                                                     userSession: UserSessionMock(.init(clientProxy: clientProxy)),
-                                                    userIndicatorController: ServiceLocator.shared.userIndicatorController)
+                                                    userIndicatorController: UserIndicatorControllerMock())
         
         let deferred = deferFulfillment(viewModel.context.observe(\.viewState.blockedUsers)) { $0.contains { $0.displayName != nil } }
         try await deferred.fulfill()
         
         #expect(!viewModel.context.viewState.blockedUsers.isEmpty)
         #expect(clientProxy.profileForCalled)
+    }
+    
+    @Test
+    func copyUserID() throws {
+        let clientProxy = ClientProxyMock(.init(userID: RoomMemberProxyMock.mockMe.userID))
+        let userIndicatorController = UserIndicatorControllerMock()
+        
+        let viewModel = BlockedUsersScreenViewModel(hideProfiles: true,
+                                                    userSession: UserSessionMock(.init(clientProxy: clientProxy)),
+                                                    userIndicatorController: userIndicatorController)
+        
+        let user = try #require(viewModel.context.viewState.blockedUsers.first)
+        UIPasteboard.general.string = ""
+        
+        viewModel.context.send(viewAction: .copyUserID(user))
+        
+        #expect(UIPasteboard.general.string == user.id)
+        #expect(userIndicatorController.submitIndicatorDelayReceivedArguments?.indicator.title == L10n.commonCopiedToClipboard)
     }
 }

@@ -35,7 +35,7 @@ enum Application {
     private static func checkEnvironments() {
         let requirediPhoneSimulator = "iPhone18,3" // iPhone 17
         let requirediPadSimulator = "iPad15,7" // iPad (A16)
-        let requiredOSVersion = (major: 26, minor: 4)
+        let requiredOSVersion = (major: 27, minor: 2)
         
         let osVersion = ProcessInfo().operatingSystemVersion
         guard osVersion.majorVersion == requiredOSVersion.major, osVersion.minorVersion == requiredOSVersion.minor else {
@@ -58,8 +58,9 @@ extension XCUIApplication {
     /// - Parameter testName: The current test name, first part of the resulting snapshot filename.
     /// - Parameter step: An optional integer that can be used to take multiple snapshots per test identifier
     /// - Parameter delay: How much to wait before taking the snapshot
-    @MainActor
-    func assertScreenshot(fileName: String = #file, testName: String = #function, step: Int? = nil, delay: Duration = .seconds(0.5)) async throws {
+    /// - Returns: The screenshot that was compared, for tests that need to check it further.
+    @MainActor @discardableResult
+    func assertScreenshot(fileName: String = #file, testName: String = #function, step: Int? = nil, delay: Duration = .seconds(0.5)) async throws -> UIImage {
         // Sometimes the CI might be too slow to load the content so let's wait the delay time
         try await Task.sleep(for: delay)
         
@@ -86,6 +87,8 @@ extension XCUIApplication {
         if let failure {
             XCTFail(failure)
         }
+        
+        return snapshot
     }
     
     private var deviceName: String {
@@ -102,17 +105,17 @@ extension XCUIApplication {
         }
         return languageCode + "-" + regionCode
     }
-
+    
     private var languageCode: String {
         Locale.current.language.languageCode?.identifier ?? ""
     }
-
+    
     private var regionCode: String {
         Locale.current.language.region?.identifier ?? ""
     }
 }
 
-private extension UIImage {
+extension UIImage {
     /// Adjusts the image by cropping it with the given edge insets.
     func inset(by insets: UIEdgeInsets) -> UIImage {
         let insetRect = CGRect(origin: .zero, size: size).inset(by: insets)

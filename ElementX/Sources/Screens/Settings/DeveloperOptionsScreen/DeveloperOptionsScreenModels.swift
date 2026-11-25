@@ -6,6 +6,7 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+import Combine
 import Foundation
 
 enum DeveloperOptionsScreenViewModelAction {
@@ -13,11 +14,9 @@ enum DeveloperOptionsScreenViewModelAction {
 }
 
 struct DeveloperOptionsScreenViewState: BindableState {
-    let elementCallBaseURL: URL
-    let appHooks: AppHooks
+    let screenHook: DeveloperOptionsScreenHookProtocol
     var storeSizes: [StoreSize]?
-    let shouldShowClearCache: Bool
-    let isPresentedModally: Bool
+    let isSignedIn: Bool
     
     var bindings: DeveloperOptionsScreenViewStateBindings
     
@@ -31,15 +30,14 @@ struct DeveloperOptionsScreenViewState: BindableState {
     }
 }
 
-// periphery: ignore - subscripts are seen as false positive
 @dynamicMemberLookup
 struct DeveloperOptionsScreenViewStateBindings {
     private let developerOptions: DeveloperOptionsProtocol
-
+    
     init(developerOptions: DeveloperOptionsProtocol) {
         self.developerOptions = developerOptions
     }
-
+    
     subscript<Setting>(dynamicMember keyPath: ReferenceWritableKeyPath<DeveloperOptionsProtocol, Setting>) -> Setting {
         get { developerOptions[keyPath: keyPath] }
         set { developerOptions[keyPath: keyPath] = newValue }
@@ -48,6 +46,7 @@ struct DeveloperOptionsScreenViewStateBindings {
 
 enum DeveloperOptionsScreenViewAction {
     case clearCache
+    case markAllRoomsAsRead
 }
 
 protocol DeveloperOptionsProtocol: AnyObject {
@@ -55,26 +54,32 @@ protocol DeveloperOptionsProtocol: AnyObject {
     var traceLogPacks: Set<TraceLogPack> { get set }
     
     var enableOnlySignedDeviceIsolationMode: Bool { get set }
-    var enableKeyShareOnInvite: Bool { get set }
     var hideQuietNotificationAlerts: Bool { get set }
     var focusEventOnNotificationTap: Bool { get set }
-    var automaticBackPaginationEnabled: Bool { get set }
     
-    var roomListActivityVisibility: RoomListActivityVisibility { get set }
     var elementCallBaseURLOverride: URL? { get set }
     
-    var publicSearchEnabled: Bool { get set }
     var fuzzyRoomListSearchEnabled: Bool { get set }
     var lowPriorityFilterEnabled: Bool { get set }
-    var knockingEnabled: Bool { get set }
+    var mentionsFilterEnabled: Bool { get set }
+    var prominentInvitesFilterEnabled: Bool { get set }
     
+    var viewSourceEnabled: Bool { get set }
     var linkPreviewsEnabled: Bool { get set }
+    var jumpToReadMarkerEnabled: Bool { get set }
+    var imageDrawingEnabled: Bool { get set }
     
     var linkNewDeviceEnabled: Bool { get set }
     
-    var liveLocationSharingEnabled: Bool { get set }
-        
-    var roomThreadListEnabled: Bool { get set }
+    var globalSearchEnabled: Bool { get set }
+    
+    var multiAccountEnabled: Bool { get set }
+    var multiAccountEnabledPublisher: AnyPublisher<Bool, Never> { get }
+    var hasSeenMultiAccountAnnouncement: Bool { get set }
+    
+    var nativeCallEnabled: Bool { get set }
+    
+    var snowEnabled: Bool { get set }
 }
 
 extension AppSettings: DeveloperOptionsProtocol { }

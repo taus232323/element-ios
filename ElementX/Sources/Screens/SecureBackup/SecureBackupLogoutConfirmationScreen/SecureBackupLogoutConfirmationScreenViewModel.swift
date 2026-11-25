@@ -13,31 +13,40 @@ typealias SecureBackupLogoutConfirmationScreenViewModelType = StateStoreViewMode
 
 class SecureBackupLogoutConfirmationScreenViewModel: SecureBackupLogoutConfirmationScreenViewModelType, SecureBackupLogoutConfirmationScreenViewModelProtocol {
     private let secureBackupController: SecureBackupControllerProtocol
-    private let homeserverReachabilityPublisher: CurrentValuePublisher<NetworkMonitorReachability, Never>
+    private let homeserverReachabilityPublisher: CurrentValuePublisher<HomeserverReachability, Never>
     
     private let backupUploadStateSubject: CurrentValueSubject<SecureBackupSteadyState, Never> = .init(.waiting)
     
-    // periphery:ignore - auto cancels when reassigned
     @CancellableTask
     private var keyUploadWaitingTask: Task<Void, Never>?
     @CancellableTask
     private var keyUploadStalledTask: Task<Void, Error>?
+    @CancellableTask
+    private var recoveryKeyTask: Task<Void, Never>?
     
     private var actionsSubject: PassthroughSubject<SecureBackupLogoutConfirmationScreenViewModelAction, Never> = .init()
     var actions: AnyPublisher<SecureBackupLogoutConfirmationScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
-    init(secureBackupController: SecureBackupControllerProtocol, homeserverReachabilityPublisher: CurrentValuePublisher<NetworkMonitorReachability, Never>) {
-        self.secureBackupController = secureBackupController
-        self.homeserverReachabilityPublisher = homeserverReachabilityPublisher
+    
+    init(userSession: UserSessionProtocol, mode: SecureBackupLogoutConfirmationScreenViewMode) {
+        secureBackupController = userSession.clientProxy.secureBackupController
+        homeserverReachabilityPublisher = userSession.clientProxy.homeserverReachabilityPublisher
         
-        super.init(initialViewState: .init(mode: .saveRecoveryKey))
+        super.init(initialViewState: .init(learnMoreURL: userSession.userSettings.app.encryptionURL,
+                                           mode: mode,
+                                           userProfile: userSession.clientProxy.userProfilePublisher.value),
+                   mediaProvider: userSession.mediaProvider)
+        
+        userSession.clientProxy.userProfilePublisher
+            .receive(on: DispatchQueue.main)
+            .weakAssign(to: \.state.userProfile, on: self)
+            .store(in: &cancellables)
         
         backupUploadStateSubject.combineLatest(homeserverReachabilityPublisher)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] backupState, reachability in
-                guard let self, state.mode != .saveRecoveryKey else { return }
+                guard let self, !state.mode.isInitial else { return }
                 updateMode(backupState: backupState, reachability: reachability)
             }
             .store(in: &cancellables)
@@ -52,14 +61,30 @@ class SecureBackupLogoutConfirmationScreenViewModel: SecureBackupLogoutConfirmat
         case .cancel:
             keyUploadWaitingTask = nil
             actionsSubject.send(.cancel)
-        case .settings:
-            actionsSubject.send(.settings)
+        case .checkRecoveryKey:
+            requestRecoveryKey { .checkRecoveryKey($0) }
+        case .generateRecoveryKey:
+            requestRecoveryKey { .generateRecoveryKey($0) }
         case .logout:
             attemptLogout()
         }
     }
     
     // MARK: - Private
+    
+    /// Asks for the user to be taken through a recovery key screen, and carries on removing the device once they have finished it.
+    private func requestRecoveryKey(action: (SecureBackupLogoutConfirmationScreenRecoveryKeyContinuation) -> SecureBackupLogoutConfirmationScreenViewModelAction) {
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        actionsSubject.send(action(continuation))
+        
+        recoveryKeyTask = Task { [weak self] in
+            for await _ in stream {
+                // The keys now have to be backed up before the device can go.
+                self?.state.mode = .saveRecoveryKey
+                self?.attemptLogout()
+            }
+        }
+    }
     
     private func attemptLogout() {
         if case .saveRecoveryKey = state.mode {
@@ -90,7 +115,7 @@ class SecureBackupLogoutConfirmationScreenViewModel: SecureBackupLogoutConfirmat
         }
     }
     
-    private func updateMode(backupState: SecureBackupSteadyState, reachability: NetworkMonitorReachability) {
+    private func updateMode(backupState: SecureBackupSteadyState, reachability: HomeserverReachability) {
         switch (backupState, reachability) {
         case (.waiting, .reachable):
             state.mode = .waitingToStart(hasStalled: false)
@@ -101,7 +126,7 @@ class SecureBackupLogoutConfirmationScreenViewModel: SecureBackupLogoutConfirmat
             break // Nothing to do here, it will be handled with the result.
         case (.done, .reachable):
             state.mode = .backupOngoing(progress: 1.0)
-        case (_, .unreachable):
+        case (_, .unreachable), (_, .suspended):
             state.mode = .offline
         }
     }

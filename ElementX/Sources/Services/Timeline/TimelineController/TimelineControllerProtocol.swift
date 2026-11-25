@@ -14,6 +14,7 @@ enum TimelineControllerCallback {
     case updatedTimelineItems(timelineItems: [RoomTimelineItemProtocol], isSwitchingTimelines: Bool)
     case paginationState(TimelinePaginationState)
     case isLive(Bool)
+    case messageSentOrEdited
 }
 
 enum TimelineControllerAction {
@@ -25,6 +26,7 @@ enum TimelineControllerAction {
     }
     
     case displayMediaPreview(item: EventBasedMessageTimelineItemProtocol, timelineViewModel: TimelineViewModelKind)
+    case displayGalleryPreview(galleryItem: GalleryRoomTimelineItem, timelineViewModel: TimelineViewModelKind)
     case displayLocation(StaticLocationData)
     case displayLiveLocation(sender: TimelineItemSender, initialLiveLocationShare: LiveLocationShare)
     case none
@@ -43,8 +45,10 @@ enum TimelineControllerError: Error {
 /// timeline items, grouping together state events, donating intents to the larger system etc.
 @MainActor
 protocol TimelineControllerProtocol: Sendable {
-    var roomID: String { get }
     var timelineKind: TimelineKind { get }
+    
+    /// The gallery attachments this timeline includes, or `nil` when it isn't filtered.
+    var allowedGalleryItemTypes: [TimelineAllowedGalleryItemType]? { get }
     
     /// The currently known items, use only for setting up the intial state.
     var timelineItems: [RoomTimelineItemProtocol] { get }
@@ -79,8 +83,8 @@ protocol TimelineControllerProtocol: Sendable {
     func removeCaption(_ eventOrTransactionID: TimelineItemIdentifier.EventOrTransactionID) async
     
     func toggleReaction(_ reaction: String, to eventOrTransactionID: TimelineItemIdentifier.EventOrTransactionID) async
-
-    func redact(_ eventOrTransactionID: TimelineItemIdentifier.EventOrTransactionID) async
+    
+    func redact(_ eventOrTransactionID: TimelineItemIdentifier.EventOrTransactionID, reason: String?) async
     
     func pin(eventID: String) async
     
@@ -91,6 +95,12 @@ protocol TimelineControllerProtocol: Sendable {
     func debugInfo(for itemID: TimelineItemIdentifier) -> TimelineItemDebugInfo
     
     func sendHandle(for itemID: TimelineItemIdentifier) -> SendHandleProxy?
+    
+    func pendingSendTarget(for itemID: TimelineItemIdentifier) -> SendTarget?
+    
+    func retrySend(_ itemID: TimelineItemIdentifier, target: SendTarget) async
+    
+    func abortSend(_ itemID: TimelineItemIdentifier, target: SendTarget) async
     
     func eventTimestamp(for itemID: TimelineItemIdentifier) -> Date?
     
@@ -132,18 +142,27 @@ protocol TimelineControllerProtocol: Sendable {
     func sendVoiceMessage(url: URL,
                           audioInfo: AudioInfo,
                           waveform: [Float],
+                          inReplyToEventID: String?,
                           requestHandle: @MainActor (SendAttachmentJoinHandleProtocol) -> Void) async -> Result<Void, TimelineControllerError>
+    
+    func sendGallery(itemInfos: [GalleryItemInfo],
+                     caption: String?,
+                     inReplyToEventID: String?) async -> Result<Void, TimelineControllerError>
     
     // MARK: - Poll
     
-    func createPoll(question: String, answers: [String], pollKind: Poll.Kind) async -> Result<Void, TimelineControllerError>
+    func createPoll(question: String, answers: [String], maxSelections: Int, pollKind: Poll.Kind) async -> Result<Void, TimelineControllerError>
     
     func editPoll(original eventID: String,
                   question: String,
                   answers: [String],
+                  maxSelections: Int,
                   pollKind: Poll.Kind) async -> Result<Void, TimelineControllerError>
     
     func sendPollResponse(pollStartID: String, answers: [String]) async -> Result<Void, TimelineControllerError>
     
     func endPoll(pollStartID: String, text: String) async -> Result<Void, TimelineControllerError>
 }
+
+// sourcery: AutoMockable
+extension TimelineControllerProtocol { }

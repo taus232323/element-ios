@@ -19,7 +19,7 @@ struct StringTests {
     func spaceIsAscii() {
         #expect("".isASCII)
     }
-
+    
     @Test
     func johnnyIsAscii() {
         #expect("johnny".isASCII)
@@ -54,29 +54,6 @@ struct StringTests {
         #expect("Heartbreak Hotel 🏩".asciified() == "Heartbreak Hotel", "The emoji should be stripped.")
         #expect("1️⃣2️⃣3️⃣".asciified() == "123", "The emoji should be converted to ASCII.")
     }
-
-    @Test
-    func generateBreakableWhitespaceEnd() {
-        var count = 5
-        var result = "\u{2066}" + String(repeating: "\u{2004}", count: count) + "\u{2800}"
-        #expect(String.generateBreakableWhitespaceEnd(whitespaceCount: count, layoutDirection: .leftToRight) == result)
-
-        count = 3
-        result = "\u{2066}" + String(repeating: "\u{2004}", count: count) + "\u{2800}"
-        #expect(String.generateBreakableWhitespaceEnd(whitespaceCount: count, layoutDirection: .leftToRight) == result)
-
-        count = 0
-        result = ""
-        #expect(String.generateBreakableWhitespaceEnd(whitespaceCount: count, layoutDirection: .leftToRight) == result)
-
-        count = 4
-        result = "\u{2067}" + String(repeating: "\u{2004}", count: count) + "\u{2800}"
-        #expect(String.generateBreakableWhitespaceEnd(whitespaceCount: count, layoutDirection: .rightToLeft) == result)
-
-        count = 0
-        result = ""
-        #expect(String.generateBreakableWhitespaceEnd(whitespaceCount: count, layoutDirection: .rightToLeft) == result)
-    }
     
     @Test
     func ellipsizeWorks() {
@@ -96,13 +73,18 @@ struct StringTests {
         let input3 = "</p>\n\n\n\n<p>"
         let input4 = "<p>a</p>\n<p>b</p>"
         let input5 = "empty"
+        let input6 = "<ul><li>a</li></ul>\n<p>b</p>"
+        let input7 = "</p>\n<ul>"
         
         let expectedOutput0 = input0
-        let expectedOutput1 = "<br><br>"
-        let expectedOutput2 = "<br><br><br>"
-        let expectedOutput3 = "<br><br><br><br><br>"
-        let expectedOutput4 = "<p>a<br><br>b</p>"
+        let expectedOutput1 = "</p><br><p>"
+        let expectedOutput2 = "</p><br><br><p>"
+        let expectedOutput3 = "</p><br><br><br><br><p>"
+        let expectedOutput4 = "<p>a</p><br><p>b</p>"
         let expectedOutput5 = input5
+        let expectedOutput6 = "<ul><li>a</li></ul><br><p>b</p>"
+        // A list can interrupt a paragraph, so this newline isn't a blank line the user typed.
+        let expectedOutput7 = input7
         
         #expect(input0.replacingHtmlBreaksOccurrences() == expectedOutput0)
         #expect(input1.replacingHtmlBreaksOccurrences() == expectedOutput1)
@@ -110,5 +92,7 @@ struct StringTests {
         #expect(input3.replacingHtmlBreaksOccurrences() == expectedOutput3)
         #expect(input4.replacingHtmlBreaksOccurrences() == expectedOutput4)
         #expect(input5.replacingHtmlBreaksOccurrences() == expectedOutput5)
+        #expect(input6.replacingHtmlBreaksOccurrences() == expectedOutput6)
+        #expect(input7.replacingHtmlBreaksOccurrences() == expectedOutput7)
     }
 }

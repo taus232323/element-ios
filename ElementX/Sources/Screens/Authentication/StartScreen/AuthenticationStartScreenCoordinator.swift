@@ -12,6 +12,8 @@ import SwiftUI
 struct AuthenticationStartScreenParameters {
     let authenticationService: AuthenticationServiceProtocol
     let provisioningParameters: AccountProvisioningParameters?
+    let isAddingAccount: Bool
+    /// Whether the report-problem action should be forwarded. The bug report service no longer exposes this flag.
     let isBugReportServiceEnabled: Bool
     let appSettings: AppSettings
     let mediaProvider: MediaProviderProtocol?
@@ -21,8 +23,10 @@ struct AuthenticationStartScreenParameters {
 enum AuthenticationStartScreenCoordinatorAction {
     case login
     case register
-
+    
     case loginDirectlyWithPassword(loginHint: String?)
+    
+    case cancelAddingAccount
     
     case reportProblem
     case developerOptions
@@ -40,6 +44,7 @@ final class AuthenticationStartScreenCoordinator: CoordinatorProtocol {
     init(parameters: AuthenticationStartScreenParameters) {
         viewModel = AuthenticationStartScreenViewModel(authenticationService: parameters.authenticationService,
                                                        provisioningParameters: parameters.provisioningParameters,
+                                                       isAddingAccount: parameters.isAddingAccount,
                                                        isBugReportServiceEnabled: parameters.isBugReportServiceEnabled,
                                                        appSettings: parameters.appSettings,
                                                        mediaProvider: parameters.mediaProvider,
@@ -58,10 +63,13 @@ final class AuthenticationStartScreenCoordinator: CoordinatorProtocol {
                     actionsSubject.send(.login)
                 case .register:
                     actionsSubject.send(.register)
-
+                    
                 case .loginDirectlyWithPassword(let loginHint):
                     actionsSubject.send(.loginDirectlyWithPassword(loginHint: loginHint))
-                
+                    
+                case .cancelAddingAccount:
+                    actionsSubject.send(.cancelAddingAccount)
+                    
                 case .reportProblem:
                     actionsSubject.send(.reportProblem)
                 case .developerOptions:

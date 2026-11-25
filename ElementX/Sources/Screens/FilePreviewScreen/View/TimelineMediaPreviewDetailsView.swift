@@ -8,30 +8,35 @@
 
 import Compound
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct TimelineMediaPreviewDetailsView: View {
     let item: TimelineMediaPreviewItem.Media
     @ObservedObject var context: TimelineMediaPreviewViewModel.Context
     var preferredColorScheme: ColorScheme? = .dark
-    
     @Binding var sheetHeight: CGFloat
-    private let topPadding: CGFloat = 19
+    
+    /// Approximate height of the navigation bar.
+    private let topPadding: CGFloat = 72
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                details
-                actions
+        ElementNavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    details
+                    actions
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { sheetHeight = $0 + topPadding }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .readHeight($sheetHeight)
+            .scrollBounceBehavior(.basedOnSize)
+            .navigationTitle(L10n.screenMediaDetailsTitle)
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .scrollBounceBehavior(.basedOnSize)
-        .padding(.top, topPadding) // For the drag indicator
-        .presentationDetents([.height(sheetHeight + topPadding)])
+        .presentationDetents([.height(sheetHeight)])
         .presentationDragIndicator(.visible)
         .presentationBackground(.compound.bgCanvasDefault)
-        .preferredColorScheme(preferredColorScheme)
+        .presentationColorScheme(preferredColorScheme)
         .sheet(item: $context.redactConfirmationItem) { item in
             TimelineMediaPreviewRedactConfirmationView(item: item,
                                                        context: context,
@@ -40,9 +45,9 @@ struct TimelineMediaPreviewDetailsView: View {
     }
     
     private var details: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 20) {
             DetailsRow(title: L10n.screenMediaDetailsUploadedBy) {
-                HStack(spacing: 8) {
+                HStack(spacing: 12) {
                     LoadableAvatarImage(url: item.sender.avatarURL,
                                         name: item.sender.displayName,
                                         contentID: item.sender.id,
@@ -50,22 +55,22 @@ struct TimelineMediaPreviewDetailsView: View {
                                         mediaProvider: context.mediaProvider)
                         .accessibilityHidden(true)
                     
-                    VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 2) {
                         if let displayName = item.sender.displayName {
                             Text(displayName)
-                                .font(.compound.bodyMDSemibold)
+                                .font(.compound.bodyLGSemibold)
                                 .foregroundStyle(.compound.decorativeColor(for: item.sender.id).text)
                         }
                         
                         Text(item.sender.displayableID)
-                            .font(.compound.bodySM)
+                            .font(.compound.bodyMD)
                             .foregroundStyle(.compound.textSecondary)
                     }
                 }
             }
             
             DetailsRow(title: L10n.screenMediaDetailsUploadedOn) {
-                Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
+                Text(item.timestamp.formatted(date: .long, time: .shortened))
                     .font(.compound.bodyMD)
                     .foregroundStyle(.compound.textPrimary)
             }
@@ -80,7 +85,7 @@ struct TimelineMediaPreviewDetailsView: View {
                 DetailsRow(title: L10n.screenMediaDetailsFileFormat) {
                     Group {
                         if let fileSize = item.fileSize {
-                            Text(contentType) + Text(" – ") + Text(UInt(fileSize).formatted(.byteCount(style: .file)))
+                            Text(contentType) + Text(" • ") + Text(UInt(fileSize).formatted(.byteCount(style: .file)))
                         } else {
                             Text(contentType)
                         }
@@ -90,7 +95,6 @@ struct TimelineMediaPreviewDetailsView: View {
                 }
             }
         }
-        .padding(.top, 24)
         .padding(.bottom, 32)
         .padding(.horizontal, 16)
     }
@@ -127,9 +131,9 @@ struct TimelineMediaPreviewDetailsView: View {
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title)
-                    .font(.compound.bodyXS)
+                    .font(Compound.supportsGlass ? .compound.bodyMDSemibold : .compound.bodyXS)
                     .foregroundStyle(.compound.textSecondary)
-                    .textCase(.uppercase)
+                    .textCase(Compound.supportsGlass ? nil : .uppercase)
                 
                 content()
             }
@@ -142,14 +146,7 @@ struct TimelineMediaPreviewDetailsView: View {
         let context: TimelineMediaPreviewViewModel.Context
         
         var body: some View {
-            if action == .share {
-                if let itemURL = item.fileHandle?.url {
-                    ShareLink(item: itemURL, message: item.caption.map(Text.init)) {
-                        action.label
-                    }
-                    .buttonStyle(.menuSheet)
-                }
-            } else if action == .save {
+            if action == .downloadMedia {
                 if item.fileHandle?.url != nil {
                     button
                 }
@@ -171,8 +168,7 @@ struct TimelineMediaPreviewDetailsView: View {
 
 // MARK: - Previews
 
-import UniformTypeIdentifiers
-
+@available(iOS 26.0, *)
 struct TimelineMediaPreviewDetailsView_Previews: PreviewProvider, TestablePreview {
     static let viewModel = makeViewModel(contentType: .jpeg, isOutgoing: true)
     static let loadingViewModel = makeViewModel(contentType: .jpeg, isOutgoing: true, isDownloaded: false)
@@ -224,13 +220,12 @@ struct TimelineMediaPreviewDetailsView_Previews: PreviewProvider, TestablePrevie
                                                         contentType: contentType))
         
         let timelineKind = TimelineKind.media(isPresentedOnRoomScreen ? .roomScreenLive : .mediaFilesScreen)
-        let timelineController = MockTimelineController(timelineKind: timelineKind)
-        timelineController.timelineItems = [item]
+        let timelineController = TimelineControllerMock(.init(timelineKind: timelineKind, timelineItems: [item]))
         
         let viewModel = TimelineMediaPreviewViewModel(initialItem: item,
                                                       timelineViewModel: TimelineViewModel.mock(timelineKind: timelineKind,
                                                                                                 timelineController: timelineController),
-                                                      mediaProvider: MediaProviderMock(configuration: .init()),
+                                                      mediaProvider: MediaProviderMock(.init()),
                                                       photoLibraryManager: PhotoLibraryManagerMock(.init()),
                                                       userIndicatorController: UserIndicatorControllerMock(),
                                                       appMediator: AppMediatorMock())

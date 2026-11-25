@@ -11,12 +11,25 @@ import SwiftUI
 
 enum TimelineMediaPreviewViewModelAction: Equatable {
     case viewInRoomTimeline(TimelineItemIdentifier)
-    case displayMessageForwarding(MessageForwardingItem)
+    case displayMessageForwarding(MessageForwardingPayload)
     case dismiss
 }
 
+/// Identifies a media preview item — either a whole timeline item or a single gallery attachment.
+enum MediaPreviewItemID: Hashable {
+    case timelineItem(TimelineItemIdentifier.EventOrTransactionID)
+    case galleryItem(GalleryItemID)
+    
+    /// Identifies by event/transaction ID only, since the unique ID differs across timelines
+    /// and matching must survive rebuilding a filtered timeline to fetch the other media.
+    init(timelineItem: EventBasedMessageTimelineItemProtocol) {
+        guard let id = timelineItem.id.eventOrTransactionID else { fatalError("Virtual items cannot be previewed.") }
+        self = .timelineItem(id)
+    }
+}
+
 enum TimelineMediaPreviewDriverAction {
-    case itemLoaded(TimelineItemIdentifier.EventOrTransactionID)
+    case itemLoaded(MediaPreviewItemID)
     case showItemDetails(TimelineMediaPreviewItem.Media)
     case exportFile(TimelineMediaPreviewFileExportPicker.File)
     case authorizationRequired(appMediator: AppMediatorProtocol)
@@ -59,7 +72,7 @@ struct TimelineMediaPreviewViewState: BindableState {
     var currentItem: TimelineMediaPreviewItem {
         dataSource.currentItem
     }
-
+    
     /// All of the available actions for the current item.
     var currentItemActions: TimelineItemMenuActions?
     
@@ -74,14 +87,10 @@ struct TimelineMediaPreviewViewStateBindings {
     var redactConfirmationItem: TimelineMediaPreviewItem.Media?
 }
 
-enum TimelineMediaPreviewAlertType {
-    case authorizationRequired
-}
-
 enum TimelineMediaPreviewViewAction {
     case updateCurrentItem(TimelineMediaPreviewItem)
     case showItemDetails(TimelineMediaPreviewItem.Media)
     case menuAction(TimelineItemMenuAction, item: TimelineMediaPreviewItem.Media)
-    case redactConfirmation(item: TimelineMediaPreviewItem.Media)
+    case redactConfirmation(item: TimelineMediaPreviewItem.Media, reason: String)
     case timelineEndReached
 }

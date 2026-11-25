@@ -11,7 +11,6 @@ import SwiftState
 
 enum SpaceSettingsFlowCoordinatorAction {
     case finished(leftRoom: Bool)
-    case presentCallScreen(roomProxy: JoinedRoomProxyProtocol, isVoiceCall: Bool)
     case verifyUser(userID: String)
 }
 
@@ -40,8 +39,6 @@ final class SpaceSettingsFlowCoordinator: FlowCoordinatorProtocol {
     }
     
     enum Event: EventType {
-        case start
-        
         case presentSpaceSettings
         
         case presentEditDetailsScreen
@@ -55,7 +52,7 @@ final class SpaceSettingsFlowCoordinator: FlowCoordinatorProtocol {
         
         case presentManageAuthorizedSpacesScreen
         case dismissedManageAuthorizedSpacesScreen
-
+        
         case presentTransferOwnership
         case dismissedTransferOwnership
         
@@ -75,16 +72,13 @@ final class SpaceSettingsFlowCoordinator: FlowCoordinatorProtocol {
     private let stateMachine: StateMachine<State, Event>
     private var cancellables = Set<AnyCancellable>()
     
-    private var membersFlowCoordinator: RoomMembersFlowCoordinator?
-    private var rolesAndPermissionsFlowCoordinator: RoomRolesAndPermissionsFlowCoordinator?
-    
     private var childFlowCoordinator: FlowCoordinatorProtocol?
     
     private let actionsSubject: PassthroughSubject<SpaceSettingsFlowCoordinatorAction, Never> = .init()
     var actions: AnyPublisher<SpaceSettingsFlowCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-        
+    
     init(roomProxy: JoinedRoomProxyProtocol,
          navigationStackCoordinator: NavigationStackCoordinator,
          flowParameters: CommonFlowParameters) {
@@ -140,7 +134,7 @@ final class SpaceSettingsFlowCoordinator: FlowCoordinatorProtocol {
                 return .manageAuthorizedSpacesScreen
             case (.manageAuthorizedSpacesScreen, .dismissedManageAuthorizedSpacesScreen):
                 return .securityAndPrivacy
-
+                
             case (.spaceSettings, .presentTransferOwnership):
                 return .transferOwnership
             case (.transferOwnership, .dismissedTransferOwnership):
@@ -191,12 +185,12 @@ final class SpaceSettingsFlowCoordinator: FlowCoordinatorProtocol {
                 presentManageAuthorizedSpacesScreen(selection: selection)
             case (.manageAuthorizedSpacesScreen, .dismissedManageAuthorizedSpacesScreen, .securityAndPrivacy):
                 break
-
+                
             case (.spaceSettings, .presentTransferOwnership, .transferOwnership):
                 presentTransferOwnershipScreen()
             case (.transferOwnership, .dismissedTransferOwnership, .spaceSettings):
                 break
-
+                
             case (.spaceSettings, .startMembersListFlow, .membersFlow):
                 startMembersListFlow()
             case (.membersFlow, .stopMembersListFlow, .spaceSettings):
@@ -219,8 +213,7 @@ final class SpaceSettingsFlowCoordinator: FlowCoordinatorProtocol {
                                                                          analyticsService: flowParameters.analytics,
                                                                          userIndicatorController: flowParameters.userIndicatorController,
                                                                          notificationSettings: flowParameters.userSession.clientProxy.notificationSettings,
-                                                                         attributedStringBuilder: AttributedStringBuilder(mentionBuilder: MentionBuilder()),
-                                                                         appSettings: flowParameters.appSettings))
+                                                                         attributedStringBuilder: AttributedStringBuilder(mentionBuilder: MentionBuilder())))
         
         var leftRoom = false
         coordinator.actions.sink { [weak self] action in
@@ -240,7 +233,7 @@ final class SpaceSettingsFlowCoordinator: FlowCoordinatorProtocol {
             case .transferOwnership:
                 stateMachine.tryEvent(.presentTransferOwnership)
             case .presentRecipientDetails, .presentNotificationSettingsScreen, .presentReportRoomScreen,
-                 .presentInviteUsersScreen, .presentPollsHistory, .presentCall,
+                 .presentInviteUsersScreen, .presentInviteToNewRoom, .presentPollsHistory,
                  .presentPinnedEventsTimeline, .presentMediaEventsTimeline, .presentKnockingRequestsListScreen:
                 fatalError("Not handled in the space context")
             }
@@ -256,11 +249,10 @@ final class SpaceSettingsFlowCoordinator: FlowCoordinatorProtocol {
         let stackCoordinator = NavigationStackCoordinator()
         let parameters = RoomDetailsEditScreenCoordinatorParameters(roomProxy: roomProxy,
                                                                     userSession: flowParameters.userSession,
-                                                                    mediaUploadingPreprocessor: MediaUploadingPreprocessor(appSettings: flowParameters.appSettings),
+                                                                    mediaUploadingPreprocessor: MediaUploadingPreprocessor(userSettings: flowParameters.userSession.userSettings),
                                                                     navigationStackCoordinator: stackCoordinator,
-                                                                    userIndicatorController: flowParameters.userIndicatorController,
-                                                                    orientationManager: flowParameters.appMediator.windowManager,
-                                                                    appSettings: flowParameters.appSettings)
+                                                                    appMediator: flowParameters.appMediator,
+                                                                    userIndicatorController: flowParameters.userIndicatorController)
         
         let coordinator = RoomDetailsEditScreenCoordinator(parameters: parameters)
         
@@ -281,9 +273,8 @@ final class SpaceSettingsFlowCoordinator: FlowCoordinatorProtocol {
     
     private func presentSecurityAndPrivacyScreen() {
         let coordinator = SecurityAndPrivacyScreenCoordinator(parameters: .init(roomProxy: roomProxy,
-                                                                                clientProxy: flowParameters.userSession.clientProxy,
-                                                                                userIndicatorController: flowParameters.userIndicatorController,
-                                                                                appSetting: flowParameters.appSettings))
+                                                                                userSession: flowParameters.userSession,
+                                                                                userIndicatorController: flowParameters.userIndicatorController))
         
         coordinator.actionsPublisher.sink { [weak self] action in
             guard let self else { return }
@@ -395,8 +386,6 @@ final class SpaceSettingsFlowCoordinator: FlowCoordinatorProtocol {
             switch action {
             case .finished:
                 stateMachine.tryEvent(.stopMembersListFlow)
-            case .presentCallScreen(let roomProxy, let isVoiceCall):
-                actionsSubject.send(.presentCallScreen(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
             case .verifyUser(let userID):
                 actionsSubject.send(.verifyUser(userID: userID))
             }

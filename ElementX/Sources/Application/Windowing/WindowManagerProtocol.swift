@@ -11,6 +11,7 @@ import SwiftUI
 enum SecondaryWindowType: Hashable, Codable {
     case room(roomID: String)
     case settings
+    case call
 }
 
 protocol SecureWindowManagerDelegate: AnyObject {
@@ -18,14 +19,15 @@ protocol SecureWindowManagerDelegate: AnyObject {
     func windowManagerDidConfigureWindows(_ windowManager: SecureWindowManagerProtocol)
 }
 
-@MainActor
 protocol SecureWindowManagerProtocol: WindowManagerProtocol {
     var delegate: SecureWindowManagerDelegate? { get set }
     
     /// Configures the window manager to operate on the supplied scene.
     func configure(withScene scene: UIWindowScene, session: UISceneSession)
     
-    func configure(withOpenWinddowAction openWindowAction: OpenWindowAction, dismissWindowAction: DismissWindowAction)
+    func configure(withOpenWindowAction openWindowAction: OpenWindowAction, dismissWindowAction: DismissWindowAction)
+    
+    func handleSceneDisconnection(_ scene: UIWindowScene)
     
     func handleRoute(_ appRoute: AppRoute, windowType: SecondaryWindowType)
     
@@ -49,18 +51,11 @@ protocol WindowManagerProtocol: AnyObject, OrientationManagerProtocol {
     var mainWindow: UIWindow! { get }
     /// Presented on top of the main window, to display e.g. user indicators.
     var overlayWindow: UIWindow! { get }
-    /// A window layered on top of the main one. Used by the global search function
-    var globalSearchWindow: UIWindow! { get }
     /// A secondary window that can be presented instead of the main/overlay window combo.
     var alternateWindow: UIWindow! { get }
     
     /// All the windows being managed
     var windows: [UIWindow] { get }
-    
-    /// Makes the global search window key. Used to get automatic text field focus.
-    func showGlobalSearch()
-    
-    func hideGlobalSearch()
     
     // MARK: - Secondary window support
     

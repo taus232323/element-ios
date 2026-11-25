@@ -10,20 +10,19 @@ import Foundation
 import MatrixRustSDK
 import UserNotifications
 
-struct NotificationItemProxy: NotificationItemProxyProtocol {
+nonisolated struct NotificationItemProxy: NotificationItemProxyProtocol {
     let notificationItem: NotificationItem
-    let eventID: String
     let receiverID: String
     let roomID: String
-
+    
     var event: NotificationEvent? {
         notificationItem.event
     }
-
+    
     var senderDisplayName: String? {
         notificationItem.senderInfo.displayName
     }
-
+    
     var senderID: String {
         switch notificationItem.event {
         case .timeline(let event):
@@ -32,7 +31,7 @@ struct NotificationItemProxy: NotificationItemProxyProtocol {
             return senderID
         }
     }
-
+    
     var roomDisplayName: String {
         notificationItem.roomInfo.displayName
     }
@@ -40,9 +39,9 @@ struct NotificationItemProxy: NotificationItemProxyProtocol {
     var isRoomSpace: Bool {
         notificationItem.roomInfo.isSpace
     }
-
-    var isRoomDirect: Bool {
-        notificationItem.roomInfo.isDirect
+    
+    var isDM: Bool {
+        notificationItem.roomInfo.isDm
     }
     
     var isRoomPrivate: Bool {
@@ -53,11 +52,7 @@ struct NotificationItemProxy: NotificationItemProxyProtocol {
             false
         }
     }
-
-    var roomJoinedMembers: Int {
-        Int(notificationItem.roomInfo.joinedMembersCount)
-    }
-
+    
     var isNoisy: Bool {
         notificationItem.isNoisy ?? false
     }
@@ -65,7 +60,7 @@ struct NotificationItemProxy: NotificationItemProxyProtocol {
     var hasMention: Bool {
         notificationItem.hasMention ?? false
     }
-
+    
     var senderAvatarMediaSource: MediaSourceProxy? {
         if let senderAvatarURLString = notificationItem.senderInfo.avatarUrl,
            let senderAvatarURL = URL(string: senderAvatarURLString) {
@@ -73,7 +68,7 @@ struct NotificationItemProxy: NotificationItemProxyProtocol {
         }
         return nil
     }
-
+    
     var roomAvatarMediaSource: MediaSourceProxy? {
         if let roomAvatarURLString = notificationItem.roomInfo.avatarUrl,
            let roomAvatarURL = URL(string: roomAvatarURLString) {
@@ -87,21 +82,19 @@ struct NotificationItemProxy: NotificationItemProxyProtocol {
     }
 }
 
-struct EmptyNotificationItemProxy: NotificationItemProxyProtocol {
-    let eventID: String
-
+nonisolated struct EmptyNotificationItemProxy: NotificationItemProxyProtocol {
     var event: NotificationEvent? {
         nil
     }
-
+    
     let roomID: String
-
+    
     let receiverID: String
-
+    
     var senderID: String {
         ""
     }
-
+    
     var senderDisplayName: String? {
         nil
     }
@@ -109,33 +102,29 @@ struct EmptyNotificationItemProxy: NotificationItemProxyProtocol {
     var roomDisplayName: String {
         ""
     }
-
+    
     var isNoisy: Bool {
         false
     }
-
+    
     var isRoomSpace: Bool {
         false
     }
     
-    var isRoomDirect: Bool {
+    var isDM: Bool {
         false
     }
     
     var isRoomPrivate: Bool {
         false
     }
-
+    
     var senderAvatarMediaSource: MediaSourceProxy? {
         nil
     }
-
+    
     var roomAvatarMediaSource: MediaSourceProxy? {
         nil
-    }
-
-    var roomJoinedMembers: Int {
-        0
     }
     
     var hasMention: Bool {

@@ -12,7 +12,6 @@ import Testing
 
 struct AttributedStringBuilderTests {
     private let attributedStringBuilder: AttributedStringBuilder
-    private let maxHeaderPointSize = ceil(UIFont.preferredFont(forTextStyle: .body).pointSize * 1.2)
     
     init() async throws {
         attributedStringBuilder = AttributedStringBuilder(mentionBuilder: MentionBuilder())
@@ -149,7 +148,7 @@ struct AttributedStringBuilderTests {
         
         let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
         
-        #expect(attributedString.uiKit.attachment == nil,
+        #expect(attributedString.suppressedAttachment == nil,
                 "iFrame attachments should be removed as they're not included in the allowedHTMLTags array.")
     }
     
@@ -244,6 +243,40 @@ struct AttributedStringBuilderTests {
     }
     
     @Test
+    func detailsAndSummary() throws {
+        let htmlString = "Before<details><summary>Expand me</summary><p>Hidden content</p></details>After"
+        
+        let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
+        
+        #expect(String(attributedString.characters) == "BeforeHidden content\nAfter")
+        
+        let components = attributedString.formattedComponents
+        
+        #expect(components.count == 3)
+        #expect(components.map(\.type) == [.plainText, .details(summary: "Expand me"), .plainText])
+        #expect(components[1].attributedString.string == "Hidden content")
+    }
+    
+    @Test
+    func componentIDChangesWithFormatting() throws {
+        let plain = try #require(attributedStringBuilder.fromHTML("test test test"), "Could not build the attributed string")
+        let formatted = try #require(attributedStringBuilder.fromHTML("test <code>test</code> test"), "Could not build the attributed string")
+        
+        #expect(plain.string == formatted.string)
+        #expect(plain.formattedComponents.map(\.id) != formatted.formattedComponents.map(\.id))
+    }
+    
+    @Test
+    func detailsWithoutSummary() throws {
+        let htmlString = "<details><p>Content</p></details>"
+        
+        let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
+        
+        #expect(String(attributedString.characters) == "Content")
+        #expect(attributedString.formattedComponents.map(\.type) == [.details(summary: L10n.a11yViewDetails)])
+    }
+    
+    @Test
     func singleBlockquote() throws {
         let htmlString = "<blockquote>Blockquote</blockquote><p>Another paragraph</p>"
         
@@ -305,7 +338,7 @@ struct AttributedStringBuilderTests {
             foundBlockquoteAndLink = true
         }
         
-        #expect(foundBlockquoteAndLink != nil, "Couldn't find blockquote or link")
+        #expect(foundBlockquoteAndLink == true, "Couldn't find blockquote or link")
     }
     
     @Test
@@ -358,11 +391,11 @@ struct AttributedStringBuilderTests {
     func userPermalinkMentionAtachment() {
         let string = "https://matrix.to/#/@test:matrix.org"
         let attributedStringFromHTML = attributedStringBuilder.fromHTML(string)
-        #expect(attributedStringFromHTML?.attachment != nil)
+        #expect(attributedStringFromHTML?.suppressedAttachment != nil)
         #expect(attributedStringFromHTML?.userID == "@test:matrix.org")
         #expect(attributedStringFromHTML?.link?.absoluteString == string)
         let attributedStringFromPlain = attributedStringBuilder.fromPlain(string)
-        #expect(attributedStringFromPlain?.attachment != nil)
+        #expect(attributedStringFromPlain?.suppressedAttachment != nil)
         #expect(attributedStringFromPlain?.userID == "@test:matrix.org")
         #expect(attributedStringFromPlain?.link?.absoluteString == string)
     }
@@ -371,11 +404,11 @@ struct AttributedStringBuilderTests {
     func userIDMentionAtachment() {
         let string = "@test:matrix.org"
         let attributedStringFromHTML = attributedStringBuilder.fromHTML(string)
-        #expect(attributedStringFromHTML?.attachment != nil)
+        #expect(attributedStringFromHTML?.suppressedAttachment != nil)
         #expect(attributedStringFromHTML?.userID == "@test:matrix.org")
         #expect(attributedStringFromHTML?.link?.absoluteString == "https://matrix.to/#/@test:matrix.org")
         let attributedStringFromPlain = attributedStringBuilder.fromPlain(string)
-        #expect(attributedStringFromPlain?.attachment != nil)
+        #expect(attributedStringFromPlain?.suppressedAttachment != nil)
         #expect(attributedStringFromPlain?.userID == "@test:matrix.org")
         #expect(attributedStringFromPlain?.link?.absoluteString == "https://matrix.to/#/@test:matrix.org")
     }
@@ -384,11 +417,11 @@ struct AttributedStringBuilderTests {
     func roomIDPermalinkMentionAttachment() {
         let string = "https://matrix.to/#/!test:matrix.org"
         let attributedStringFromHTML = attributedStringBuilder.fromHTML(string)
-        #expect(attributedStringFromHTML?.attachment != nil)
+        #expect(attributedStringFromHTML?.suppressedAttachment != nil)
         #expect(attributedStringFromHTML?.roomID == "!test:matrix.org")
         #expect(attributedStringFromHTML?.link?.absoluteString == string)
         let attributedStringFromPlain = attributedStringBuilder.fromPlain(string)
-        #expect(attributedStringFromPlain?.attachment != nil)
+        #expect(attributedStringFromPlain?.suppressedAttachment != nil)
         #expect(attributedStringFromHTML?.roomID == "!test:matrix.org")
         #expect(attributedStringFromPlain?.link?.absoluteString == string)
     }
@@ -397,11 +430,11 @@ struct AttributedStringBuilderTests {
     func roomAliasPermalinkMentionAttachment() {
         let string = "https://matrix.to/#/#test:matrix.org"
         let attributedStringFromHTML = attributedStringBuilder.fromHTML(string)
-        #expect(attributedStringFromHTML?.attachment != nil)
+        #expect(attributedStringFromHTML?.suppressedAttachment != nil)
         #expect(attributedStringFromHTML?.roomAlias == "#test:matrix.org")
         #expect(attributedStringFromHTML?.link?.absoluteString == "https://matrix.to/#/%23test:matrix.org")
         let attributedStringFromPlain = attributedStringBuilder.fromPlain(string)
-        #expect(attributedStringFromPlain?.attachment != nil)
+        #expect(attributedStringFromPlain?.suppressedAttachment != nil)
         #expect(attributedStringFromHTML?.roomAlias == "#test:matrix.org")
         #expect(attributedStringFromPlain?.link?.absoluteString == "https://matrix.to/#/%23test:matrix.org")
     }
@@ -410,11 +443,11 @@ struct AttributedStringBuilderTests {
     func roomAliasMentionAttachment() {
         let string = "#test:matrix.org"
         let attributedStringFromHTML = attributedStringBuilder.fromHTML(string)
-        #expect(attributedStringFromHTML?.attachment != nil)
+        #expect(attributedStringFromHTML?.suppressedAttachment != nil)
         #expect(attributedStringFromHTML?.roomAlias == "#test:matrix.org")
         #expect(attributedStringFromHTML?.link?.absoluteString == "https://matrix.to/#/%23test:matrix.org")
         let attributedStringFromPlain = attributedStringBuilder.fromPlain(string)
-        #expect(attributedStringFromPlain?.attachment != nil)
+        #expect(attributedStringFromPlain?.suppressedAttachment != nil)
         #expect(attributedStringFromHTML?.roomAlias == "#test:matrix.org")
         #expect(attributedStringFromPlain?.link?.absoluteString == "https://matrix.to/#/%23test:matrix.org")
     }
@@ -423,11 +456,11 @@ struct AttributedStringBuilderTests {
     func eventRoomIDPermalinkMentionAttachment() {
         let string = "https://matrix.to/#/!test:matrix.org/$test"
         let attributedStringFromHTML = attributedStringBuilder.fromHTML(string)
-        #expect(attributedStringFromHTML?.attachment != nil)
+        #expect(attributedStringFromHTML?.suppressedAttachment != nil)
         #expect(attributedStringFromHTML?.eventOnRoomID == .some(.init(roomID: "!test:matrix.org", eventID: "$test")))
         #expect(attributedStringFromHTML?.link?.absoluteString == string)
         let attributedStringFromPlain = attributedStringBuilder.fromPlain(string)
-        #expect(attributedStringFromPlain?.attachment != nil)
+        #expect(attributedStringFromPlain?.suppressedAttachment != nil)
         #expect(attributedStringFromPlain?.eventOnRoomID == .some(.init(roomID: "!test:matrix.org", eventID: "$test")))
         #expect(attributedStringFromPlain?.link?.absoluteString == string)
     }
@@ -436,11 +469,11 @@ struct AttributedStringBuilderTests {
     func eventRoomAliasPermalinkMentionAttachment() {
         let string = "https://matrix.to/#/#test:matrix.org/$test"
         let attributedStringFromHTML = attributedStringBuilder.fromHTML(string)
-        #expect(attributedStringFromHTML?.attachment != nil)
+        #expect(attributedStringFromHTML?.suppressedAttachment != nil)
         #expect(attributedStringFromHTML?.eventOnRoomAlias == .some(.init(alias: "#test:matrix.org", eventID: "$test")))
         #expect(attributedStringFromHTML?.link?.absoluteString == "https://matrix.to/#/%23test:matrix.org/$test")
         let attributedStringFromPlain = attributedStringBuilder.fromPlain(string)
-        #expect(attributedStringFromPlain?.attachment != nil)
+        #expect(attributedStringFromPlain?.suppressedAttachment != nil)
         #expect(attributedStringFromPlain?.eventOnRoomAlias == .some(.init(alias: "#test:matrix.org", eventID: "$test")))
         #expect(attributedStringFromPlain?.link?.absoluteString == "https://matrix.to/#/%23test:matrix.org/$test")
     }
@@ -536,7 +569,7 @@ struct AttributedStringBuilderTests {
         
         #expect(attributedString?.runs.count == 1)
         
-        #expect(attributedString?.attachment == nil)
+        #expect(attributedString?.suppressedAttachment == nil)
     }
     
     @Test
@@ -546,7 +579,7 @@ struct AttributedStringBuilderTests {
         
         #expect(attributedString?.runs.count == 1)
         
-        #expect(attributedString?.attachment == nil)
+        #expect(attributedString?.suppressedAttachment == nil)
     }
     
     @Test
@@ -556,7 +589,7 @@ struct AttributedStringBuilderTests {
         
         #expect(attributedString?.runs.count == 1)
         
-        #expect(attributedString?.attachment == nil)
+        #expect(attributedString?.suppressedAttachment == nil)
     }
     
     @Test
@@ -569,7 +602,7 @@ struct AttributedStringBuilderTests {
         var foundAttachments = 0
         var foundLink: URL?
         for run in attributedStringFromHTML.runs {
-            if run.attachment != nil {
+            if run.suppressedAttachment != nil {
                 foundAttachments += 1
             }
             
@@ -585,7 +618,7 @@ struct AttributedStringBuilderTests {
         foundAttachments = 0
         foundLink = nil
         for run in attributedStringFromPlain.runs {
-            if run.attachment != nil {
+            if run.suppressedAttachment != nil {
                 foundAttachments += 1
             }
             
@@ -607,7 +640,7 @@ struct AttributedStringBuilderTests {
         var foundAttachments = 0
         var foundLink: URL?
         for run in attributedStringFromHTML.runs {
-            if run.attachment != nil {
+            if run.suppressedAttachment != nil {
                 foundAttachments += 1
             }
             
@@ -623,7 +656,7 @@ struct AttributedStringBuilderTests {
         foundAttachments = 0
         foundLink = nil
         for run in attributedStringFromPlain.runs {
-            if run.attachment != nil {
+            if run.suppressedAttachment != nil {
                 foundAttachments += 1
             }
             
@@ -644,13 +677,111 @@ struct AttributedStringBuilderTests {
         #expect(String(attributedString.characters) == "Hey [img: Smiley face]! How's work[img]?")
     }
     
+    @Test("Custom emoticons are replaced with an image attachment, one per emoticon")
+    func emoticons() throws {
+        let htmlString = "Hey <img data-mx-emoticon src=\"mxc://example.org/wave\" alt=\":wave:\"><img data-mx-emoticon src=\"mxc://example.org/wave\" alt=\":wave:\">!"
+        
+        let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
+        
+        #expect(String(attributedString.characters) == "Hey \u{FFFC}\u{FFFC}!")
+        let emoticons = attributedString.runs.compactMap { $0.suppressedAttachment as? EmoticonTextAttachment }
+        #expect(emoticons.map(\.url) == [URL(string: "mxc://example.org/wave"), URL(string: "mxc://example.org/wave")])
+        #expect(emoticons.map(\.accessibilityLabel) == [":wave:", ":wave:"])
+    }
+    
+    @Test("Custom emoticons fall back to their alt text when attachments aren't supported")
+    func emoticonsPlain() throws {
+        let builder = AttributedStringBuilder(cacheKey: "plain", mentionBuilder: PlainMentionBuilder(), rendersEmoticonsAsImages: false)
+        let htmlString = "Hey <img data-mx-emoticon src=\"mxc://example.org/wave\" alt=\":wave:\">!"
+        
+        let attributedString = try #require(builder.fromHTML(htmlString), "Could not build the attributed string")
+        
+        #expect(String(attributedString.characters) == "Hey :wave:!")
+    }
+    
+    @Test("Emoticons that don't use an mxc:// URL are treated like any other image")
+    func emoticonsWithoutMXCURL() throws {
+        let htmlString = "Hey <img data-mx-emoticon src=\"https://example.org/wave.png\" alt=\":wave:\">!"
+        
+        let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
+        
+        #expect(String(attributedString.characters) == "Hey [img: :wave:]!")
+    }
+    
     @Test
     func listTags() throws {
         let htmlString = "<p>like</p>\n<ul>\n<li>this<br />\ntest</li>\n</ul>\n"
         
         let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
         
-        #expect(String(attributedString.characters) == "like\n    • this\ntest")
+        #expect(String(attributedString.characters) == "like\n  • this\ntest")
+    }
+    
+    /// Markdown generated HTML separates block elements with newlines which used to normalise
+    /// into stray spaces, indenting the first list item deeper than the ones that followed.
+    @Test
+    func interBlockWhitespace() throws {
+        let htmlString = "<p>intro:</p>\n<ul>\n<li>first</li>\n<li>second</li>\n</ul>\n"
+        
+        let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
+        
+        #expect(String(attributedString.characters) == "intro:\n  • first\n  • second")
+    }
+    
+    /// Whitespace between inline elements is meaningful, unlike the inter block variety.
+    @Test
+    func interInlineWhitespace() throws {
+        let htmlString = "<del>one</del> <del>two</del>"
+        
+        let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
+        
+        #expect(String(attributedString.characters) == "one two")
+    }
+    
+    @Test
+    func strikethroughTags() throws {
+        var strikethrough = AttributedString("one")
+        strikethrough[AttributeScopes.UIKitAttributes.StrikethroughStyleAttribute.self] = .single
+        
+        for tag in ["s", "del", "strike"] {
+            let attributedString = try #require(attributedStringBuilder.fromHTML("<\(tag)>one</\(tag)>"), "Could not build the attributed string")
+            #expect(attributedString == strikethrough, "<\(tag)> should render as a strikethrough")
+        }
+    }
+    
+    /// A blank line the user typed after a list must survive, just like one between two paragraphs.
+    @Test
+    func newLineAfterList() throws {
+        let htmlString = "<p>Line 1</p>\n<ul>\n<li>Line 2</li>\n</ul>\n<p>Line 4</p>\n"
+        
+        let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
+        
+        #expect(String(attributedString.characters) == "Line 1\n  • Line 2\n\nLine 4")
+    }
+    
+    /// Without a blank line the trailing text is a lazy continuation of the item, so it stays on its line.
+    @Test
+    func noNewLineAfterList() throws {
+        let htmlString = "<ul><li>Line 1</li></ul><p>Line 2</p>"
+        
+        let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
+        
+        #expect(String(attributedString.characters) == "  • Line 1\nLine 2")
+    }
+    
+    /// A blank line is preserved wherever it can be told apart from mere block separation.
+    @Test
+    func newLinesBetweenBlocks() throws {
+        let expectations = ["<p>a</p>\n<p>b</p>": "a\n\nb",
+                            "<p>a</p>\n\n<p>b</p>": "a\n\n\nb",
+                            "<ol start=\"2\"><li>a</li></ol>\n<p>b</p>": "  2. a\n\nb",
+                            // A list can interrupt a paragraph, so this newline is block separation.
+                            "<p>a</p>\n<ul><li>b</li></ul>": "a\n  • b"]
+        
+        for (htmlString, expectation) in expectations {
+            let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
+            #expect(String(attributedString.characters) == expectation, "Wrong rendering for \(htmlString)")
+        }
     }
     
     @Test
@@ -695,7 +826,7 @@ struct AttributedStringBuilderTests {
         
         let attributedString = try #require(attributedStringBuilder.fromHTML(htmlString), "Could not build the attributed string")
         
-        #expect(String(attributedString.characters) == "   2. this is a two")
+        #expect(String(attributedString.characters) == "  2. this is a two")
     }
     
     @Test
@@ -726,7 +857,7 @@ struct AttributedStringBuilderTests {
         """
         let attributedString = try #require(attributedStringBuilder.fromHTML(html), "Could not build the attributed string")
         
-        #expect(String(attributedString.characters) == "Stefan pushed 2 commits to main:\n   •  Some update \n   •  Some other update")
+        #expect(String(attributedString.characters) == "Stefan pushed 2 commits to main:\n  •  Some update \n  •  Some other update")
     }
     
     // MARK: - Phishing prevention
@@ -983,7 +1114,7 @@ struct AttributedStringBuilderTests {
         
         #expect(String(attributedString2.characters) == "This is visible. And this text and link are visible too.")
         
-        try #require(attributedString2.runs.first { $0.link != nil }?.link, "Couldn't find the link")
+        _ = try #require(attributedString2.runs.first { $0.link != nil }?.link, "Couldn't find the link")
     }
     
     // MARK: - Private
@@ -1006,10 +1137,46 @@ struct AttributedStringBuilderTests {
         
         #expect(attributedString.runs.count == expectedRuns)
         
-        for run in attributedString.runs where run.attachment != nil {
+        for run in attributedString.runs where run.suppressedAttachment != nil {
             return
         }
         
         Issue.record("Couldn't find expected value.")
+    }
+}
+
+// warning suppression
+// `NSTextAttachment` is marked `@_nonSendable(_assumed)` by Apple in the UIKit SDK, and
+// `ScopedAttributeContainer` (returned by `AttributedString.uiKit` and used by dynamic member
+// lookup on `AttributedString` and `AttributedString.Runs.Element`) is marked `Sendable`.
+// The compiler warns at every access point where a `@_nonSendable` value is read through a
+// `Sendable` container — regardless of Swift version or strict concurrency mode. There is no
+// compiler flag that suppresses this cleanly.
+//
+// Attempted fixes:
+// - `@MainActor` on the test class: does not help; the warning is not about actor isolation
+// - `@preconcurrency import UIKit`: does not help; the warning originates from the SDK type attribute
+// - Varying `-strict-concurrency` (targeted/complete) or `-swift-version` (5/6): all produce
+//   the same warning — confirmed via standalone `swiftc` repro
+//
+// The warning is safe to ignore here because no concurrency boundary is actually crossed —
+// the value is accessed synchronously within a single context and never escapes.
+//
+// These two extension properties consolidate 20+ warning sites across this file down to just
+// these two definitions taking the hit. This pattern is test-only; app code reads attachments
+// via `NSAttributedString.attribute(_:at:effectiveRange:)` which does not trigger the warning.
+
+// swiftformat:disable redundantSelf
+// self is not redundant here because these are NOT properties directly on the type, but on a
+// child through dynamicMember which requires the `self` for access
+private extension AttributedString {
+    var suppressedAttachment: NSTextAttachment? {
+        self.attachment
+    }
+}
+
+private extension AttributedString.Runs.Element {
+    var suppressedAttachment: NSTextAttachment? {
+        self.attachment
     }
 }

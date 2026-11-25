@@ -9,7 +9,7 @@ import Foundation
 
 // swiftlint:disable explicit_type_interface function_parameter_count identifier_name line_length
 // swiftlint:disable nesting type_body_length type_name vertical_whitespace_opening_braces
-internal enum UntranslatedL10n {
+internal nonisolated enum UntranslatedL10n {
   /// Open browser page
   internal static var actionOpenBrowserPageIos: String { return UntranslatedL10n.tr("Untranslated", "action_open_browser_page_ios") }
   /// Resend code
@@ -221,7 +221,7 @@ internal enum UntranslatedL10n {
 
 // MARK: - Implementation Details
 
-extension UntranslatedL10n {
+nonisolated extension UntranslatedL10n {
   static func tr(_ table: String, _ key: String, _ args: CVarArg...) -> String {
     // No need to check languages, we always default to en for untranslated strings
     guard let bundle = Bundle.lprojBundle(for: "en") else { return key }

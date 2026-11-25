@@ -8,12 +8,25 @@
 
 import MatrixRustSDK
 
+extension KeychainControllerMock {
+    struct Configuration {
+        var restorationTokens: [KeychainCredentials] = []
+    }
+    
+    convenience init(_ configuration: Configuration) {
+        self.init()
+        
+        restorationTokensReturnValue = configuration.restorationTokens
+        collectSessionHomeserversReturnValue = Set(configuration.restorationTokens.map(\.restorationToken.session.homeserverUrl))
+    }
+}
+
 /// Adds the missing methods for conformance to the protocol.
 extension KeychainControllerMock {
     func retrieveSessionFromKeychain(userId: String) throws -> Session {
         fatalError("Not implemented")
     }
-
+    
     func saveSessionInKeychain(session: Session) {
         fatalError("Not implemented")
     }

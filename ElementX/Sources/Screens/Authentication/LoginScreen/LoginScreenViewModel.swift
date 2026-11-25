@@ -7,7 +7,6 @@
 //
 
 import Combine
-import SwiftUI
 import UIKit
 
 typealias LoginScreenViewModelType = StateStoreViewModelV2<LoginScreenViewState, LoginScreenViewAction>
@@ -15,7 +14,7 @@ typealias LoginScreenViewModelType = StateStoreViewModelV2<LoginScreenViewState,
 class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtocol {
     private let authenticationService: AuthenticationServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
-
+    
     /// Session produced after OTP success; signed-in is only emitted after encryption bootstrap.
     private var completedUserSession: UserSessionProtocol?
     private var identityBootstrapPassword: String?
@@ -24,15 +23,19 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
     var actions: AnyPublisher<LoginScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(authenticationService: AuthenticationServiceProtocol,
          loginHint: String?,
          userIndicatorController: UserIndicatorControllerProtocol) {
         self.authenticationService = authenticationService
         self.userIndicatorController = userIndicatorController
-
-        let email = loginHint ?? ""
-
+        
+        let email = switch loginHint {
+        case .some(let hint) where hint.hasPrefix("mxid:"): String(hint.dropFirst(5)) // MSC4198
+        case .some(let hint): hint
+        case .none: ""
+        }
+        
         let viewState = LoginScreenViewState(homeserver: authenticationService.homeserver.value,
                                              bindings: LoginScreenBindings(email: email))
         
@@ -43,7 +46,7 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
             .weakAssign(to: \.state.homeserver, on: self)
             .store(in: &cancellables)
     }
-
+    
     override func process(viewAction: LoginScreenViewAction) {
         switch viewAction {
         case .next:
@@ -71,7 +74,7 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
     private func login() {
         MXLog.info("Starting login with email and password.")
         startLoading()
-
+        
         Task {
             let email = state.bindings.email.trimmingCharacters(in: .whitespacesAndNewlines)
             switch state.step {
@@ -113,7 +116,7 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
             }
         }
     }
-
+    
     private func finalizeDeviceSecurity() async {
         guard let password = identityBootstrapPassword, completedUserSession != nil else {
             // Already past OTP — stay on this step and offer retry instead of bouncing to credentials.
@@ -126,7 +129,7 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
                                                  })
             return
         }
-
+        
         state.isLoading = true
         switch await authenticationService.bootstrapNativeDeviceIdentity(password: password) {
         case .success:
@@ -144,11 +147,11 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
                                                  })
         }
     }
-
+    
     private func resendVerificationCode() {
         guard let pendingLogin = state.pendingLogin else { return }
         startLoading()
-
+        
         Task {
             switch await authenticationService.resendNativeLoginCode(pendingLogin) {
             case .success(let updatedPendingLogin):
@@ -160,7 +163,7 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
             }
         }
     }
-
+    
     private func goBack() {
         switch state.step {
         case .credentials:
@@ -193,12 +196,12 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
                                                  title: ArcanaLocalization.errorTitle,
                                                  message: ArcanaLocalization.loginInvalidCredentials)
         case .invalidVerificationCode:
-            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+            state.bindings.alertInfo = AlertInfo(id: .invalidVerificationCodeAlert,
                                                  title: ArcanaLocalization.errorTitle,
                                                  message: ArcanaLocalization.loginInvalidVerificationCode)
         case .rateLimited(let retryAfterMs):
             let retryMessage = retryAfterMs.map { Int($0 / 1000) } ?? 0
-            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+            state.bindings.alertInfo = AlertInfo(id: .rateLimitedAlert(String(retryMessage)),
                                                  title: ArcanaLocalization.errorTitle,
                                                  message: ArcanaLocalization.loginRateLimited(seconds: retryMessage))
         case .accountDeactivated:
@@ -225,7 +228,7 @@ class LoginScreenViewModel: LoginScreenViewModelType, LoginScreenViewModelProtoc
                                                  title: ArcanaLocalization.serverNotSupported,
                                                  message: ArcanaLocalization.unsupportedAuthentication)
         case .emailVerificationUnavailable:
-            state.bindings.alertInfo = AlertInfo(id: .credentialsAlert,
+            state.bindings.alertInfo = AlertInfo(id: .emailVerificationUnavailableAlert,
                                                  title: ArcanaLocalization.errorTitle,
                                                  message: ArcanaLocalization.loginEmailVerificationUnavailable)
         case .invalidEmail:

@@ -14,7 +14,8 @@ import Testing
 final class MediaUploadPreviewScreenViewModelTests {
     var timelineProxy: TimelineProxyMock!
     var clientProxy: ClientProxyMock!
-    var userIndicatorController: UserIndicatorControllerMock!
+    var userIndicatorController: UserIndicatorControllerMock
+    private let userSettings: UserSettings
     
     var viewModel: MediaUploadPreviewScreenViewModel!
     var context: MediaUploadPreviewScreenViewModel.Context {
@@ -27,31 +28,56 @@ final class MediaUploadPreviewScreenViewModelTests {
     }
     
     init() {
-        AppSettings.resetAllSettings()
-        let appSettings = AppSettings()
-        appSettings.optimizeMediaUploads = false
-        ServiceLocator.shared.register(appSettings: appSettings)
+        userSettings = UserSettings.mock()
+        userSettings.app.optimizeMediaUploads = false
+        
+        userIndicatorController = UserIndicatorControllerMock()
     }
     
-    deinit {
-        AppSettings.resetAllSettings()
+    @Test("Cancelling while send waits for preparation sends nothing and shows no error")
+    func cancelWhileSendWaitsForPreparation() async throws {
+        // Given a screen whose media preparation is still running.
+        let (startedStream, startedContinuation) = AsyncStream<Void>.makeStream()
+        let (resumeStream, resumeContinuation) = AsyncStream<Void>.makeStream()
+        defer { resumeContinuation.finish() }
+        
+        let preparationStarted = deferFulfillment(startedStream) { _ in true }
+        setUpViewModel(urls: [imageURL], expectedCaption: nil) {
+            startedContinuation.yield()
+            var iterator = resumeStream.makeAsyncIterator()
+            _ = await iterator.next() // Only returns once the preparation is cancelled.
+            return .success(100 * 1024 * 1024)
+        }
+        try await preparationStarted.fulfill()
+        
+        // When sending and then dismissing the screen before the preparation finishes.
+        context.send(viewAction: .send)
+        let loadingFinished = deferFulfillment(context.observe(\.viewState.shouldDisableInteraction)) { !$0 }
+        context.send(viewAction: .cancel)
+        viewModel.stopProcessing() // Called by the coordinator when the screen is dismissed.
+        try await loadingFinished.fulfill()
+        
+        // Then nothing is sent and no error is shown.
+        #expect(timelineProxy.sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount == 0)
+        #expect(userIndicatorController.submitIndicatorDelayCallsCount == 1, "Only the loading indicator should be shown")
+        #expect(context.viewState.bindings.alertInfo == nil)
     }
     
-    @Test
+    @Test("An image is sent without a caption")
     func imageUploadWithoutCaption() async throws {
         setUpViewModel(urls: [imageURL], expectedCaption: nil)
         context.caption = .init("")
         try await send()
     }
     
-    @Test
+    @Test("An image with a blank caption is sent without a caption")
     func imageUploadWithBlankCaption() async throws {
         setUpViewModel(urls: [imageURL], expectedCaption: nil)
         context.caption = .init("     ")
         try await send()
     }
     
-    @Test
+    @Test("An image is sent with its caption")
     func imageUploadWithCaption() async throws {
         let caption = "This is a really great image!"
         setUpViewModel(urls: [imageURL], expectedCaption: caption)
@@ -59,29 +85,31 @@ final class MediaUploadPreviewScreenViewModelTests {
         try await send()
     }
     
-    @Test
+    @Test("A video is sent without a caption", .timeLimit(.minutes(2))) // Transcoding videos can be slow on a busy CI runner.
     func videoUploadWithoutCaption() async throws {
         setUpViewModel(urls: [videoURL], expectedCaption: nil)
         context.caption = .init("")
-        try await send()
+        // The preprocessor transcodes the video for real which can take a while on a busy CI runner.
+        try await send(timeout: .seconds(60))
     }
     
-    @Test
+    @Test("A video is sent with its caption", .timeLimit(.minutes(2))) // Transcoding videos can be slow on a busy CI runner.
     func videoUploadWithCaption() async throws {
         let caption = "Check out this video!"
         setUpViewModel(urls: [videoURL], expectedCaption: caption)
         context.caption = .init(string: caption)
-        try await send()
+        // The preprocessor transcodes the video for real which can take a while on a busy CI runner.
+        try await send(timeout: .seconds(60))
     }
     
-    @Test
+    @Test("An audio file is sent without a caption")
     func audioUploadWithoutCaption() async throws {
         setUpViewModel(urls: [audioURL], expectedCaption: nil)
         context.caption = .init("")
         try await send()
     }
     
-    @Test
+    @Test("An audio file is sent with its caption")
     func audioUploadWithCaption() async throws {
         let caption = "Listen to this!"
         setUpViewModel(urls: [audioURL], expectedCaption: caption)
@@ -89,14 +117,14 @@ final class MediaUploadPreviewScreenViewModelTests {
         try await send()
     }
     
-    @Test
+    @Test("A file is sent without a caption")
     func fileUploadWithoutCaption() async throws {
         setUpViewModel(urls: [fileURL], expectedCaption: nil)
         context.caption = .init("")
         try await send()
     }
     
-    @Test
+    @Test("A file is sent with its caption")
     func fileUploadWithCaption() async throws {
         let caption = "Please will you check my article."
         setUpViewModel(urls: [fileURL], expectedCaption: caption)
@@ -104,7 +132,7 @@ final class MediaUploadPreviewScreenViewModelTests {
         try await send()
     }
     
-    @Test
+    @Test("A processing failure keeps the screen visible and shows an error")
     func processingFailure() async throws {
         // Given an upload screen for a non-existent file.
         setUpViewModel(urls: [badImageURL], expectedCaption: nil)
@@ -112,18 +140,21 @@ final class MediaUploadPreviewScreenViewModelTests {
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 0)
         
         // When attempting to send the file
-        let deferredFailure = deferFailure(viewModel.actions, timeout: .seconds(1), message: "The screen should remain visible.") { $0 == .dismiss }
+        let deferredFailure = deferFailure(viewModel.actions, timeout: .milliseconds(300), message: "The screen should remain visible.") { $0 == .dismiss }
         context.send(viewAction: .send)
         #expect(context.viewState.shouldDisableInteraction, "The interaction should be disabled while sending.")
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 1) // Loading indicator
         
         // Then the failure should occur preventing the screen from being dismissed.
+        // The interaction being re-enabled is what marks the end of the send, the timeout above only proves
+        // that no dismissal happened within it — processing may still be in flight when it elapses.
+        let deferredInteraction = deferFulfillment(context.observe(\.viewState.shouldDisableInteraction)) { !$0 }
         try await deferredFailure.fulfill()
-        #expect(!context.viewState.shouldDisableInteraction)
+        try await deferredInteraction.fulfill()
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 2, "An error indicator should be shown.")
     }
     
-    @Test
+    @Test("An unknown max upload size shows an alert and retrying sends the media")
     func uploadWithUnknownMaxUploadSize() async throws {
         // Given an upload screen that is unable to fetch the max upload size.
         setUpViewModel(urls: [imageURL], expectedCaption: nil, maxUploadSizeResult: .failure(.sdkError(ClientProxyMockError.generic)))
@@ -132,7 +163,7 @@ final class MediaUploadPreviewScreenViewModelTests {
         
         // When attempting to send the media.
         let deferredAlert = deferFulfillment(context.observe(\.viewState.bindings.alertInfo)) { $0 != nil }
-        let deferredFailure = deferFailure(viewModel.actions, timeout: .seconds(1), message: "The screen should remain visible.") { $0 == .dismiss }
+        let deferredFailure = deferFailure(viewModel.actions, timeout: .milliseconds(300), message: "The screen should remain visible.") { $0 == .dismiss }
         context.send(viewAction: .send)
         
         #expect(context.viewState.shouldDisableInteraction, "The interaction should be disabled while sending.")
@@ -155,7 +186,7 @@ final class MediaUploadPreviewScreenViewModelTests {
         try await deferredDismiss.fulfill()
     }
     
-    @Test
+    @Test("Media larger than the max upload size shows an alert")
     func uploadExceedingMaxUploadSize() async throws {
         // Given an upload screen with a really small max upload size.
         setUpViewModel(urls: [imageURL], expectedCaption: nil, maxUploadSizeResult: .success(100))
@@ -164,7 +195,7 @@ final class MediaUploadPreviewScreenViewModelTests {
         
         // When attempting to send an image that is larger the limit.
         let deferredAlert = deferFulfillment(context.observe(\.viewState.bindings.alertInfo)) { $0 != nil }
-        let deferredFailure = deferFailure(viewModel.actions, timeout: .seconds(1), message: "The screen should remain visible.") { $0 == .dismiss }
+        let deferredFailure = deferFailure(viewModel.actions, timeout: .milliseconds(300), message: "The screen should remain visible.") { $0 == .dismiss }
         context.send(viewAction: .send)
         
         #expect(context.viewState.shouldDisableInteraction, "The interaction should be disabled while sending.")
@@ -177,8 +208,8 @@ final class MediaUploadPreviewScreenViewModelTests {
         #expect(context.alertInfo?.id == .maxUploadSizeExceeded(limit: 100))
     }
     
-    @Test
-    func multipleFiles() async throws {
+    @Test("Multiple media are sent as a single gallery")
+    func gallery() async throws {
         // Given an upload screen with multiple media files.
         setUpViewModel(urls: [fileURL, imageURL, fileURL], expectedCaption: nil)
         #expect(!context.viewState.shouldDisableInteraction)
@@ -191,36 +222,41 @@ final class MediaUploadPreviewScreenViewModelTests {
         #expect(context.viewState.shouldDisableInteraction, "The interaction should be disabled while sending.")
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 1) // Loading indicator
         
-        // Then the screen should be dismissed once all of the files have been sent.
+        // Then the screen should be dismissed once the gallery has been sent in a single request.
         try await deferredDismiss.fulfill()
-        #expect(timelineProxy.sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount == 1)
-        #expect(timelineProxy.sendFileUrlFileInfoCaptionRequestHandleCallsCount == 2)
+        #expect(timelineProxy.sendGalleryItemInfosCaptionInReplyToEventIDCallsCount == 1)
+        #expect(timelineProxy.sendGalleryItemInfosCaptionInReplyToEventIDReceivedArguments?.itemInfos.count == 3)
+        #expect(timelineProxy.sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount == 0)
+        #expect(timelineProxy.sendFileUrlFileInfoCaptionRequestHandleCallsCount == 0)
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 1, "Only a loading indicator should be shown.")
     }
     
-    @Test
-    func multipleFilesWithProcessingFailure() async throws {
+    @Test("A gallery processing failure keeps the screen visible and shows an error")
+    func galleryWithProcessingFailure() async throws {
         // Given an upload screen for a non-existent file.
         setUpViewModel(urls: [imageURL, fileURL, badImageURL], expectedCaption: nil)
         #expect(!context.viewState.shouldDisableInteraction)
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 0)
         
         // When attempting to send the file
-        let deferredFailure = deferFailure(viewModel.actions, timeout: .seconds(1), message: "The screen should remain visible.") { $0 == .dismiss }
+        let deferredFailure = deferFailure(viewModel.actions, timeout: .milliseconds(300), message: "The screen should remain visible.") { $0 == .dismiss }
         context.send(viewAction: .send)
         #expect(context.viewState.shouldDisableInteraction, "The interaction should be disabled while sending.")
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 1) // Loading indicator
         
         // Then the failure should occur preventing the screen from being dismissed.
+        // Preprocessing the valid files can outlast the timeout above, so wait for the interaction to be
+        // re-enabled rather than assuming the send has finished by the time it elapses.
+        let deferredInteraction = deferFulfillment(context.observe(\.viewState.shouldDisableInteraction)) { !$0 }
         try await deferredFailure.fulfill()
-        #expect(!context.viewState.shouldDisableInteraction)
+        try await deferredInteraction.fulfill()
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 2, "An error indicator should be shown.")
     }
     
-    @Test
-    func multipleFilesWithSendFailure() async throws {
-        // Given an upload screen with multiple media files where one of the files will fail to send.
-        setUpViewModel(urls: [fileURL, imageURL, imageURL, fileURL], expectedCaption: nil, simulateImageSendFailures: true)
+    @Test("A gallery send failure dismisses the screen and shows an error")
+    func galleryWithSendFailure() async throws {
+        // Given an upload screen with multiple media files where the gallery send fails.
+        setUpViewModel(urls: [fileURL, imageURL, imageURL, fileURL], expectedCaption: nil, simulateGallerySendFailure: true)
         #expect(!context.viewState.shouldDisableInteraction)
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 0)
         
@@ -231,11 +267,94 @@ final class MediaUploadPreviewScreenViewModelTests {
         #expect(context.viewState.shouldDisableInteraction, "The interaction should be disabled while sending.")
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 1) // Loading indicator
         
-        // Then the screen should be dismissed so the user can see which files made it into the timeline.
+        // Then the screen should still be dismissed and an error indicator surfaced.
         try await deferredDismiss.fulfill()
-        #expect(timelineProxy.sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount == 2)
+        #expect(timelineProxy.sendGalleryItemInfosCaptionInReplyToEventIDCallsCount == 1)
+        #expect(userIndicatorController.submitIndicatorDelayCallsCount == 2, "An error indicator should be shown.")
+    }
+    
+    @Test("With galleries disabled each media is sent as its own message")
+    func galleryDisabledSendsIndividualMessages() async throws {
+        // Given an upload screen with multiple media files and gallery sending disabled.
+        setUpViewModel(urls: [fileURL, imageURL, fileURL], expectedCaption: nil, galleryEnabled: false)
+        #expect(!context.viewState.shouldDisableInteraction)
+        
+        // When attempting to send the files.
+        let deferredDismiss = deferFulfillment(viewModel.actions) { $0 == .dismiss }
+        context.send(viewAction: .send)
+        
+        // Then each file should be sent as an individual message rather than a single gallery.
+        try await deferredDismiss.fulfill()
+        #expect(timelineProxy.sendGalleryItemInfosCaptionInReplyToEventIDCallsCount == 0)
         #expect(timelineProxy.sendFileUrlFileInfoCaptionRequestHandleCallsCount == 2)
-        #expect(userIndicatorController.submitIndicatorDelayCallsCount == 3, "Error indicators for each failure should be shown.")
+        #expect(timelineProxy.sendImageUrlThumbnailURLImageInfoCaptionRequestHandleCallsCount == 1)
+    }
+    
+    @Test("Only still pictures can be drawn on, and only when drawing is enabled")
+    func onlyStillPicturesCanBeDrawnOn() {
+        // Given a still picture, an animated GIF, a video and a PDF.
+        let urls = [assertResourceURL(filename: "test_image.png"), imageURL, videoURL, fileURL]
+        
+        // When drawing is enabled, then only the still picture can be drawn on.
+        setUpViewModel(urls: urls, expectedCaption: nil, imageDrawingEnabled: true)
+        #expect(context.viewState.drawableMediaIndices == [0])
+        
+        // When drawing is disabled, then nothing can be drawn on.
+        setUpViewModel(urls: urls, expectedCaption: nil, imageDrawingEnabled: false)
+        #expect(context.viewState.drawableMediaIndices.isEmpty)
+    }
+    
+    @Test("Saving a drawing reloads the preview and prepares the pictures again")
+    func drawingReloadsThePreviewAndPreparesThePicturesAgain() async throws {
+        // Given a picture whose preparation has started once.
+        let (startsStream, startsContinuation) = AsyncStream<Int>.makeStream()
+        var preparationStarts = 0
+        setUpViewModel(urls: [assertResourceURL(filename: "test_image.png")], expectedCaption: nil, imageDrawingEnabled: true) {
+            preparationStarts += 1
+            startsContinuation.yield(preparationStarts)
+            return .success(100 * 1024 * 1024)
+        }
+        
+        // When QuickLook has saved a drawing into the picture.
+        let preparedAgain = deferFulfillment(startsStream) { $0 == 2 }
+        context.send(viewAction: .savedDrawing(index: 0, didDraw: true))
+        
+        // Then the preview reloads and the picture is prepared again.
+        #expect(context.viewState.mediaEditVersion == 1)
+        try await preparedAgain.fulfill()
+    }
+    
+    @Test("Saving a drawing blocks sending until it lands")
+    func savingADrawingBlocksSendingUntilItLands() {
+        // Given a picture that can be drawn on.
+        setUpViewModel(urls: [assertResourceURL(filename: "test_image.png")], expectedCaption: nil, imageDrawingEnabled: true)
+        
+        // When Save is tapped in the drawing editor, before QuickLook has written the drawing.
+        context.send(viewAction: .savingDrawing)
+        
+        // Then the screen is blocked and Send does nothing.
+        #expect(context.viewState.shouldDisableInteraction)
+        context.send(viewAction: .send)
+        #expect(userIndicatorController.submitIndicatorDelayCallsCount == 0)
+        
+        // When the drawing lands, then the screen is unblocked.
+        context.send(viewAction: .savedDrawing(index: 0, didDraw: true))
+        #expect(!context.viewState.shouldDisableInteraction)
+    }
+    
+    @Test("Saving without a drawing unblocks sending without reloading")
+    func savingWithoutADrawingUnblocksSending() {
+        // Given a picture that can be drawn on.
+        setUpViewModel(urls: [assertResourceURL(filename: "test_image.png")], expectedCaption: nil, imageDrawingEnabled: true)
+        
+        // When Save is tapped in the drawing editor and no drawing follows.
+        context.send(viewAction: .savingDrawing)
+        #expect(context.viewState.shouldDisableInteraction)
+        
+        // When the editor finishes without a drawing, then the screen is unblocked and nothing reloads.
+        context.send(viewAction: .savedDrawing(index: 0, didDraw: false))
+        #expect(!context.viewState.shouldDisableInteraction)
+        #expect(context.viewState.mediaEditVersion == 0)
     }
     
     // MARK: - Helpers
@@ -269,7 +388,10 @@ final class MediaUploadPreviewScreenViewModelTests {
     private func setUpViewModel(urls: [URL],
                                 expectedCaption: String?,
                                 maxUploadSizeResult: Result<UInt, ClientProxyError>? = nil,
-                                simulateImageSendFailures: Bool = false) {
+                                simulateGallerySendFailure: Bool = false,
+                                galleryEnabled: Bool = true,
+                                imageDrawingEnabled: Bool = false,
+                                maxUploadSizeClosure: (() async -> Result<UInt, ClientProxyError>)? = nil) {
         timelineProxy = TimelineProxyMock(.init())
         timelineProxy.sendAudioUrlAudioInfoCaptionRequestHandleClosure = { [weak self] _, _, caption, _ in
             self?.verifyCaption(caption, expectedCaption: expectedCaption) ?? .failure(.sdkError(TestError.unknown))
@@ -278,26 +400,30 @@ final class MediaUploadPreviewScreenViewModelTests {
             self?.verifyCaption(caption, expectedCaption: expectedCaption) ?? .failure(.sdkError(TestError.unknown))
         }
         timelineProxy.sendImageUrlThumbnailURLImageInfoCaptionRequestHandleClosure = { [weak self] _, _, _, caption, _ in
-            guard !simulateImageSendFailures else { return .failure(.sdkError(TestError.unknown)) }
-            return self?.verifyCaption(caption, expectedCaption: expectedCaption) ?? .failure(.sdkError(TestError.unknown))
+            self?.verifyCaption(caption, expectedCaption: expectedCaption) ?? .failure(.sdkError(TestError.unknown))
         }
         timelineProxy.sendVideoUrlThumbnailURLVideoInfoCaptionRequestHandleClosure = { [weak self] _, _, _, caption, _ in
             self?.verifyCaption(caption, expectedCaption: expectedCaption) ?? .failure(.sdkError(TestError.unknown))
+        }
+        timelineProxy.sendGalleryItemInfosCaptionInReplyToEventIDClosure = { [weak self] _, caption, _ in
+            guard !simulateGallerySendFailure else { return .failure(.sdkError(TestError.unknown)) }
+            return self?.verifyCaption(caption, expectedCaption: expectedCaption) ?? .failure(.sdkError(TestError.unknown))
         }
         
         clientProxy = ClientProxyMock(.init())
         if let maxUploadSizeResult {
             clientProxy.underlyingMaxMediaUploadSize = maxUploadSizeResult
         }
-        
-        userIndicatorController = UserIndicatorControllerMock()
+        clientProxy.maxMediaUploadSizeClosure = maxUploadSizeClosure
         
         viewModel = MediaUploadPreviewScreenViewModel(mediaURLs: urls,
+                                                      caption: nil,
                                                       title: "Some File",
-                                                      isRoomEncrypted: true,
                                                       shouldShowCaptionWarning: true,
-                                                      mediaUploadingPreprocessor: MediaUploadingPreprocessor(appSettings: ServiceLocator.shared.settings),
-                                                      timelineController: MockTimelineController(timelineProxy: timelineProxy),
+                                                      galleryEnabled: galleryEnabled,
+                                                      imageDrawingEnabled: imageDrawingEnabled,
+                                                      mediaUploadingPreprocessor: MediaUploadingPreprocessor(userSettings: userSettings),
+                                                      timelineController: TimelineControllerMock(.init(timelineProxy: timelineProxy)),
                                                       clientProxy: clientProxy,
                                                       userIndicatorController: userIndicatorController)
     }
@@ -310,10 +436,10 @@ final class MediaUploadPreviewScreenViewModelTests {
         return .success(())
     }
     
-    private func send() async throws {
+    private func send(timeout: Duration = .seconds(10)) async throws {
         #expect(!context.viewState.shouldDisableInteraction, "Attempting to send when interaction is disabled.")
         
-        let deferred = deferFulfillment(viewModel.actions) { $0 == .dismiss }
+        let deferred = deferFulfillment(viewModel.actions, timeout: timeout) { $0 == .dismiss }
         context.send(viewAction: .send)
         
         #expect(context.viewState.shouldDisableInteraction, "The interaction should be disabled while sending.")

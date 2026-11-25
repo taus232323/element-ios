@@ -7,28 +7,48 @@
 //
 
 import Combine
-import Foundation
-import UIKit
+import MatrixRustSDK
+import SwiftUI
 import UserNotifications
 
+/// Handles the app's notifications: the notification center, the APNs token, the permission and the app badge.
+/// Each live account's ``NotificationService`` decides what concerns its account and asks for it through actions.
 final class NotificationManager: NSObject, NotificationManagerProtocol {
     private let notificationCenter: UserNotificationCenterProtocol
     private let appSettings: AppSettings
     
-    private var userSession: UserSessionProtocol?
-    
+    /// The APNs token, kept for the accounts added after it arrived.
+    private var deviceToken: Data?
+    private var services: [String: NotificationServiceProtocol] = [:]
+    private var serviceCancellables: [String: Set<AnyCancellable>] = [:]
+    /// Every signed in account, including those without a live session yet.
+    private let userIDsPublisher: CurrentValuePublisher<[String], Never>
     private var cancellables = Set<AnyCancellable>()
-    private var notificationsEnabled = false
+    
+    private var isAnyAccountEnabled: Bool {
+        services.values.contains { $0.isEnabled }
+    }
     
     init(notificationCenter: UserNotificationCenterProtocol,
+         userIDsPublisher: CurrentValuePublisher<[String], Never>,
          appSettings: AppSettings) {
         self.notificationCenter = notificationCenter
+        self.userIDsPublisher = userIDsPublisher
         self.appSettings = appSettings
         super.init()
+        
+        userIDsPublisher
+            .sink { [weak self] _ in
+                guard let self else { return }
+                for service in services.values {
+                    service.updateRegistrationParameters(appendsPusher: shouldAppendPusher(for: service.userID))
+                }
+            }
+            .store(in: &cancellables)
     }
-
+    
     // MARK: NotificationManagerProtocol
-
+    
     weak var delegate: NotificationManagerDelegate?
     
     func start() {
@@ -47,70 +67,29 @@ final class NotificationManager: NSObject, NotificationManagerProtocol {
         notificationCenter.setNotificationCategories([messageCategory, inviteCategory])
         notificationCenter.delegate = self
         
-        notificationsEnabled = appSettings.enableNotifications
-        MXLog.info("App setting 'enableNotifications' is '\(notificationsEnabled)'")
-        
-        // Listen for changes to AppSettings.enableNotifications
-        appSettings.$enableNotifications
-            .sink { [weak self] newValue in
-                self?.enableNotifications(newValue)
-            }
-            .store(in: &cancellables)
-        
         NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in
                 self?.removeReceivedWhileOfflineNotification()
             }
             .store(in: &cancellables)
-    }
-    
-    func requestAuthorization() {
-        guard appSettings.enableNotifications, !userSession.isNil else { return }
-        Task {
-            do {
-                let permissionGranted = try await notificationCenter.requestAuthorization(options: [.alert, .sound, .badge])
-                MXLog.info("Permission granted: \(permissionGranted)")
-                await MainActor.run {
-                    if permissionGranted {
-                        self.delegate?.registerForRemoteNotifications()
-                    }
-                }
-            } catch {
-                MXLog.error("Request authorization failed: \(error)")
-            }
-        }
-    }
-
-    func register(with deviceToken: Data) async -> Bool {
-        guard let userSession else {
-            return false
-        }
-        return await setPusher(with: deviceToken, clientProxy: userSession.clientProxy)
-    }
-
-    func setUserSession(_ userSession: UserSessionProtocol?) {
-        self.userSession = userSession
         
-        // If notification permissions were given previously then attempt re-registering
-        // for remote notifications on startup. Otherwise let the onboarding flow handle it
-        Task { [weak self] in
-            guard let self else { return }
-            
-            if await notificationCenter.authorizationStatus() == .authorized, appSettings.enableNotifications {
-                await MainActor.run { [weak self] in
-                    self?.delegate?.registerForRemoteNotifications()
-                }
-            }
-            
+        Task {
             let settings = await notificationCenter.notificationSettings()
             MXLog.info("Notification sound enabled: \(settings.soundSetting == .enabled)")
         }
     }
-
+    
+    func register(with deviceToken: Data) async {
+        self.deviceToken = deviceToken
+        for service in services.values {
+            await service.register(makeRegistrationParameters(for: service.userID, deviceToken: deviceToken))
+        }
+    }
+    
     func registrationFailed(with error: Error) {
         MXLog.error("Device token registration failed with error: \(error)")
     }
-
+    
     func showLocalNotification(with title: String, subtitle: String?) async {
         let content = UNMutableNotificationContent()
         content.title = title
@@ -128,88 +107,130 @@ final class NotificationManager: NSObject, NotificationManagerProtocol {
         }
     }
     
-    func removeDeliveredMessageNotifications(for roomID: String) async {
-        let notificationsIdentifiers = await notificationCenter
-            .deliveredNotifications()
-            .filter { $0.request.content.roomID == roomID }
-            .map(\.request.identifier)
-        notificationCenter.removeDeliveredNotifications(withIdentifiers: notificationsIdentifiers)
+    func add(_ service: NotificationServiceProtocol) {
+        let userID = service.userID
+        services[userID] = service
+        serviceCancellables[userID] = [
+            service.actionsPublisher.sink { [weak self] action in
+                self?.process(action, from: userID)
+            },
+            service.badgeCountPublisher.sink { [weak self] _ in
+                self?.updateAppBadgeCount()
+            }
+        ]
+        
+        if let deviceToken {
+            Task { await service.register(makeRegistrationParameters(for: userID, deviceToken: deviceToken)) }
+        } else {
+            registerForRemoteNotificationsIfAuthorized()
+        }
     }
     
-    func removeDeliveredNotificationsForFullyReadRooms(_ rooms: [RoomSummary]) async {
-        let roomsToLastMessageDates = rooms
-            .filter { $0.hasUnreadMessages == false }
-            .reduce(into: [:]) { partialResult, roomSummary in
-                partialResult[roomSummary.id] = roomSummary.lastMessageDate
-            }
+    func remove(userID: String) {
+        serviceCancellables[userID] = nil
+        guard services.removeValue(forKey: userID) != nil else { return }
         
-        let notificationsIdentifiers = await notificationCenter
-            .deliveredNotifications()
-            .filter { notification in
-                guard let roomID = notification.request.content.roomID,
-                      let lastMessageDate = roomsToLastMessageDates[roomID] else {
-                    return false
+        if services.isEmpty {
+            // Signing out of the last account unregisters from APNs, so the next account registers again.
+            deviceToken = nil
+        } else {
+            updateAppBadgeCount()
+        }
+    }
+    
+    func reset() {
+        appSettings.lastKnownBadgeCount = 0
+        Task {
+            do {
+                try await notificationCenter.setBadgeCount(0)
+            } catch {
+                MXLog.error("Failed resetting the app badge count with error: \(error)")
+            }
+        }
+        delegate?.unregisterForRemoteNotifications()
+    }
+    
+    // MARK: - Private
+    
+    private func process(_ action: NotificationServiceAction, from userID: String) {
+        switch action {
+        case .removeDeliveredNotifications(let isIncluded):
+            Task { await removeDeliveredNotifications(of: userID, where: isIncluded) }
+        case .requestAuthorization:
+            requestAuthorization()
+        }
+    }
+    
+    private func requestAuthorization() {
+        guard isAnyAccountEnabled else { return }
+        Task {
+            do {
+                let permissionGranted = try await notificationCenter.requestAuthorization(options: [.alert, .sound, .badge])
+                MXLog.info("Permission granted: \(permissionGranted)")
+                if permissionGranted {
+                    delegate?.registerForRemoteNotifications()
                 }
-                    
-                return notification.date <= lastMessageDate
+            } catch {
+                MXLog.error("Request authorization failed: \(error)")
             }
-            .map(\.request.identifier)
+        }
+    }
+    
+    /// Registers again when permission was given before, otherwise the onboarding flow asks for it.
+    /// Accounts that are turned off need the token too, to delete any pusher left on their homeserver.
+    private func registerForRemoteNotificationsIfAuthorized() {
+        Task {
+            guard await notificationCenter.authorizationStatus() == .authorized else { return }
+            delegate?.registerForRemoteNotifications()
+        }
+    }
+    
+    private func makeRegistrationParameters(for userID: String, deviceToken: Data) -> NotificationService.RegistrationParameters {
+        .init(deviceToken: deviceToken, appendsPusher: shouldAppendPusher(for: userID))
+    }
+    
+    /// Whether the account's pusher should be added alongside other users' pushers for this device, rather than replacing them.
+    ///
+    /// Only `true` when the app has another signed in account on the same server, so its pusher is kept. Otherwise `false` to
+    /// remove any pushers left behind by failed logouts.
+    ///
+    /// **Note:** Pushers left behind by failed logouts aren't removed while another account shares the server.
+    /// This is a known limitation of the current implementation that can't be solved with the CS APIs available.
+    private func shouldAppendPusher(for userID: String) -> Bool {
+        guard let serverName = try? serverNameFromUserId(userId: userID) else { return false }
+        return userIDsPublisher.value.contains { $0 != userID && (try? serverNameFromUserId(userId: $0)) == serverName }
+    }
+    
+    private func updateAppBadgeCount() {
+        // Signing out of the last account resets the badge.
+        guard !services.isEmpty else { return }
         
-        notificationCenter.removeDeliveredNotifications(withIdentifiers: notificationsIdentifiers)
+        let badgeCount = services.values.map(\.badgeCountPublisher.value).reduce(0, +)
+        appSettings.lastKnownBadgeCount = badgeCount
+        MXLog.debug("Updating app badge count to \(badgeCount)")
+        
+        Task {
+            do {
+                try await notificationCenter.setBadgeCount(badgeCount)
+            } catch {
+                MXLog.error("Failed updating the app badge count with error: \(error)")
+            }
+        }
+    }
+    
+    private func removeDeliveredNotifications(of userID: String, where isIncluded: (UNNotification) -> Bool) async {
+        let identifiers = await notificationCenter.deliveredNotifications()
+            // A room can be shared by several accounts. Notifications without a receiver weren't processed by the extension, so any account may clear them.
+            .filter { ($0.request.content.receiverID ?? userID) == userID }
+            .filter(isIncluded)
+            .map(\.request.identifier)
+        guard !identifiers.isEmpty else { return }
+        
+        notificationCenter.removeDeliveredNotifications(withIdentifiers: identifiers)
     }
     
     private func removeReceivedWhileOfflineNotification() {
-        notificationCenter.removeDeliveredNotifications(withIdentifiers: [NotificationServiceExtension.receivedWhileOfflineNotificationID])
-    }
-
-    private func setPusher(with deviceToken: Data, clientProxy: ClientProxyProtocol) async -> Bool {
-        do {
-            let defaultPayload = APNSPayload(aps: APSInfo(mutableContent: 1,
-                                                          alert: APSAlert(locKey: "Notification",
-                                                                          locArgs: [])),
-                                             pusherNotificationClientIdentifier: clientProxy.pusherNotificationClientIdentifier)
-
-            let configuration = try await PusherConfiguration(identifiers: .init(pushkey: deviceToken.base64EncodedString(),
-                                                                                 appId: appSettings.pusherAppID),
-                                                              kind: .http(data: .init(url: appSettings.pushGatewayNotifyEndpoint.absoluteString,
-                                                                                      format: .eventIdOnly,
-                                                                                      defaultPayload: defaultPayload.toJsonString())),
-                                                              appDisplayName: "\(InfoPlistReader.main.bundleDisplayName) (iOS)",
-                                                              deviceDisplayName: UIDevice.current.name,
-                                                              profileTag: pusherProfileTag(),
-                                                              lang: Bundle.app.preferredLocalizations.first ?? "en")
-            try await clientProxy.setPusher(with: configuration)
-            MXLog.info("Set pusher succeeded")
-            return true
-        } catch {
-            MXLog.error("Set pusher failed: \(error)")
-            return false
-        }
-    }
-
-    private func pusherProfileTag() -> String {
-        if let currentTag = appSettings.pusherProfileTag {
-            return currentTag
-        }
-        let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-        let newTag = (0..<16).map { _ in
-            let offset = Int.random(in: 0..<chars.count)
-            return String(chars[chars.index(chars.startIndex, offsetBy: offset)])
-        }.joined()
-
-        appSettings.pusherProfileTag = newTag
-        return newTag
-    }
-    
-    private func enableNotifications(_ enable: Bool) {
-        guard notificationsEnabled != enable else { return }
-        notificationsEnabled = enable
-        MXLog.info("App setting 'enableNotifications' changed to '\(enable)'")
-        if enable {
-            requestAuthorization()
-        } else {
-            delegate?.unregisterForRemoteNotifications()
-        }
+        notificationCenter.removeDeliveredNotifications(withIdentifiers: [NotificationServiceExtensionActor.receivedWhileOfflineNotificationID])
     }
 }
 
@@ -218,21 +239,17 @@ final class NotificationManager: NSObject, NotificationManagerProtocol {
 extension NotificationManager: UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        guard appSettings.enableInAppNotifications else {
-            return []
-        }
         guard let delegate else {
             return [.badge, .sound, .list, .banner]
         }
-
+        
         guard delegate.shouldDisplayInAppNotification(content: notification.request.content) else {
             return []
         }
-
+        
         return [.badge, .sound, .list, .banner]
     }
-
-    @MainActor
+    
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse) async {
         switch response.actionIdentifier {

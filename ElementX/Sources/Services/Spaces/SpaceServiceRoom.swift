@@ -19,20 +19,24 @@ enum SpaceServiceRoomVisibility: Equatable {
 struct SpaceServiceRoom {
     var id: String
     var name: String
+    // periphery:ignore - might be useful to have
     var rawName: String?
     var avatarURL: URL?
     
     var isSpace: Bool
     var isDirect: Bool?
+    var isDM: Bool?
     var childrenCount: Int
     
     var joinedMembersCount: Int
-    var heroes: [UserProfileProxy]
+    var heroes: [UserProfile]
     var topic: String?
     var canonicalAlias: String?
     
     var joinRule: JoinRule?
+    // periphery:ignore - might be useful to have
     var worldReadable: Bool?
+    // periphery:ignore - might be useful to have
     var guestCanJoin: Bool
     var state: Membership?
     var via: [String]
@@ -70,10 +74,11 @@ extension SpaceServiceRoom {
         
         isSpace = spaceRoom.roomType == .space
         isDirect = spaceRoom.isDirect
+        isDM = spaceRoom.isDm
         childrenCount = Int(spaceRoom.childrenCount)
         
         joinedMembersCount = Int(spaceRoom.numJoinedMembers)
-        heroes = (spaceRoom.heroes ?? []).map(UserProfileProxy.init)
+        heroes = (spaceRoom.heroes ?? []).map(UserProfile.init)
         topic = spaceRoom.topic
         canonicalAlias = spaceRoom.canonicalAlias
         
@@ -92,9 +97,10 @@ extension SpaceServiceRoom {
                      avatarURL: URL? = nil,
                      isSpace: Bool,
                      isDirect: Bool? = nil,
+                     isDM: Bool? = nil,
                      childrenCount: Int = 0,
                      joinedMembersCount: Int = 0,
-                     heroes: [UserProfileProxy] = [],
+                     heroes: [UserProfile] = [],
                      topic: String? = nil,
                      canonicalAlias: String? = nil,
                      joinRule: JoinRule? = nil,
@@ -108,6 +114,7 @@ extension SpaceServiceRoom {
                          avatarURL: avatarURL,
                          isSpace: isSpace,
                          isDirect: isDirect,
+                         isDM: isDM,
                          childrenCount: childrenCount,
                          joinedMembersCount: joinedMembersCount,
                          heroes: heroes,

@@ -16,8 +16,9 @@ enum BugReportScreenCoordinatorAction {
 }
 
 struct BugReportScreenCoordinatorParameters {
+    let flow: BugReportService.Flow
     let bugReportService: BugReportServiceProtocol
-    let userSession: UserSessionProtocol?
+    let bugReportHook: BugReportHookProtocol
     
     let userIndicatorController: UserIndicatorControllerProtocol?
     let screenshot: UIImage?
@@ -37,8 +38,9 @@ final class BugReportScreenCoordinator: CoordinatorProtocol {
     init(parameters: BugReportScreenCoordinatorParameters) {
         self.parameters = parameters
         
-        viewModel = BugReportScreenViewModel(bugReportService: parameters.bugReportService,
-                                             clientProxy: parameters.userSession?.clientProxy,
+        viewModel = BugReportScreenViewModel(flow: parameters.flow,
+                                             bugReportService: parameters.bugReportService,
+                                             bugReportHook: parameters.bugReportHook,
                                              screenshot: parameters.screenshot,
                                              isModallyPresented: parameters.isModallyPresented)
     }
@@ -69,7 +71,7 @@ final class BugReportScreenCoordinator: CoordinatorProtocol {
             }
             .store(in: &cancellables)
     }
-
+    
     func stop() {
         stopLoading()
     }
@@ -94,6 +96,6 @@ final class BugReportScreenCoordinator: CoordinatorProtocol {
     }
     
     private func showError(label: String) {
-        parameters.userIndicatorController?.submitIndicator(UserIndicator(title: label, iconName: "xmark"))
+        parameters.userIndicatorController?.submitIndicator(UserIndicator(title: label, icon: \.close))
     }
 }

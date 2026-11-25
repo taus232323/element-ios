@@ -10,19 +10,16 @@ import Foundation
 import MatrixRustSDK
 
 // sourcery: AutoMockable
-protocol NSEUserSessionProtocol {
+nonisolated protocol NSEUserSessionProtocol {
+    var userSettings: UserSettings { get }
     var inviteAvatarsVisibility: InviteAvatars { get async }
     var mediaPreviewVisibility: MediaPreviews { get async }
     var threadsEnabled: Bool { get }
-    
-    func notificationItemProxy(roomID: String, eventID: String) async -> NotificationItemProxyProtocol?
-    func roomForIdentifier(_ roomID: String) -> Room?
 }
 
-final class NSEUserSession: NSEUserSessionProtocol {
-    private let sessionDirectories: SessionDirectories
-    private let appSettings: CommonSettingsProtocol
-    private let baseClient: Client
+final nonisolated class NSEUserSession: NSEUserSessionProtocol {
+    let userSettings: UserSettings
+    private let baseClient: ClientProtocol
     private let notificationClient: NotificationClient
     private let userID: String
     private(set) lazy var mediaProvider: MediaProviderProtocol = MediaProvider(mediaLoader: MediaLoader(client: baseClient),
@@ -53,42 +50,31 @@ final class NSEUserSession: NSEUserSessionProtocol {
     }
     
     var threadsEnabled: Bool {
-        appSettings.threadsEnabled
+        userSettings.app.threadsEnabled
     }
-
+    
     init(credentials: KeychainCredentials,
          roomID: String,
          clientSessionDelegate: ClientSessionDelegate,
-         appHooks: AppHooks,
-         appSettings: CommonSettingsProtocol) async throws {
-        sessionDirectories = credentials.restorationToken.sessionDirectories
+         clientFactory: ClientFactoryProtocol = ClientFactory(),
+         appSettings: AppSettings,
+         appHooks: AppHooks) async throws {
         userID = credentials.userID
-        self.appSettings = appSettings
+        userSettings = appHooks.userSessionHook.configure(appSettings.userSettings(for: credentials.userID),
+                                                          forHomeserver: credentials.restorationToken.session.homeserverUrl)
         
-        let homeserverURL = credentials.restorationToken.session.homeserverUrl
-        let clientBuilder = ClientBuilder
-            .baseBuilder(setupEncryption: false,
-                         httpProxy: URL(string: homeserverURL)?.globalProxy,
-                         slidingSync: .restored,
-                         sessionDelegate: clientSessionDelegate,
-                         appHooks: appHooks,
-                         enableOnlySignedDeviceIsolationMode: appSettings.enableOnlySignedDeviceIsolationMode,
-                         enableKeyShareOnInvite: appSettings.enableKeyShareOnInvite,
-                         requestTimeout: 15000,
-                         maxRequestRetryTime: 5000,
-                         threadsEnabled: appSettings.threadsEnabled)
-            .systemIsMemoryConstrained()
-            .sqliteStore(config: .init(dataPath: credentials.restorationToken.sessionDirectories.dataPath,
-                                       cachePath: credentials.restorationToken.sessionDirectories.cachePath)
-                    .passphrase(passphrase: credentials.restorationToken.passphrase))
-            .username(username: credentials.userID)
-            .homeserverUrl(url: homeserverURL)
+        baseClient = try await clientFactory.makeNSEClient(credentials: credentials,
+                                                           roomID: roomID,
+                                                           clientSessionDelegate: clientSessionDelegate,
+                                                           userSettings: userSettings,
+                                                           appHooks: appHooks)
         
-        baseClient = try await clientBuilder.build()
+        do {
+            try await baseClient.setPresence(presence: .offline, immediate: false)
+        } catch {
+            MXLog.error("Failed configuring offline presence before notification processing with error: \(error)")
+        }
         delegateHandle = try baseClient.setDelegate(delegate: ClientDelegateWrapper())
-        
-        try await baseClient.restoreSessionWith(session: credentials.restorationToken.session,
-                                                roomLoadSettings: .one(roomId: roomID))
         
         notificationClient = try await baseClient.notificationClient(processSetup: .multipleProcesses)
     }
@@ -96,11 +82,10 @@ final class NSEUserSession: NSEUserSessionProtocol {
     func notificationItemProxy(roomID: String, eventID: String) async -> NotificationItemProxyProtocol? {
         do {
             let notificationStatus = try await notificationClient.getNotification(roomId: roomID, eventId: eventID)
-                
+            
             switch notificationStatus {
             case .event(let notification):
                 return NotificationItemProxy(notificationItem: notification,
-                                             eventID: eventID,
                                              receiverID: userID,
                                              roomID: roomID)
             case .eventNotFound:
@@ -115,7 +100,7 @@ final class NSEUserSession: NSEUserSessionProtocol {
             }
         } catch {
             MXLog.error("Could not get notification's content creating an empty notification instead, error: \(error)")
-            return EmptyNotificationItemProxy(eventID: eventID, roomID: roomID, receiverID: userID)
+            return EmptyNotificationItemProxy(roomID: roomID, receiverID: userID)
         }
     }
     
@@ -133,13 +118,14 @@ final class NSEUserSession: NSEUserSessionProtocol {
     }
 }
 
-private final class ClientDelegateWrapper: ClientDelegate {
+private final nonisolated class ClientDelegateWrapper: ClientDelegate {
     // MARK: - ClientDelegate
-
+    
     func didReceiveAuthError(isSoftLogout: Bool) {
         MXLog.error("Received authentication error, the NSE can't handle this.")
     }
     
+    // periphery:ignore - required by the SDK's delegate protocol
     func didRefreshTokens() {
         MXLog.info("Delegating session updates to the ClientSessionDelegate.")
     }

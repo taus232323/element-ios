@@ -13,14 +13,27 @@ extension PostHogConfig {
         guard analyticsConfiguration.apiKey != "your_key" else {
             return nil
         }
-
-        let postHogConfiguration = PostHogConfig(apiKey: analyticsConfiguration.apiKey, host: analyticsConfiguration.host)
+        
+        let postHogConfiguration = PostHogConfig(projectToken: analyticsConfiguration.apiKey, host: analyticsConfiguration.host)
         // We capture screens manually
         postHogConfiguration.captureScreenViews = false
         postHogConfiguration.surveys = false
         
+        // Should be disabled by the swizzling config below, but also seriously, wtf PostHog?!
+        postHogConfiguration.capturePushNotificationSubscriptions = false
+        postHogConfiguration.capturePushNotificationOpened = false
+        
         // We only want to track the events provided by the AnalyticsEvents package
         postHogConfiguration.enableSwizzling = false
+        postHogConfiguration.captureApplicationLifecycleEvents = false
+        
+        // We don't use PostHog feature flags, don't fetch them
+        postHogConfiguration.preloadFeatureFlags = false
+        
+        // Off by default but spelled out so a PostHog default flip doesn't silently enable them
+        postHogConfiguration.sessionReplay = false
+        postHogConfiguration.captureElementInteractions = false
+        postHogConfiguration.errorTrackingConfig.autoCapture = false
         
         return postHogConfiguration
     }

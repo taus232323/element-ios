@@ -8,9 +8,9 @@
 
 import Combine
 import Compound
+import MatrixRustSDKMocks
 import SwiftUI
 
-@MainActor
 struct HomeScreenKnockedCell: View {
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
     
@@ -46,7 +46,7 @@ struct HomeScreenKnockedCell: View {
     }
     
     // MARK: - Private
-
+    
     private var mainContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
@@ -86,7 +86,7 @@ struct HomeScreenKnockedCell: View {
             .fill(Color.compound.borderDisabled)
             .frame(height: 1 / UIScreen.main.scale)
     }
-        
+    
     private var title: String {
         room.name
     }
@@ -97,8 +97,6 @@ struct HomeScreenKnockedCell: View {
 }
 
 // MARK: - Previews
-
-import MatrixRustSDKMocks
 
 struct HomeScreenKnockedCell_Previews: PreviewProvider, TestablePreview {
     static var previews: some View {
@@ -133,15 +131,14 @@ struct HomeScreenKnockedCell_Previews: PreviewProvider, TestablePreview {
         let userSession = UserSessionMock(.init(clientProxy: clientProxy))
         
         return HomeScreenViewModel(userSession: userSession,
+                                   availableSessionsPublisher: .init([.init(userSession: userSession)]),
                                    selectedRoomPublisher: CurrentValueSubject<String?, Never>(nil).asCurrentValuePublisher(),
-                                   appSettings: ServiceLocator.shared.settings,
-                                   analyticsService: ServiceLocator.shared.analytics,
-                                   notificationManager: NotificationManagerMock(),
-                                   userIndicatorController: ServiceLocator.shared.userIndicatorController)
+                                   analyticsService: AnalyticsServiceMock(.init()),
+                                   bugReportService: BugReportServiceMock(.init()),
+                                   userIndicatorController: UserIndicatorControllerMock())
     }
 }
 
-@MainActor
 private extension HomeScreenRoom {
     static var dmInvite: HomeScreenRoom {
         let inviter = RoomMemberProxyMock()
@@ -151,6 +148,7 @@ private extension HomeScreenRoom {
         let summary = RoomSummary(room: RoomSDKMock(),
                                   id: "@someone:somewhere.com",
                                   joinRequestType: .invite(inviter: inviter),
+                                  isJoined: false,
                                   name: "Some Guy",
                                   isDirect: true,
                                   isSpace: false,
@@ -184,6 +182,7 @@ private extension HomeScreenRoom {
         let summary = RoomSummary(room: RoomSDKMock(),
                                   id: "@someone:somewhere.com",
                                   joinRequestType: .invite(inviter: inviter),
+                                  isJoined: false,
                                   name: "Awesome Room",
                                   isDirect: false,
                                   isSpace: false,

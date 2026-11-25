@@ -24,7 +24,6 @@ enum AudioPlayerStateIdentifier {
     case recorderPreview
 }
 
-@MainActor
 class AudioPlayerState: ObservableObject, Identifiable {
     let id: AudioPlayerStateIdentifier
     let title: String
@@ -50,7 +49,7 @@ class AudioPlayerState: ObservableObject, Identifiable {
     var showProgressIndicator: Bool {
         progress > 0
     }
-
+    
     var isAttached: Bool {
         audioPlayer != nil
     }
@@ -124,12 +123,11 @@ class AudioPlayerState: ObservableObject, Identifiable {
         playbackSpeed = speed
         audioPlayer?.setPlaybackSpeed(speed.rawValue)
     }
-
+    
     // MARK: - Private
     
     private func subscribeToAudioPlayer(audioPlayer: AudioPlayerProtocol) {
         audioPlayerSubscription = audioPlayer.actions
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] action in
                 guard let self else {
                     return
@@ -246,7 +244,7 @@ class AudioPlayerState: ObservableObject, Identifiable {
             }
             
             audioPlayer.pause()
-
+            
             return MPRemoteCommandHandlerStatus.success
         }
         

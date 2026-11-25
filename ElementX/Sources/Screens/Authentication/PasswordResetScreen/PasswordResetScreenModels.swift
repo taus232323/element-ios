@@ -24,7 +24,7 @@ struct PasswordResetScreenViewState: BindableState {
     var step: PasswordResetScreenStep = .email
     var pendingPasswordReset: PendingNativePasswordReset?
     var bindings: PasswordResetScreenBindings
-
+    
     var hasValidCredentials: Bool {
         switch step {
         case .email:
@@ -35,15 +35,15 @@ struct PasswordResetScreenViewState: BindableState {
             !bindings.password.isEmpty && !bindings.confirmPassword.isEmpty
         }
     }
-
+    
     var canSubmit: Bool {
         hasValidCredentials && !isLoading
     }
-
+    
     var canResendVerificationCode: Bool {
         pendingPasswordReset != nil && !isLoading
     }
-
+    
     /// Mailbox the server sent the code to (may differ from the typed login).
     var resolvedMailboxEmail: String {
         pendingPasswordReset?.email ?? bindings.email

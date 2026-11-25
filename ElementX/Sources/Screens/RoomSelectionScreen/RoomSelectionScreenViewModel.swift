@@ -12,7 +12,6 @@ import SwiftUI
 typealias RoomSelectionScreenViewModelType = StateStoreViewModel<RoomSelectionScreenViewState, RoomSelectionScreenViewAction>
 
 class RoomSelectionScreenViewModel: RoomSelectionScreenViewModelType, RoomSelectionScreenViewModelProtocol {
-    private let clientProxy: ClientProxyProtocol
     private let roomSummaryProvider: RoomSummaryProviderProtocol
     
     private var actionsSubject: PassthroughSubject<RoomSelectionScreenViewModelAction, Never> = .init()
@@ -20,10 +19,9 @@ class RoomSelectionScreenViewModel: RoomSelectionScreenViewModelType, RoomSelect
     var actionsPublisher: AnyPublisher<RoomSelectionScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(userSession: UserSessionProtocol,
          roomSummaryProvider: RoomSummaryProviderProtocol) {
-        clientProxy = userSession.clientProxy
         self.roomSummaryProvider = roomSummaryProvider
         
         super.init(initialViewState: RoomSelectionScreenViewState(), mediaProvider: userSession.mediaProvider)
@@ -79,7 +77,7 @@ class RoomSelectionScreenViewModel: RoomSelectionScreenViewModelType, RoomSelect
     private func updateRooms() {
         var rooms = [RoomSelectionRoom]()
         
-        for summary in roomSummaryProvider.roomListPublisher.value {
+        for summary in roomSummaryProvider.roomListPublisher.value where !summary.isTombstoned {
             rooms.append(.init(id: summary.id,
                                title: summary.name,
                                description: summary.roomListDescription,

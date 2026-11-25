@@ -12,7 +12,7 @@ extension MediaProviderMock {
     struct Configuration { }
     
     // swiftlint:disable:next cyclomatic_complexity
-    convenience init(configuration: Configuration) {
+    convenience init(_ configuration: Configuration) {
         self.init()
         
         imageFromSourceSizeClosure = { mediaSource, _ in
@@ -35,22 +35,13 @@ extension MediaProviderMock {
                    let data = try? Data(contentsOf: url) {
                     return UIImage(data: data)
                 }
-            } else if mediaSource?.url == .mockMXCUserAvatar {
-                if let url = Bundle.main.url(forResource: "preview_avatar_user", withExtension: "jpg"),
-                   let data = try? Data(contentsOf: url) {
-                    return UIImage(data: data)
-                }
+            } else if mediaSource?.url == .mockMXCUserAvatar,
+                      let url = Bundle.main.url(forResource: "preview_avatar_user", withExtension: "jpg"),
+                      let data = try? Data(contentsOf: url) {
+                return UIImage(data: data)
             }
             
             return UIImage(systemName: "photo")
-        }
-        
-        loadImageFromSourceSizeClosure = { _, _ in
-            guard let image = UIImage(systemName: "photo") else {
-                fatalError()
-            }
-            
-            return .success(image)
         }
         
         loadImageDataFromSourceClosure = { _ in

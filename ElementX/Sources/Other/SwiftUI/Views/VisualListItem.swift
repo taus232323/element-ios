@@ -10,11 +10,13 @@ import SwiftUI
 
 /// Represents the position of a checkmark item in a list.
 enum ListPosition {
-    case top, middle, bottom
-
+    case single, top, middle, bottom
+    
     /// The corners that should be rounded for this position.
     var roundedCorners: UIRectCorner {
         switch self {
+        case .single:
+            return .allCorners
         case .top:
             return [.topLeft, .topRight]
         case .middle:
@@ -48,7 +50,7 @@ private struct VisualListItemLabelStyle: LabelStyle {
             configuration.icon
             configuration.title
         }
-        .font(.compound.bodyMD)
+        .font(.compound.bodyMDSemibold)
         .foregroundColor(.compound.textPrimary)
     }
 }
@@ -56,12 +58,12 @@ private struct VisualListItemLabelStyle: LabelStyle {
 // MARK: - Previews
 
 struct VisualListItem_Previews: PreviewProvider, TestablePreview {
-    static let strings = AnalyticsPromptScreenStrings(termsURL: ServiceLocator.shared.settings.analyticsTermsURL)
-
+    static let strings = AnalyticsPromptScreenStrings(termsURL: AppSettings.volatile().analyticsTermsURL)
+    
     static var testImage1: some View {
         Image(systemName: "circle")
     }
-
+    
     static var testImage2: some View {
         Image(systemName: "square")
     }

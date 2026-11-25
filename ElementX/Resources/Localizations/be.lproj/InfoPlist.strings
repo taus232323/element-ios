@@ -1,6 +1,6 @@
 "NSCameraUsageDescription" = "Каб зрабіць фота ці відэа і адправіць іх у выглядзе паведамлення, Arcana патрабуе доступу да камеры.";
-"NSFaceIDUsageDescription" = "Face ID выкарыстоўваецца для доступу да праграмы.";
-"NSLocationAlwaysAndWhenInUseUsageDescription" = "To share your live location, Arcana needs location access when the app is in the background.";
-"NSLocationWhenInUseUsageDescription" = "Дайце доступ да месцазнаходжання, каб Arcana мог падзяліцца вашым месцазнаходжаннем.";
+"NSFaceIDUsageDescription" = "Face ID выкарыстоўваецца для абароны доступу да вашага ўліковага запісу.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Каб трансляваць месцазнаходжанне ў чатах, патрэбны доступ да месцазнаходжання, калі праграма працуе ў фоне.";
+"NSLocationWhenInUseUsageDescription" = "Гэта дазваляе адпраўляць у чаты ваша бягучае месцазнаходжанне або месцы паблізу.";
 "NSMicrophoneUsageDescription" = "Каб запісваць і адпраўляць паведамленні з гукам, Arcana патрабуе доступу да мікрафона.";
 "NSPhotoLibraryUsageDescription" = "Дазваляе захоўваць фатаграфіі і відэа ў вашу бібліятэку.";

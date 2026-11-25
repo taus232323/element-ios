@@ -13,11 +13,18 @@ class UserSession: UserSessionProtocol {
     private var cancellables = Set<AnyCancellable>()
     
     private var authErrorCancellable: AnyCancellable?
-
+    
     let clientProxy: ClientProxyProtocol
+    let userSettings: UserSettings
+    let userHooks: UserHooks
+    
     let mediaProvider: MediaProviderProtocol
     let voiceMessageMediaManager: VoiceMessageMediaManagerProtocol
-    let liveLocationManager: LiveLocationManagerProtocol
+    let liveLocationService: LiveLocationServiceProtocol
+    /// Scans media content, `nil` when no content scanner is configured for the server.
+    let contentScannerService: ContentScannerServiceProtocol?
+    let notificationService: NotificationServiceProtocol
+    let elementCallService: ElementCallServiceProtocol
     
     let callbacks = PassthroughSubject<UserSessionCallback, Never>()
     
@@ -26,19 +33,32 @@ class UserSession: UserSessionProtocol {
         sessionSecurityStateSubject.asCurrentValuePublisher()
     }
     
-    init(clientProxy: ClientProxyProtocol, mediaProvider: MediaProviderProtocol, voiceMessageMediaManager: VoiceMessageMediaManagerProtocol, liveLocationManager: LiveLocationManagerProtocol) {
+    init(clientProxy: ClientProxyProtocol,
+         userSettings: UserSettings,
+         userHooks: UserHooks,
+         mediaProvider: MediaProviderProtocol,
+         voiceMessageMediaManager: VoiceMessageMediaManagerProtocol,
+         liveLocationService: LiveLocationServiceProtocol,
+         notificationService: NotificationServiceProtocol,
+         elementCallService: ElementCallServiceProtocol) {
         self.clientProxy = clientProxy
+        self.userSettings = userSettings
+        self.userHooks = userHooks
+        
         self.mediaProvider = mediaProvider
         self.voiceMessageMediaManager = voiceMessageMediaManager
-        self.liveLocationManager = liveLocationManager
+        self.liveLocationService = liveLocationService
+        self.notificationService = notificationService
+        self.elementCallService = elementCallService
+        contentScannerService = clientProxy.contentScanner.map(ContentScannerService.init)
         
         authErrorCancellable = clientProxy.actionsPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] callback in
                 guard let self else { return }
                 switch callback {
-                case .receivedAuthError(let isSoftLogout):
-                    callbacks.send(.didReceiveAuthError(isSoftLogout: isSoftLogout))
+                case .receivedAuthError:
+                    callbacks.send(.didReceiveAuthError)
                     authErrorCancellable = nil
                 default:
                     break

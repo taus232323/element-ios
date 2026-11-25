@@ -33,19 +33,23 @@ extension MapTilerConfiguration: MapTilerURLBuilderProtocol {
         url?.append(queryItems: [.init(name: "attribution", value: attribution.rawValue)])
         return url
     }
-    
-    // MARK: Private
-    
-    private func styleURL(for style: MapTilerStyle) -> URL? {
+}
+
+// MARK: - Private
+
+private extension MapTilerConfiguration {
+    func styleURL(for style: MapTilerStyle) -> URL? {
         guard let apiKey else { return nil }
         
         var url: URL = baseURL
         url.appendPathComponent(styleID(for: style), conformingTo: .item)
-        url.append(queryItems: [URLQueryItem(name: "key", value: apiKey)])
+        if !apiKey.isEmpty {
+            url.append(queryItems: [URLQueryItem(name: "key", value: apiKey)])
+        }
         return url
     }
     
-    private func styleID(for style: MapTilerStyle) -> String {
+    func styleID(for style: MapTilerStyle) -> String {
         switch style {
         case .light: lightStyleID
         case .dark: darkStyleID

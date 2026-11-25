@@ -11,18 +11,16 @@
 import AVKit
 import Foundation
 
-enum AVMetadataBinaryValueError: Error {
+nonisolated enum AVMetadataBinaryValueError: Error {
     case unhandledQRSegmentMode(UInt8)
     case bitError(BitError)
     case unknown(Error)
 }
 
-extension AVMetadataMachineReadableCodeObject {
+nonisolated extension AVMetadataMachineReadableCodeObject {
     var qrBinaryValue: Data? {
         get throws(AVMetadataBinaryValueError) {
-            guard type == .qr else { return nil }
-            
-            guard let qrCodeDescriptor = descriptor as? CIQRCodeDescriptor else { return nil }
+            guard type == .qr, let qrCodeDescriptor = descriptor as? CIQRCodeDescriptor else { return nil }
             return try Self.removeQRProtocolData(qrCodeDescriptor.errorCorrectedPayload, symbolVersion: qrCodeDescriptor.symbolVersion)
         }
     }
@@ -66,11 +64,11 @@ enum BitError: Error {
     case unhandledAlphanumericCharacter(UInt8)
 }
 
-private struct Bit {
+private nonisolated struct Bit {
     let value: UInt8
 }
 
-private extension [Bit] {
+private nonisolated extension [Bit] {
     mutating func takeBits(_ count: Int) throws(BitError) -> UInt8 {
         guard count <= 8 else { throw .moreThan8BitsTaken }
         
@@ -81,7 +79,7 @@ private extension [Bit] {
         
         return value
     }
-
+    
     mutating func takeBits16(_ count: Int) throws(BitError) -> UInt16 {
         guard count <= 16 else { throw .moreThan16BitsTaken }
         
@@ -92,13 +90,9 @@ private extension [Bit] {
         
         return value
     }
-
+    
     mutating func takeUInt8() throws(BitError) -> UInt8 {
         try takeBits(8)
-    }
-    
-    mutating func takeUInt16() throws(BitError) -> UInt16 {
-        try takeBits16(16)
     }
     
     mutating func takeBinarySegment(_ version: Int) throws(BitError) -> [UInt8] {
@@ -163,7 +157,7 @@ private extension [Bit] {
     }
 }
 
-private extension Data {
+private nonisolated extension Data {
     func bits() -> [Bit] {
         var result = [Bit]()
         forEach { (byte: UInt8) in
@@ -173,7 +167,7 @@ private extension Data {
     }
 }
 
-private extension UInt8 {
+private nonisolated extension UInt8 {
     func bits() -> [Bit] {
         var bits: [Bit] = []
         for i in 0..<8 {

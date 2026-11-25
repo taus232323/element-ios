@@ -24,7 +24,7 @@ struct SpaceHeaderView: View {
             
             VStack(spacing: 8) {
                 Text(spaceServiceRoom.name)
-                    .font(.compound.headingLGBold)
+                    .font(.compound.headingMDBold)
                     .foregroundStyle(.compound.textPrimary)
                     .multilineTextAlignment(.center)
                 
@@ -101,7 +101,7 @@ struct SpaceHeaderView: View {
 // MARK: - Previews
 
 struct SpaceHeaderView_Previews: PreviewProvider, TestablePreview {
-    static let mediaProvider = MediaProviderMock(configuration: .init())
+    static let mediaProvider = MediaProviderMock(.init())
     
     static let spaces = makeSpaceRooms()
     

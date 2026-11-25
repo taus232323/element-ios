@@ -16,6 +16,8 @@ struct LabsScreen: View {
         Form {
             header
             threadsSection
+            gallerySection
+            knockingSection
         }
         .compoundList()
         .navigationTitle(L10n.screenLabsTitle)
@@ -59,15 +61,34 @@ struct LabsScreen: View {
             context.send(viewAction: .clearCache)
         }
     }
+    
+    private var gallerySection: some View {
+        Section {
+            ListRow(label: .default(title: L10n.screenLabsEnableGallery,
+                                    icon: \.image),
+                    kind: .toggle($context.galleryEnabled))
+        } footer: {
+            Text(L10n.screenLabsEnableGalleryDescription)
+                .compoundListSectionFooter()
+        }
+    }
+    
+    private var knockingSection: some View {
+        Section {
+            ListRow(label: .default(title: L10n.screenLabsEnableKnocking,
+                                    icon: \.askToJoin),
+                    kind: .toggle($context.knockingEnabled))
+        } footer: {
+            Text(L10n.screenLabsEnableKnockingDescription)
+                .compoundListSectionFooter()
+        }
+    }
 }
 
 // MARK: - Previews
 
 struct LabsScreen_Previews: PreviewProvider, TestablePreview {
-    static let viewModel = {
-        AppSettings.resetAllSettings()
-        return LabsScreenViewModel(labsOptions: AppSettings())
-    }()
+    static let viewModel = LabsScreenViewModel(labsOptions: AppSettings.volatile())
     
     static var previews: some View {
         ElementNavigationStack {

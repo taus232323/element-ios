@@ -13,10 +13,10 @@ enum RestorationTokenError: Error {
     case slidingSyncProxyNotSupported
 }
 
-struct RestorationToken: Equatable {
+nonisolated struct RestorationToken: Equatable {
     let session: MatrixRustSDK.Session
     let sessionDirectories: SessionDirectories
-    let passphrase: String
+    let passphrase: Data
     let pusherNotificationClientIdentifier: String?
     
     enum CodingKeys: CodingKey {
@@ -28,7 +28,7 @@ struct RestorationToken: Equatable {
     }
 }
 
-extension RestorationToken: Codable {
+nonisolated extension RestorationToken: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
@@ -42,9 +42,14 @@ extension RestorationToken: Codable {
             SessionDirectories(dataDirectory: dataDirectory)
         }
         
+        let base64Passphrase = try container.decode(String.self, forKey: .passphrase)
+        guard let passphrase = Data(base64Encoded: base64Passphrase) else {
+            throw DecodingError.dataCorruptedError(forKey: .passphrase, in: container, debugDescription: "The passphrase isn't valid base64.")
+        }
+        
         self = try .init(session: session,
                          sessionDirectories: sessionDirectories,
-                         passphrase: container.decode(String.self, forKey: .passphrase),
+                         passphrase: passphrase,
                          pusherNotificationClientIdentifier: container.decodeIfPresent(String.self, forKey: .pusherNotificationClientIdentifier))
     }
     
@@ -53,7 +58,7 @@ extension RestorationToken: Codable {
         try container.encode(session, forKey: .session)
         try container.encode(sessionDirectories.dataDirectory, forKey: .sessionDirectory)
         try container.encode(sessionDirectories.cacheDirectory, forKey: .cacheDirectory)
-        try container.encode(passphrase, forKey: .passphrase)
+        try container.encode(passphrase.base64EncodedString(), forKey: .passphrase)
         try container.encode(pusherNotificationClientIdentifier, forKey: .pusherNotificationClientIdentifier)
     }
 }
@@ -77,8 +82,8 @@ extension MatrixRustSDK.Session: @retroactive Codable {
                          userId: container.decode(String.self, forKey: .userId),
                          deviceId: container.decode(String.self, forKey: .deviceId),
                          homeserverUrl: container.decode(String.self, forKey: .homeserverUrl),
-                         oidcData: container.decodeIfPresent(String.self, forKey: .oidcData),
-                         slidingSyncVersion: .native)
+                         oauthData: container.decodeIfPresent(String.self, forKey: .oauthData),
+                         slidingSyncVersion: .unstable)
     }
     
     public func encode(to encoder: Encoder) throws {
@@ -88,10 +93,11 @@ extension MatrixRustSDK.Session: @retroactive Codable {
         try container.encode(userId, forKey: .userId)
         try container.encode(deviceId, forKey: .deviceId)
         try container.encode(homeserverUrl, forKey: .homeserverUrl)
-        try container.encode(oidcData, forKey: .oidcData)
+        try container.encode(oauthData, forKey: .oauthData)
     }
     
     enum CodingKeys: String, CodingKey {
-        case accessToken, refreshToken, userId, deviceId, homeserverUrl, oidcData, slidingSyncProxy
+        case accessToken, refreshToken, userId, deviceId, homeserverUrl, slidingSyncProxy
+        case oauthData = "oidcData" // We're using the name from before the MSC was stabilised.
     }
 }

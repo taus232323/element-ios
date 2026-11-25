@@ -1,0 +1,6 @@
+"NSCameraUsageDescription" = "يحتاج Arcana إلى الوصول إلى الكاميرا لالتقاط الصور أو مقاطع الفيديو وإرسالها كرسائل.";
+"NSFaceIDUsageDescription" = "يُستخدم Face ID لحماية الوصول إلى حسابك.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "لمشاركة موقعك المباشر، يحتاج Arcana إلى الوصول إلى الموقع عندما يكون التطبيق في الخلفية.";
+"NSLocationWhenInUseUsageDescription" = "امنح الوصول إلى الموقع حتى يتمكن Arcana من مشاركة موقعك.";
+"NSMicrophoneUsageDescription" = "يحتاج Arcana إلى الوصول إلى الميكروفون لتسجيل الرسائل الصوتية وإرسالها.";
+"NSPhotoLibraryUsageDescription" = "يتيح لك هذا حفظ الصور ومقاطع الفيديو في مكتبة الصور لديك.";

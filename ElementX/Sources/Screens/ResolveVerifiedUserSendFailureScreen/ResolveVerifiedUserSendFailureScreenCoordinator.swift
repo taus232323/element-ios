@@ -21,19 +21,16 @@ enum ResolveVerifiedUserSendFailureScreenCoordinatorAction {
 }
 
 final class ResolveVerifiedUserSendFailureScreenCoordinator: CoordinatorProtocol {
-    private let parameters: ResolveVerifiedUserSendFailureScreenCoordinatorParameters
     private let viewModel: ResolveVerifiedUserSendFailureScreenViewModelProtocol
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
     private let actionsSubject: PassthroughSubject<ResolveVerifiedUserSendFailureScreenCoordinatorAction, Never> = .init()
     var actionsPublisher: AnyPublisher<ResolveVerifiedUserSendFailureScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
     
     init(parameters: ResolveVerifiedUserSendFailureScreenCoordinatorParameters) {
-        self.parameters = parameters
-        
         viewModel = ResolveVerifiedUserSendFailureScreenViewModel(failure: parameters.failure,
                                                                   sendHandle: parameters.sendHandle,
                                                                   roomProxy: parameters.roomProxy,
@@ -52,7 +49,7 @@ final class ResolveVerifiedUserSendFailureScreenCoordinator: CoordinatorProtocol
         }
         .store(in: &cancellables)
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(ResolveVerifiedUserSendFailureScreen(context: viewModel.context))
     }

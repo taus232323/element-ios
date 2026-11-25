@@ -40,17 +40,6 @@ class AccessibilityTestsAppCoordinator: AppCoordinatorProtocol {
         
         MXLog.configure(currentTarget: "accessibility-tests")
         
-        ServiceLocator.shared.register(userIndicatorController: UserIndicatorController())
-        
-        AppSettings.configureWithSuiteName("io.element.elementx.accessibilitytests")
-        AppSettings.resetAllSettings()
-        ServiceLocator.shared.register(appSettings: AppSettings())
-        
-        let analyticsClient = AnalyticsClientMock()
-        analyticsClient.isRunning = false
-        ServiceLocator.shared.register(analytics: AnalyticsService(client: analyticsClient,
-                                                                   appSettings: ServiceLocator.shared.settings))
-        
         guard let name = ProcessInfo.accessibilityViewID,
               let previewType = TestablePreviewsDictionary.dictionary[name] else {
             fatalError("Unable to launch with unknown screen.")
@@ -125,6 +114,9 @@ struct PreviewsWrapperView: View {
     
     private(set) var isDone = false
     
+    /// On iOS 27, releasing an ImageRenderer that rendered a preview crashes SwiftUI, so keep them alive for the app's lifetime.
+    @ObservationIgnored private var imageRenderers = [AnyObject]()
+    
     var previewName: String {
         "\(name)-\(currentPreview.displayName ?? String(currentIndex))"
     }
@@ -134,7 +126,6 @@ struct PreviewsWrapperView: View {
         self.previews = previews
     }
     
-    @MainActor
     func updateCurrentIndex() async {
         let newIndex = currentIndex + 1
         guard newIndex < previews.count else {
@@ -148,32 +139,28 @@ struct PreviewsWrapperView: View {
         // Render an image of the view in order to trigger the preference updates to occur.
         let imageRenderer = ImageRenderer(content: preferenceReadingView)
         _ = imageRenderer.uiImage
+        imageRenderers.append(imageRenderer)
         
         switch fulfillmentSource {
         case .publisher(let publisher):
-            _ = await publisher
-                // Not sure whye byt some publisher seem to not properly comunicate their completion,
-                // so we added a timeout. Since we are going to migrate from publishers to stream,
-                // this is a temporary solution
+            // Not sure why but some publishers seem to not properly communicate their completion,
+            // so we added a timeout. Since we are going to migrate from publishers to streams,
+            // this is a temporary solution
+            var iterator = publisher
+                .subscribe(on: DispatchQueue.main)
                 .timeout(.seconds(1), scheduler: DispatchQueue.main)
-                .values.first { $0 == true }
+                .values
+                .makeAsyncIterator()
+            while let value = await iterator.next(isolation: #isolation), value == false { }
         case .sequence(let sequence):
-            // Avoid AsyncSequence.first(where:) — existential conformance may be actor-isolated
-            // and fails against the stdlib `@concurrent` first(where:). A for-await loop is
-            // equivalent; add the same 1s timeout as the publisher path so we don't hang if
-            // the sequence never emits `true`.
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { @MainActor in
-                    for await value in sequence where value {
-                        return
-                    }
-                }
-                group.addTask {
-                    try? await Task.sleep(for: .seconds(1))
-                }
-                _ = await group.next()
-                group.cancelAll()
+            // Mirror the publisher timeout above so a preview expecting a state that never
+            // arrives (e.g. a transient one that already expired) doesn't hang the suite.
+            let task = Task {
+                var iterator = sequence.makeAsyncIterator()
+                while let value = await iterator.next(isolation: #isolation), value == false { }
             }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { task.cancel() }
+            await task.value
         case .none:
             break
         }

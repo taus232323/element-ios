@@ -25,7 +25,7 @@ class ThreadTimelineScreenViewModel: ThreadTimelineScreenViewModelType, ThreadTi
         self.roomProxy = roomProxy
         self.userSession = userSession
         
-        super.init(initialViewState: ThreadTimelineScreenViewState(roomTitle: roomProxy.infoPublisher.value.displayName ?? roomProxy.id,
+        super.init(initialViewState: ThreadTimelineScreenViewState(roomTitle: roomProxy.infoPublisher.value.displayNameOrID,
                                                                    roomAvatar: roomProxy.infoPublisher.value.avatar), mediaProvider: userSession.mediaProvider)
         
         roomProxy.infoPublisher
@@ -66,11 +66,11 @@ class ThreadTimelineScreenViewModel: ThreadTimelineScreenViewModelType, ThreadTi
             switch action {
             case .viewInRoomTimeline:
                 fatalError("\(action) should not be visible on a thread preview.")
-            case .displayMessageForwarding(let forwardingItem):
+            case .displayMessageForwarding(let forwardingPayload):
                 state.bindings.mediaPreviewViewModel = nil
                 // We need a small delay because we need to wait for the media preview to be fully dismissed.
                 DispatchQueue.main.asyncAfter(deadline: .now() + TimelineMediaPreviewViewModel.displayMessageForwardingDelay) {
-                    self.actionsSubject.send(.displayMessageForwarding(forwardingItem))
+                    self.actionsSubject.send(.displayMessageForwarding(forwardingPayload))
                 }
             case .dismiss:
                 state.bindings.mediaPreviewViewModel = nil
@@ -84,27 +84,29 @@ class ThreadTimelineScreenViewModel: ThreadTimelineScreenViewModelType, ThreadTi
     // MARK: - Private
     
     private func updateVerificationBadge() async {
-        guard roomProxy.isDirectOneToOneRoom,
+        guard roomProxy.infoPublisher.value.isDM,
               let dmRecipient = roomProxy.membersPublisher.value.first(where: { $0.userID != roomProxy.ownUserID }),
               case let .success(userIdentity) = await userSession.clientProxy.userIdentity(for: dmRecipient.userID, fallBackToServer: true) else {
-            state.dmRecipientVerificationState = .notVerified
+            state.dmRecipientDetails.verification = .notVerified
             return
         }
         
         guard let userIdentity else {
             MXLog.failure("User identity should be known at this point")
-            state.dmRecipientVerificationState = .notVerified
+            state.dmRecipientDetails.verification = .notVerified
             return
         }
         
-        state.dmRecipientVerificationState = userIdentity.verificationState
+        state.dmRecipientDetails.verification = userIdentity.verificationState
     }
     
     private func updateRoomInfo(_ roomInfo: RoomInfoProxyProtocol) {
-        state.roomTitle = roomInfo.displayName ?? roomProxy.id
+        state.roomTitle = roomInfo.displayNameOrID
         state.roomAvatar = roomInfo.avatar
+        state.dmRecipientDetails.statusEmoji = roomInfo.statusEmoji
+        
         if let powerLevels = roomInfo.powerLevels {
-            state.canSendMessage = powerLevels.canOwnUser(sendMessage: .roomMessage)
+            state.canSendMessage = powerLevels.canOwnUserSendMessage(isEncrypted: roomInfo.isEncrypted)
         }
     }
 }

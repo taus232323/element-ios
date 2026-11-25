@@ -14,21 +14,15 @@ import Testing
 @MainActor
 final class SecurityAndPrivacyScreenViewModelTests {
     var viewModel: SecurityAndPrivacyScreenViewModelProtocol!
-    var spaceServiceProxy: SpaceServiceProxyMock!
     var roomProxy: JoinedRoomProxyMock!
     
     var context: SecurityAndPrivacyScreenViewModelType.Context {
         viewModel.context
     }
     
-    init() {
-        AppSettings.resetAllSettings()
-    }
-    
-    deinit {
+    isolated deinit {
         viewModel = nil
         roomProxy = nil
-        AppSettings.resetAllSettings()
     }
     
     @Test
@@ -37,7 +31,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         let space = singleRoom[0]
         setupViewModel(joinedParentSpaces: singleRoom, joinRule: .public)
         
-        let deferred = deferFulfillment(context.$viewState) { $0.selectableJoinedSpaces.count == 1 }
+        let deferred = deferScreenLoaded { $0.selectableJoinedSpaces.count == 1 }
         try await deferred.fulfill()
         
         #expect(context.viewState.currentSettings.accessType == .anyone)
@@ -69,7 +63,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         let space = singleRoom[0]
         setupViewModel(joinedParentSpaces: singleRoom, joinRule: .public)
         
-        let deferred = deferFulfillment(context.$viewState) { $0.selectableJoinedSpaces.count == 1 }
+        let deferred = deferScreenLoaded { $0.selectableJoinedSpaces.count == 1 }
         try await deferred.fulfill()
         
         #expect(context.viewState.currentSettings.accessType == .anyone)
@@ -101,7 +95,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         let space = singleRoom[0]
         setupViewModel(joinedParentSpaces: [], joinRule: .restricted(rules: [.roomMembership(roomID: space.id)]))
         
-        let deferred = deferFulfillment(context.$viewState) { $0.selectableJoinedSpaces.count == 0 }
+        let deferred = deferScreenLoaded { $0.selectableJoinedSpaces.isEmpty }
         try await deferred.fulfill()
         
         #expect(context.viewState.currentSettings.accessType == .spaceMembers(spaceIDs: [space.id]))
@@ -133,7 +127,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         let spaces = [SpaceServiceRoom].mockJoinedSpaces2
         setupViewModel(joinedParentSpaces: spaces, joinRule: .public)
         
-        let deferred = deferFulfillment(context.$viewState) { $0.selectableJoinedSpaces.count == 3 }
+        let deferred = deferScreenLoaded { $0.selectableJoinedSpaces.count == 3 }
         try await deferred.fulfill()
         
         #expect(context.viewState.currentSettings.accessType == .anyone)
@@ -162,7 +156,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         #expect(context.desiredSettings.accessType == .spaceMembers(spaceIDs: [spaces[0].id]))
         #expect(context.viewState.shouldShowAccessSectionFooter)
         #expect(!context.viewState.isSaveDisabled)
-
+        
         await waitForConfirmation("Join rule has updated") { confirm in
             roomProxy.updateJoinRuleClosure = { value in
                 #expect(value == .restricted(rules: [.roomMembership(roomID: spaces[0].id)]))
@@ -178,7 +172,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         let spaces = [SpaceServiceRoom].mockJoinedSpaces2
         setupViewModel(joinedParentSpaces: spaces, joinRule: .public)
         
-        let deferred = deferFulfillment(context.$viewState) { $0.selectableJoinedSpaces.count == 3 }
+        let deferred = deferScreenLoaded { $0.selectableJoinedSpaces.count == 3 }
         try await deferred.fulfill()
         
         #expect(context.viewState.currentSettings.accessType == .anyone)
@@ -207,7 +201,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         #expect(context.desiredSettings.accessType == .askToJoinWithSpaceMembers(spaceIDs: [spaces[0].id]))
         #expect(context.viewState.shouldShowAccessSectionFooter)
         #expect(!context.viewState.isSaveDisabled)
-
+        
         await waitForConfirmation("Join rule has updated") { confirm in
             roomProxy.updateJoinRuleClosure = { value in
                 #expect(value == .knockRestricted(rules: [.roomMembership(roomID: spaces[0].id)]))
@@ -224,7 +218,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         setupViewModel(joinedParentSpaces: spaces,
                        joinRule: .restricted(rules: [.roomMembership(roomID: "unknownSpaceID")]))
         
-        let deferred = deferFulfillment(context.$viewState) { $0.selectableSpacesCount == 4 }
+        let deferred = deferScreenLoaded { $0.selectableSpacesCount == 4 }
         try await deferred.fulfill()
         
         #expect(context.viewState.currentSettings.accessType.isSpaceMembers)
@@ -254,7 +248,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         #expect(context.desiredSettings.accessType == .spaceMembers(spaceIDs: [spaces[0].id, "unknownSpaceID"]))
         #expect(context.viewState.shouldShowAccessSectionFooter)
         #expect(!context.viewState.isSaveDisabled)
-
+        
         await waitForConfirmation("Join rule has updated") { confirm in
             roomProxy.updateJoinRuleClosure = { value in
                 #expect(value == .restricted(rules: [.roomMembership(roomID: spaces[0].id), .roomMembership(roomID: "unknownSpaceID")]))
@@ -276,7 +270,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
                        joinRule: .restricted(rules: [.roomMembership(roomID: space.id),
                                                      .roomMembership(roomID: "unknownSpaceID")]))
         
-        let deferred = deferFulfillment(context.$viewState) { $0.selectableSpacesCount == 5 }
+        let deferred = deferScreenLoaded { $0.selectableSpacesCount == 5 }
         try await deferred.fulfill()
         
         #expect(context.viewState.currentSettings.accessType.isSpaceMembers)
@@ -315,7 +309,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         setupViewModel(joinedParentSpaces: [],
                        joinRule: .restricted(rules: []))
         
-        let deferred = deferFulfillment(context.$viewState) { $0.selectableSpacesCount == 0 }
+        let deferred = deferScreenLoaded { $0.selectableSpacesCount == 0 }
         try await deferred.fulfill()
         
         #expect(context.viewState.currentSettings.accessType.isSpaceMembers)
@@ -336,7 +330,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         setupViewModel(joinedParentSpaces: singleRoom,
                        joinRule: .restricted(rules: []))
         
-        let deferred = deferFulfillment(context.$viewState) { $0.selectableSpacesCount == 1 }
+        let deferred = deferScreenLoaded { $0.selectableSpacesCount == 1 }
         try await deferred.fulfill()
         
         #expect(context.viewState.currentSettings.accessType.isSpaceMembers)
@@ -367,7 +361,7 @@ final class SecurityAndPrivacyScreenViewModelTests {
         setupViewModel(joinedParentSpaces: [], joinRule: .public)
         
         // Saving shouldn't dismiss this screen (or trigger any other action).
-        let deferred = deferFailure(viewModel.actionsPublisher, timeout: .seconds(1)) { _ in true }
+        let deferred = deferFailure(viewModel.actionsPublisher, timeout: .milliseconds(300)) { _ in true }
         
         context.desiredSettings.accessType = .inviteOnly
         context.send(viewAction: .save)
@@ -434,18 +428,27 @@ final class SecurityAndPrivacyScreenViewModelTests {
         #expect(context.alertInfo != nil)
         
         // The screen should not be dismissed if a failure occurred.
-        let deferred = deferFailure(viewModel.actionsPublisher, timeout: .seconds(1)) { _ in true }
+        let deferred = deferFailure(viewModel.actionsPublisher, timeout: .milliseconds(300)) { _ in true }
         context.alertInfo?.primaryButton.action?() // Save
         try await deferred.fulfill()
     }
     
     // MARK: - Helpers
     
+    /// Waits for `condition` **and** for the screen to have finished loading.
+    ///
+    /// The view model fetches its parent spaces and its room directory visibility in two independent tasks.
+    /// Waiting on the spaces alone leaves `isSaveDisabled` reading `true` whilst the visibility is unknown,
+    /// so every wait needs to gate on both having landed.
+    private func deferScreenLoaded(until condition: @escaping (SecurityAndPrivacyScreenViewState) -> Bool) -> DeferredFulfillment<SecurityAndPrivacyScreenViewState> {
+        deferFulfillment(context.$viewState) { condition($0) && $0.currentSettings.isVisibileInRoomDirectory != nil }
+    }
+    
     private func setupViewModel(joinedParentSpaces: [SpaceServiceRoom],
                                 topLevelSpaces: [SpaceServiceRoom] = [],
                                 joinRule: Arcana.JoinRule) {
-        let appSettings = AppSettings()
-        appSettings.knockingEnabled = true
+        let userSettings = UserSettings.mock()
+        userSettings.app.knockingEnabled = true
         roomProxy = JoinedRoomProxyMock(.init(isEncrypted: false,
                                               canonicalAlias: "#room:matrix.org",
                                               members: .allMembersAsCreator,
@@ -454,11 +457,12 @@ final class SecurityAndPrivacyScreenViewModelTests {
         roomProxy.updateJoinRuleReturnValue = .success(())
         roomProxy.updateRoomDirectoryVisibilityReturnValue = .success(())
         
+        let clientProxy = ClientProxyMock(.init(userIDServerName: "matrix.org",
+                                                spaceServiceConfiguration: .init(topLevelSpaces: topLevelSpaces,
+                                                                                 joinedParentSpaces: joinedParentSpaces)))
+        
         viewModel = SecurityAndPrivacyScreenViewModel(roomProxy: roomProxy,
-                                                      clientProxy: ClientProxyMock(.init(userIDServerName: "matrix.org",
-                                                                                         spaceServiceConfiguration: .init(topLevelSpaces: topLevelSpaces,
-                                                                                                                          joinedParentSpaces: joinedParentSpaces))),
-                                                      userIndicatorController: UserIndicatorControllerMock(),
-                                                      appSettings: appSettings)
+                                                      userSession: UserSessionMock(.init(clientProxy: clientProxy, userSettings: userSettings)),
+                                                      userIndicatorController: UserIndicatorControllerMock())
     }
 }

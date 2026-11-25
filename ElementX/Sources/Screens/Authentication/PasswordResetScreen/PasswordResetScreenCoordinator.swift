@@ -23,22 +23,22 @@ final class PasswordResetScreenCoordinator: CoordinatorProtocol {
     private let viewModel: PasswordResetScreenViewModelProtocol
     private let actionsSubject: PassthroughSubject<PasswordResetScreenCoordinatorAction, Never> = .init()
     private var cancellables = Set<AnyCancellable>()
-
+    
     var actions: AnyPublisher<PasswordResetScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(parameters: PasswordResetScreenCoordinatorParameters) {
         viewModel = PasswordResetScreenViewModel(authenticationService: parameters.authenticationService,
                                                  initialEmail: parameters.initialEmail,
                                                  userIndicatorController: parameters.userIndicatorController)
     }
-
+    
     func start() {
         viewModel.actionsPublisher
             .sink { [weak self] action in
                 guard let self else { return }
-
+                
                 switch action {
                 case .complete:
                     actionsSubject.send(.complete)
@@ -48,11 +48,11 @@ final class PasswordResetScreenCoordinator: CoordinatorProtocol {
             }
             .store(in: &cancellables)
     }
-
+    
     func stop() {
         viewModel.stopLoading()
     }
-
+    
     func toPresentable() -> AnyView {
         AnyView(PasswordResetScreen(context: viewModel.context))
     }

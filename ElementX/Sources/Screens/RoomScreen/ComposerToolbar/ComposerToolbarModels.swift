@@ -20,16 +20,16 @@ enum ComposerToolbarVoiceMessageAction {
     case pausePlayback
     case scrubPlayback(scrubbing: Bool)
     case seekPlayback(progress: Double)
-    case send
+    case send(inReplyToEventID: String?)
 }
 
 enum ComposerToolbarViewModelAction {
     case sendMessage(plain: String, html: String?, mode: ComposerMode, intentionalMentions: IntentionalMentions)
     case editLastMessage
     case attach(ComposerAttachmentType)
-
+    
     case handlePasteOrDrop(providers: [NSItemProvider])
-
+    
     case composerModeChanged(mode: ComposerMode)
     case composerFocusedChanged(isFocused: Bool)
     
@@ -71,12 +71,12 @@ struct ComposerToolbarViewState: BindableState {
     let wysiwygViewModel: WysiwygComposerViewModel
     
     var composerMode: ComposerMode = .default
+    /// The message that the voice message being recorded replies to.
+    var voiceMessageReply: ComposerReply?
     var composerEmpty = true
     /// Could be false if sending is disabled in the room
     var canSend = true
     var suggestions: [SuggestionItem] = []
-    var audioPlayerState: AudioPlayerState
-    var audioRecorderState: AudioRecorderState
     
     var isRoomEncrypted: Bool
     var isLocationSharingEnabled: Bool
@@ -84,7 +84,7 @@ struct ComposerToolbarViewState: BindableState {
     var keyCommands: [WysiwygKeyCommand] = []
     
     var bindings: ComposerToolbarViewStateBindings
-
+    
     var isUploading: Bool {
         switch composerMode {
         case .previewVoiceMessage(_, _, let isUploading):
@@ -93,7 +93,7 @@ struct ComposerToolbarViewState: BindableState {
             return false
         }
     }
-
+    
     var showSendButton: Bool {
         switch composerMode {
         case .recordVoiceMessage:
@@ -221,7 +221,7 @@ extension FormatItem {
             return \.link
         }
     }
-
+    
     var accessibilityIdentifier: String {
         switch type {
         case .bold:
@@ -250,7 +250,7 @@ extension FormatItem {
             return A11yIdentifiers.roomScreen.composerToolbar.link
         }
     }
-
+    
     var accessibilityLabel: String {
         let localizedAction = switch type {
         case .bold:
@@ -328,6 +328,16 @@ extension FormatType {
     }
 }
 
+struct ComposerReply: Equatable {
+    let eventID: String
+    let replyDetails: TimelineItemReplyDetails
+    let isThread: Bool
+    
+    var composerMode: ComposerMode {
+        .reply(eventID: eventID, replyDetails: replyDetails, isThread: isThread)
+    }
+}
+
 enum ComposerMode: Equatable {
     enum EditType { case `default`, addCaption, editCaption }
     
@@ -336,7 +346,7 @@ enum ComposerMode: Equatable {
     case edit(originalEventOrTransactionID: TimelineItemIdentifier.EventOrTransactionID, type: EditType)
     case recordVoiceMessage(state: AudioRecorderState)
     case previewVoiceMessage(state: AudioPlayerState, waveform: WaveformSource, isUploading: Bool)
-
+    
     var isEdit: Bool {
         switch self {
         case .edit:
@@ -345,7 +355,7 @@ enum ComposerMode: Equatable {
             return false
         }
     }
-
+    
     var isTextEditingEnabled: Bool {
         switch self {
         case .default, .reply, .edit:
@@ -373,6 +383,15 @@ enum ComposerMode: Equatable {
         switch self {
         case .reply(let eventID, _, _):
             return eventID
+        default:
+            return nil
+        }
+    }
+    
+    var reply: ComposerReply? {
+        switch self {
+        case .reply(let eventID, let replyDetails, let isThread):
+            return .init(eventID: eventID, replyDetails: replyDetails, isThread: isThread)
         default:
             return nil
         }

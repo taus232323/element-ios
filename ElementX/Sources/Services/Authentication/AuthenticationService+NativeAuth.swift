@@ -16,7 +16,7 @@ private struct NativeAuthSessionResponse: Decodable {
     let homeServer: String?
     let refreshToken: String?
     let expiresIn: Int?
-
+    
     enum CodingKeys: String, CodingKey {
         case userID = "user_id"
         case accessToken = "access_token"
@@ -42,7 +42,7 @@ private struct NativeAuthErrorResponse: Decodable {
     let errcode: String?
     let error: String?
     let retryAfterMs: Int?
-
+    
     enum CodingKeys: String, CodingKey {
         case errcode
         case error
@@ -55,7 +55,7 @@ private struct NativeAuthLoginStartRequest: Encodable {
     let login: String
     let password: String
     let sendAttempt: Int
-
+    
     enum CodingKeys: String, CodingKey {
         case clientSecret = "client_secret"
         case login
@@ -70,7 +70,7 @@ private struct NativeAuthLoginContinueRequest: Encodable {
     let token: String
     let deviceID: String?
     let initialDeviceDisplayName: String?
-
+    
     enum CodingKeys: String, CodingKey {
         case clientSecret = "client_secret"
         case sid
@@ -84,7 +84,7 @@ private struct NativeAuthRegistrationEmailRequest: Encodable {
     let clientSecret: String
     let email: String
     let sendAttempt: Int
-
+    
     enum CodingKeys: String, CodingKey {
         case clientSecret = "client_secret"
         case email
@@ -96,7 +96,7 @@ private struct NativeAuthRegistrationCodeRequest: Encodable {
     let clientSecret: String
     let sid: String
     let token: String
-
+    
     enum CodingKeys: String, CodingKey {
         case clientSecret = "client_secret"
         case sid
@@ -113,7 +113,7 @@ private struct NativeAuthRegistrationFinishRequest: Encodable {
     let deviceID: String?
     let initialDeviceDisplayName: String
     let inhibitLogin: Bool
-
+    
     enum CodingKeys: String, CodingKey {
         case email
         case clientSecret = "client_secret"
@@ -131,7 +131,7 @@ private struct NativeAuthPasswordResetFinishRequest: Encodable {
     let clientSecret: String
     let sid: String
     let logoutDevices: Bool
-
+    
     enum CodingKeys: String, CodingKey {
         case password
         case clientSecret = "client_secret"
@@ -156,18 +156,18 @@ extension AuthenticationService {
                                               sendAttempt: 1,
                                               sid: nil,
                                               email: nil)
-
+        
         do {
             let response: NativeAuthSidResponse = try await performNativeAuthRequest(path: "_matrix/client/v3/login",
                                                                                      body: NativeAuthLoginStartRequest(clientSecret: pendingLogin.clientSecret,
                                                                                                                        login: pendingLogin.login,
                                                                                                                        password: pendingLogin.password,
                                                                                                                        sendAttempt: pendingLogin.sendAttempt))
-
+            
             guard let email = response.email else {
                 return .failure(.emailVerificationUnavailable)
             }
-
+            
             return .success(pendingLogin.with(sid: response.sid, email: email))
         } catch let error as NativeAuthFailure {
             return .failure(error.serviceError)
@@ -176,7 +176,7 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     func continueNativeLogin(_ pendingLogin: PendingNativeLogin, verificationCode: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
         guard let client else { return .failure(.failedLoggingIn) }
         do {
@@ -195,7 +195,7 @@ extension AuthenticationService {
                                                                                                                               token: verificationCode,
                                                                                                                               deviceID: deviceID,
                                                                                                                               initialDeviceDisplayName: deviceName))
-
+            
             try await restoreNativeSession(response: response, client: client, fallbackHomeserverURL: pendingLogin.homeserverUrl)
             // Arcana: email OTP + password proves ownership — bootstrap cross-signing so this
             // device is verified and encrypted sends are not wedged.
@@ -207,11 +207,11 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     func resendNativeLoginCode(_ pendingLogin: PendingNativeLogin) async -> Result<PendingNativeLogin, AuthenticationServiceError> {
         guard nativeAuthHomeserverURL != nil else { return .failure(.failedLoggingIn) }
         let updated = pendingLogin.resending()
-
+        
         do {
             let response: NativeAuthSidResponse = try await performNativeAuthRequest(baseURL: updated.homeserverUrl,
                                                                                      path: "_matrix/client/v3/login",
@@ -227,7 +227,7 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     func startNativeRegistration(email: String) async -> Result<PendingNativeRegistration, AuthenticationServiceError> {
         guard let homeserverURL = nativeAuthHomeserverURL else {
             MXLog.error("Native registration started without a configured client/homeserver")
@@ -255,7 +255,7 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     func continueNativeRegistrationEmailCode(_ pendingRegistration: PendingNativeRegistration, verificationCode: String) async -> Result<PendingNativeRegistration, AuthenticationServiceError> {
         do {
             let response: NativeAuthSidOnlyResponse = try await performNativeAuthRequest(baseURL: pendingRegistration.homeserverUrl,
@@ -271,7 +271,7 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     func finishNativeRegistration(_ pendingRegistration: PendingNativeRegistration, username: String?, password: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
         guard let client else {
             MXLog.error("Native registration finish called without a configured client")
@@ -299,7 +299,7 @@ extension AuthenticationService {
                                                                                                                                    deviceID: deviceID,
                                                                                                                                    initialDeviceDisplayName: deviceName,
                                                                                                                                    inhibitLogin: false))
-
+            
             try await restoreNativeSession(response: response, client: client, fallbackHomeserverURL: pendingRegistration.homeserverUrl)
             return await completeNativeSession(client: client, identityBootstrapPassword: password)
         } catch let error as NativeAuthFailure {
@@ -309,7 +309,7 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     func resendNativeRegistrationEmail(_ pendingRegistration: PendingNativeRegistration) async -> Result<PendingNativeRegistration, AuthenticationServiceError> {
         let updated = pendingRegistration.resending()
         do {
@@ -326,14 +326,14 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     func startNativePasswordReset(email: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
         guard let homeserverURL = nativeAuthHomeserverURL else { return .failure(.failedLoggingIn) }
         let trimmedIdentifier = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedIdentifier.isEmpty else {
             return .failure(.invalidEmail)
         }
-
+        
         let pendingPasswordReset = PendingNativePasswordReset(homeserverUrl: homeserverURL,
                                                               email: trimmedIdentifier,
                                                               clientSecret: UUID().uuidString,
@@ -353,7 +353,7 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     func continueNativePasswordResetEmailCode(_ pendingPasswordReset: PendingNativePasswordReset, verificationCode: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
         do {
             let response: NativeAuthSidOnlyResponse = try await performNativeAuthRequest(baseURL: pendingPasswordReset.homeserverUrl,
@@ -369,7 +369,7 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     func finishNativePasswordReset(_ pendingPasswordReset: PendingNativePasswordReset, password: String) async -> Result<Void, AuthenticationServiceError> {
         do {
             let _: NativeAuthEmptyResponse = try await performNativeAuthRequest(baseURL: pendingPasswordReset.homeserverUrl,
@@ -386,7 +386,7 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     func resendNativePasswordResetEmail(_ pendingPasswordReset: PendingNativePasswordReset) async -> Result<PendingNativePasswordReset, AuthenticationServiceError> {
         let updated = pendingPasswordReset.resending()
         do {
@@ -403,7 +403,7 @@ extension AuthenticationService {
             return .failure(.failedLoggingIn)
         }
     }
-
+    
     /// Public entry used by login/registration screens after the session exists.
     func bootstrapNativeDeviceIdentity(password: String) async -> Result<Void, AuthenticationServiceError> {
         guard let client else {
@@ -418,7 +418,7 @@ private extension AuthenticationService {
     var nativeAuthHomeserverURL: String? {
         client?.homeserver()
     }
-
+    
     func restoreNativeSession(response: NativeAuthSessionResponse, client: ClientProtocol, fallbackHomeserverURL: String) async throws {
         let homeserverURL = response.homeServer
             .flatMap { $0.hasPrefix("http://") || $0.hasPrefix("https://") ? $0 : nil }
@@ -432,7 +432,7 @@ private extension AuthenticationService {
                               slidingSyncVersion: .native)
         try await client.restoreSession(session: session)
     }
-
+    
     /// Restore is done and sync started. Cross-signing bootstrap is a separate step
     /// (`bootstrapNativeDeviceIdentity`) shown as an explicit "Setting up encryption" UI.
     func completeNativeSession(client: ClientProtocol, identityBootstrapPassword: String) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
@@ -444,9 +444,9 @@ private extension AuthenticationService {
         }
         return sessionResult
     }
-
+    
     private static let identityBootstrapAttempts = 3
-
+    
     /// Opens an existing key backup with the account password, or creates one on the first device.
     ///
     /// A server backup must never be replaced by `resetIdentity()`: that backup holds the Megolm
@@ -460,7 +460,7 @@ private extension AuthenticationService {
     func ensureDeviceIdentityVerified(client: ClientProtocol, password: String) async -> Bool {
         let encryption = client.encryption()
         await waitForE2eeInitialization(encryption)
-
+        
         for attempt in 1...Self.identityBootstrapAttempts {
             if await secureHistoryBackup(client: client, encryption: encryption, password: password) {
                 return true
@@ -472,14 +472,14 @@ private extension AuthenticationService {
         MXLog.error("Identity bootstrap failed after \(Self.identityBootstrapAttempts) attempts — historical messages may stay unavailable")
         return false
     }
-
+    
     /// - Returns: `true` when the backup was opened or a new password backup was created.
     func secureHistoryBackup(client: ClientProtocol, encryption: Encryption, password: String) async -> Bool {
         if encryption.verificationState() == .verified, encryption.recoveryState() == .enabled {
             MXLog.info("Session already verified and recovery is enabled")
             return true
         }
-
+        
         switch await existingKeyBackup(encryption) {
         case .present:
             if await recoverExistingBackup(encryption: encryption, password: password) {
@@ -508,7 +508,7 @@ private extension AuthenticationService {
             return await enablePasswordRecovery(encryption: encryption, password: password)
         }
     }
-
+    
     func recoverExistingBackup(encryption: Encryption, password: String) async -> Bool {
         do {
             try await encryption.recoverAndFixBackup(recoveryKey: password)
@@ -519,7 +519,7 @@ private extension AuthenticationService {
             return false
         }
     }
-
+    
     func enablePasswordRecovery(encryption: Encryption, password: String) async -> Bool {
         do {
             let listener = SDKListener<EnableRecoveryProgress> { _ in }
@@ -533,13 +533,13 @@ private extension AuthenticationService {
             return false
         }
     }
-
+    
     enum ExistingKeyBackup {
         case present
         case absent
         case unknown
     }
-
+    
     func existingKeyBackup(_ encryption: Encryption) async -> ExistingKeyBackup {
         switch encryption.recoveryState() {
         case .enabled, .incomplete:
@@ -554,7 +554,7 @@ private extension AuthenticationService {
             return .unknown
         }
     }
-
+    
     /// - Returns: `true` when identity reset completed (with or without UIAA).
     func bootstrapIdentityOnce(client: ClientProtocol, encryption: Encryption, password: String) async -> Bool {
         do {
@@ -578,7 +578,7 @@ private extension AuthenticationService {
             return false
         }
     }
-
+    
     /// Wait until Olm is ready, or ~15s. Status stays `.unknown` until E2EE init after sync.
     func waitForE2eeInitialization(_ encryption: Encryption) async {
         await withTaskGroup(of: Void.self) { group in
@@ -587,7 +587,9 @@ private extension AuthenticationService {
             }
             group.addTask {
                 for _ in 0..<60 {
-                    if encryption.verificationState() != .unknown { return }
+                    if encryption.verificationState() != .unknown {
+                        return
+                    }
                     try? await Task.sleep(for: .milliseconds(250))
                 }
             }
@@ -595,21 +597,21 @@ private extension AuthenticationService {
             group.cancelAll()
         }
     }
-
+    
     func performNativeAuthRequest<Body: Encodable, Response: Decodable>(path: String, body: Body) async throws -> Response {
         try await performNativeAuthRequest(baseURL: nativeAuthHomeserverURL, path: path, body: body)
     }
-
+    
     func performNativeAuthRequest<Body: Encodable, Response: Decodable>(baseURL: String?, path: String, body: Body) async throws -> Response {
         guard let baseURL, let url = URL(string: baseURL)?.appending(path: path) else {
             throw NativeAuthFailure.unavailable
         }
-
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
-
+        
         let maxAttempts = 3
         for attempt in 1...maxAttempts {
             do {
@@ -617,18 +619,18 @@ private extension AuthenticationService {
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw NativeAuthFailure.unavailable
                 }
-
+                
                 guard (200...299).contains(httpResponse.statusCode) else {
                     throw try mapNativeAuthFailure(from: data, statusCode: httpResponse.statusCode)
                 }
-
+                
                 if Response.self == NativeAuthEmptyResponse.self, data.isEmpty {
                     guard let emptyResponse = NativeAuthEmptyResponse() as? Response else {
                         throw NativeAuthFailure.unavailable
                     }
                     return emptyResponse
                 }
-
+                
                 return try JSONDecoder().decode(Response.self, from: data)
             } catch {
                 guard attempt < maxAttempts, error.isTransientNativeAuthNetworkError else {
@@ -637,14 +639,14 @@ private extension AuthenticationService {
                 try await Task.sleep(nanoseconds: UInt64(attempt) * 500_000_000)
             }
         }
-
+        
         throw NativeAuthFailure.unavailable
     }
-
+    
     func mapNativeAuthFailure(from data: Data, statusCode: Int) throws -> NativeAuthFailure {
         let payload = try? JSONDecoder().decode(NativeAuthErrorResponse.self, from: data)
         let errorCode = payload?.errcode
-
+        
         switch errorCode {
         case "M_FORBIDDEN", "M_UNAUTHORIZED", "M_INVALID_CREDENTIALS":
             return .invalidCredentials
@@ -675,7 +677,7 @@ private extension AuthenticationService {
             return .message(payload?.error)
         }
     }
-
+    
     func requireNonNil<T>(_ value: T?) throws -> T {
         guard let value else { throw NativeAuthFailure.unavailable }
         return value
@@ -687,7 +689,7 @@ private extension Error {
         guard let urlError = self as? URLError else {
             return false
         }
-
+        
         switch urlError.code {
         case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed, .networkConnectionLost, .notConnectedToInternet, .timedOut:
             return true
@@ -709,7 +711,7 @@ private enum NativeAuthFailure: Error {
     case emailVerificationUnavailable
     case invalidRegistrationToken
     case message(String?)
-
+    
     var serviceError: AuthenticationServiceError {
         switch self {
         case .unavailable:
@@ -736,7 +738,7 @@ private enum NativeAuthFailure: Error {
             .failedLoggingIn
         }
     }
-
+    
     var loginVerificationServiceError: AuthenticationServiceError {
         switch self {
         case .invalidCredentials, .invalidVerificationCode, .message:
@@ -745,7 +747,7 @@ private enum NativeAuthFailure: Error {
             serviceError
         }
     }
-
+    
     var registrationVerificationServiceError: AuthenticationServiceError {
         switch self {
         case .invalidCredentials, .invalidVerificationCode, .message:
@@ -766,7 +768,7 @@ private extension PendingNativeLogin {
               sid: sid,
               email: email)
     }
-
+    
     func resending() -> PendingNativeLogin {
         .init(homeserverUrl: homeserverUrl,
               login: login,
@@ -786,7 +788,7 @@ private extension PendingNativeRegistration {
               sendAttempt: sendAttempt,
               sid: sid)
     }
-
+    
     func resending() -> PendingNativeRegistration {
         .init(homeserverUrl: homeserverUrl,
               email: email,
@@ -804,7 +806,7 @@ private extension PendingNativePasswordReset {
               sendAttempt: sendAttempt,
               sid: sid)
     }
-
+    
     func resending() -> PendingNativePasswordReset {
         .init(homeserverUrl: homeserverUrl,
               email: email,

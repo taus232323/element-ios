@@ -12,7 +12,7 @@ import SwiftUI
 struct CreateRoomScreen: View {
     @ObservedObject var context: CreateRoomScreenViewModel.Context
     @FocusState private var focus: Focus?
-
+    
     private enum Focus {
         case name
         case topic
@@ -93,6 +93,7 @@ struct CreateRoomScreen: View {
                         .foregroundStyle(.compound.textPrimary)
                         .tint(.compound.iconAccentTertiary)
                         .focused($focus, equals: .name)
+                        .accessibilityLabel(L10n.commonName)
                         .accessibilityIdentifier(A11yIdentifiers.createRoomScreen.roomName)
                         .padding(.horizontal, ListRowPadding.horizontal)
                         .padding(.vertical, ListRowPadding.vertical)
@@ -132,17 +133,24 @@ struct CreateRoomScreen: View {
                     .accessibilityHidden(true)
             }
         }
-        .accessibilityLabel(L10n.a11yEditAvatar)
+        .accessibilityLabel(context.viewState.avatarImage == nil ? L10n.a11yAddAvatar : L10n.a11yEditAvatar)
+        .accessibilityRemoveTraits(.isHeader)
         .buttonStyle(.plain)
         .accessibilityIdentifier(A11yIdentifiers.createRoomScreen.roomAvatar)
         .confirmationDialog("", isPresented: $context.showAttachmentConfirmationDialog) {
             Button(L10n.actionTakePhoto) {
                 context.send(viewAction: .displayCameraPicker)
             }
+            
             Button(L10n.actionChoosePhoto) {
                 context.send(viewAction: .displayMediaPicker)
             }
             .accessibilityIdentifier(A11yIdentifiers.createRoomScreen.mediaPicker)
+            
+            Button(L10n.actionChooseFile) {
+                context.send(viewAction: .displayFilePicker)
+            }
+            .accessibilityIdentifier(A11yIdentifiers.createRoomScreen.filePicker)
             
             if context.viewState.avatarImage != nil {
                 Button(L10n.actionRemove, role: .destructive) {
@@ -162,6 +170,7 @@ struct CreateRoomScreen: View {
         } header: {
             Text(L10n.screenCreateRoomTopicLabel)
                 .compoundListSectionHeader()
+                .accessibilityRemoveTraits(.isHeader)
         }
     }
     
@@ -184,23 +193,23 @@ struct CreateRoomScreen: View {
         Section {
             EditRoomAddressListRow(aliasLocalPart: aliasBinding,
                                    serverName: context.viewState.serverName,
-                                   shouldDisplayError: context.viewState.aliasErrors.errorDescription != nil)
+                                   errorDescription: context.viewState.aliasErrors.errorDescription,
+                                   footerText: L10n.screenCreateRoomRoomAddressSectionFooter)
                 .focused($focus, equals: .alias)
                 .id(Focus.alias)
         } header: {
             Text(L10n.screenCreateRoomRoomAddressSectionTitle)
                 .compoundListSectionHeader()
+                .accessibilityRemoveTraits(.isHeader)
         } footer: {
             VStack(alignment: .leading, spacing: 12) {
                 if let errorDescription = context.viewState.aliasErrors.errorDescription {
                     Label(errorDescription, icon: \.errorSolid, iconSize: .xSmall, relativeTo: .compound.bodySM)
                         .foregroundStyle(.compound.textCriticalPrimary)
-                        .font(.compound.bodySM)
                 }
                 Text(L10n.screenCreateRoomRoomAddressSectionFooter)
-                    .compoundListSectionFooter()
-                    .font(.compound.bodySM)
             }
+            .compoundListSectionFooter()
         }
     }
     
@@ -374,7 +383,7 @@ struct CreateRoom_Previews: PreviewProvider, TestablePreview {
         viewModel.context.selectedAccessType = .askToJoinWithSpaceMembers
         return viewModel
     }()
-
+    
     static var previews: some View {
         ElementNavigationStack {
             CreateRoomScreen(context: viewModel.context)
@@ -440,23 +449,22 @@ struct CreateRoom_Previews: PreviewProvider, TestablePreview {
                                       isSpace: Bool = false,
                                       selectionMode: CreateRoomScreenSpaceSelectionMode = .editableSpacesList(preSelectedSpace: nil),
                                       isAliasAvailable: Bool = true) -> CreateRoomScreenViewModel {
-        AppSettings.resetAllSettings()
-        let appSettings = AppSettings()
-        appSettings.knockingEnabled = isKnockingEnabled
+        let userSettings = UserSettings.mock()
+        userSettings.app.knockingEnabled = isKnockingEnabled
         
         let clientProxy = ClientProxyMock(.init(userIDServerName: "example.org",
                                                 userID: "@userid:example.com"))
         clientProxy.isAliasAvailableReturnValue = .success(isAliasAvailable)
         let spaces = [SpaceServiceRoom].mockJoinedSpaces2
         clientProxy.spaceService = SpaceServiceProxyMock(.init(editableSpaces: spaces))
-        let userSession = UserSessionMock(.init(clientProxy: clientProxy))
+        let userSession = UserSessionMock(.init(clientProxy: clientProxy, userSettings: userSettings))
         
         return CreateRoomScreenViewModel(isSpace: isSpace,
                                          spaceSelectionMode: selectionMode,
                                          shouldShowCancelButton: isSpace,
                                          userSession: userSession,
-                                         analytics: ServiceLocator.shared.analytics,
-                                         userIndicatorController: UserIndicatorControllerMock(),
-                                         appSettings: appSettings)
+                                         appMediator: AppMediatorMock(.init()),
+                                         analytics: AnalyticsServiceMock(.init()),
+                                         userIndicatorController: UserIndicatorControllerMock())
     }
 }

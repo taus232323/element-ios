@@ -10,7 +10,6 @@ import Combine
 import Foundation
 import SwiftUI
 
-@MainActor
 protocol TimelineViewModelProtocol {
     var actions: AnyPublisher<TimelineViewModelAction, Never> { get }
     var context: TimelineViewModel.Context { get }
@@ -20,6 +19,8 @@ protocol TimelineViewModelProtocol {
     func focusOnEvent(eventID: String) async
     /// Stops the current live location sharing
     func stopLiveLocationSharing() async
-    /// Handles getting the content to forward an item given its item ID.
-    func makeForwardingItem(for itemID: TimelineItemIdentifier) async -> MessageForwardingItem?
+    /// Handles getting the contents to forward the given items, keeping the order of the given IDs.
+    func makeForwardingPayload(for itemIDs: [TimelineItemIdentifier]) async -> MessageForwardingPayload?
+    /// Ends the message selection, e.g. once the selected messages have been forwarded.
+    func clearMessageSelection()
 }

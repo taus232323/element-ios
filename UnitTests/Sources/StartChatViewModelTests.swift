@@ -25,10 +25,9 @@ struct StartChatScreenViewModelTests {
         userDiscoveryService.searchProfilesWithReturnValue = .success([])
         let userSession = UserSessionMock(.init(clientProxy: clientProxy))
         viewModel = StartChatScreenViewModel(userSession: userSession,
-                                             analytics: ServiceLocator.shared.analytics,
+                                             analytics: AnalyticsServiceMock(.init()),
                                              userIndicatorController: UserIndicatorControllerMock(),
-                                             userDiscoveryService: userDiscoveryService,
-                                             appSettings: ServiceLocator.shared.settings)
+                                             userDiscoveryService: userDiscoveryService)
     }
     
     @Test
@@ -89,9 +88,8 @@ struct StartChatScreenViewModelTests {
     
     @Test
     func inviteConfirmationFetchesIdentity() async throws {
-        ServiceLocator.shared.settings.enableKeyShareOnInvite = true
         clientProxy.directRoomForUserIDReturnValue = .success(nil)
-        clientProxy.userIdentityForFallBackToServerReturnValue = .success(UserIdentityProxyMock(configuration: .init(verificationState: .notVerified)))
+        clientProxy.userIdentityForFallBackToServerReturnValue = .success(UserIdentityProxyMock(.init(verificationState: .notVerified)))
         
         // User identity becomes known, i.e. not unknown
         let deferred = deferFulfillment(viewModel.context.$viewState.compactMap(\.bindings.selectedUserToInvite)) {
@@ -105,12 +103,11 @@ struct StartChatScreenViewModelTests {
     
     @Test
     func inviteConfirmationFallsBackToUnknownIdentityOnFailure() async throws {
-        ServiceLocator.shared.settings.enableKeyShareOnInvite = true
         clientProxy.directRoomForUserIDReturnValue = .success(nil)
         clientProxy.userIdentityForFallBackToServerReturnValue = .failure(.forbiddenAccess)
         
         // User identity never becomes known, i.e. is never not unknown
-        let deferred = deferFailure(viewModel.context.$viewState.compactMap(\.bindings.selectedUserToInvite), timeout: .seconds(5)) {
+        let deferred = deferFailure(viewModel.context.$viewState.compactMap(\.bindings.selectedUserToInvite), timeout: .milliseconds(300)) {
             !$0.isUnknown
         }
         context.send(viewAction: .selectUser(.mockBob))

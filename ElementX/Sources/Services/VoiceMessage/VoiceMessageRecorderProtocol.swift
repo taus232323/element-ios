@@ -27,9 +27,9 @@ protocol VoiceMessageRecorderProtocol {
     var previewAudioPlayerState: AudioPlayerState? { get }
     var isRecording: Bool { get }
     var recordingURL: URL? { get }
-
+    
     var actions: AnyPublisher<VoiceMessageRecorderAction, Never> { get }
-
+    
     func startRecording() async
     func stopRecording() async
     func cancelRecording() async
@@ -40,7 +40,8 @@ protocol VoiceMessageRecorderProtocol {
     func deleteRecording() async
     
     func sendVoiceMessage(timelineController: TimelineControllerProtocol,
-                          audioConverter: AudioConverterProtocol) async -> Result<Void, VoiceMessageRecorderError>
+                          audioConverter: AudioConverterProtocol,
+                          inReplyToEventID: String?) async -> Result<Void, VoiceMessageRecorderError>
 }
 
 // sourcery: AutoMockable

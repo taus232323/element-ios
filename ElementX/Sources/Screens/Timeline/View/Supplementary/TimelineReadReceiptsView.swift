@@ -20,7 +20,7 @@ struct TimelineReadReceiptsView: View {
                               contentID: receipt.userID)
         }
     }
-
+    
     var body: some View {
         HStack(spacing: 2) {
             StackedAvatarsView(overlap: 6,
@@ -39,7 +39,7 @@ struct TimelineReadReceiptsView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(L10n.a11yReadReceiptsTapToShowAll)
+        .accessibilityHint(L10n.a11yReadReceiptsTapToShowAllIos)
     }
     
     private var remaining: Int {
@@ -78,16 +78,15 @@ struct TimelineReadReceiptsView_Previews: PreviewProvider, TestablePreview {
         .mockDan,
         .mockMe
     ]
-
+    
     static let viewModel = TimelineViewModel(roomProxy: JoinedRoomProxyMock(.init(name: "Test", members: members)),
-                                             timelineController: MockTimelineController(),
+                                             timelineController: TimelineControllerMock(.init()),
                                              userSession: UserSessionMock(.init()),
                                              mediaPlayerProvider: MediaPlayerProviderMock(),
-                                             userIndicatorController: ServiceLocator.shared.userIndicatorController,
-                                             appMediator: AppMediatorMock.default,
-                                             appSettings: ServiceLocator.shared.settings,
-                                             analyticsService: ServiceLocator.shared.analytics,
-                                             emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                             userIndicatorController: UserIndicatorControllerMock(),
+                                             appMediator: AppMediatorMock(.init()),
+                                             analyticsService: AnalyticsServiceMock(.init()),
+                                             emojiProvider: EmojiProvider(userSettings: .mock()),
                                              linkMetadataProvider: LinkMetadataProvider(),
                                              timelineControllerFactory: TimelineControllerFactoryMock(.init()))
     
@@ -101,7 +100,7 @@ struct TimelineReadReceiptsView_Previews: PreviewProvider, TestablePreview {
                                    ReadReceipt(userID: RoomMemberProxyMock.mockBob.userID, formattedTimestamp: "Before"),
                                    ReadReceipt(userID: RoomMemberProxyMock.mockCharlie.userID, formattedTimestamp: "Way before"),
                                    ReadReceipt(userID: RoomMemberProxyMock.mockDan.userID, formattedTimestamp: "Way, way before")]
-
+    
     static func mockTimelineItem(with receipts: [ReadReceipt]) -> TextRoomTimelineItem {
         TextRoomTimelineItem(id: .randomEvent,
                              timestamp: .mock,
@@ -111,7 +110,7 @@ struct TimelineReadReceiptsView_Previews: PreviewProvider, TestablePreview {
                              sender: .init(id: UUID().uuidString), content: .init(body: "Test"),
                              properties: .init(orderedReadReceipts: receipts))
     }
-
+    
     static var previews: some View {
         VStack(spacing: 8) {
             TimelineReadReceiptsView(timelineItem: mockTimelineItem(with: singleReceipt))

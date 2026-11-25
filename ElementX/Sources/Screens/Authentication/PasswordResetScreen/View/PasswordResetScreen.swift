@@ -13,15 +13,15 @@ struct PasswordResetScreen: View {
     @FocusState private var isVerificationCodeFocused: Bool
     @FocusState private var isPasswordFocused: Bool
     @FocusState private var isConfirmPasswordFocused: Bool
-
+    
     @Bindable var context: PasswordResetScreenViewModel.Context
-
+    
     var body: some View {
         VStack(spacing: 0) {
             header
                 .padding(.top, UIConstants.titleTopPaddingToNavigationBar)
                 .padding(.bottom, 32)
-
+            
             form
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -45,18 +45,18 @@ struct PasswordResetScreen: View {
         }
         .alert(item: $context.alertInfo)
     }
-
+    
     var header: some View {
         VStack(spacing: 8) {
             ArcanaMark(size: 208)
                 .padding(.top, 8)
                 .padding(.bottom, 8)
-
+            
             Text(title)
                 .font(.compound.headingMDBold)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.compound.textPrimary)
-
+            
             Text(subtitle)
                 .font(.compound.bodyMD)
                 .multilineTextAlignment(.center)
@@ -64,7 +64,7 @@ struct PasswordResetScreen: View {
         }
         .padding(.horizontal, 16)
     }
-
+    
     var title: String {
         switch context.viewState.step {
         case .email:
@@ -75,7 +75,7 @@ struct PasswordResetScreen: View {
             ArcanaLocalization.passwordResetCredentialsStepTitle
         }
     }
-
+    
     var subtitle: String {
         switch context.viewState.step {
         case .email:
@@ -86,7 +86,7 @@ struct PasswordResetScreen: View {
             ArcanaLocalization.passwordResetCredentialsStepSubtitle(homeserver: context.viewState.homeserverAddress)
         }
     }
-
+    
     var form: some View {
         VStack(alignment: .leading, spacing: 0) {
             switch context.viewState.step {
@@ -95,7 +95,7 @@ struct PasswordResetScreen: View {
                     .font(.compound.bodyMD)
                     .foregroundColor(.compound.textSecondary)
                     .padding(.bottom, 16)
-
+                
                 TextField(text: $context.email) {
                     Text(ArcanaLocalization.loginEmailLabel).foregroundColor(.compound.textSecondary)
                 }
@@ -112,7 +112,7 @@ struct PasswordResetScreen: View {
                     .font(.compound.bodyMD)
                     .foregroundColor(.compound.textPrimary)
                     .padding(.bottom, 16)
-
+                
                 TextField(text: $context.verificationCode) {
                     Text(ArcanaLocalization.loginVerificationCodeLabel).foregroundColor(.compound.textSecondary)
                 }
@@ -129,12 +129,12 @@ struct PasswordResetScreen: View {
                     }
                 }
                 .padding(.bottom, 12)
-
+                
                 Text(ArcanaLocalization.passwordResetCodeStepHint)
                     .font(.compound.bodyMD)
                     .foregroundColor(.compound.textSecondary)
                     .padding(.bottom, 20)
-
+                
                 Button(action: { context.send(viewAction: .resendVerificationCode) }, label: {
                     Text(ArcanaLocalization.passwordResetResendEmail)
                 })
@@ -145,7 +145,7 @@ struct PasswordResetScreen: View {
                     .font(.compound.bodyMD)
                     .foregroundColor(.compound.textSecondary)
                     .padding(.bottom, 16)
-
+                
                 SecureField(text: $context.password) {
                     Text(ArcanaLocalization.passwordResetNewPasswordLabel).foregroundColor(.compound.textSecondary)
                 }
@@ -155,7 +155,7 @@ struct PasswordResetScreen: View {
                 .submitLabel(.next)
                 .onSubmit { isConfirmPasswordFocused = true }
                 .padding(.bottom, 20)
-
+                
                 SecureField(text: $context.confirmPassword) {
                     Text(ArcanaLocalization.passwordResetConfirmPasswordLabel).foregroundColor(.compound.textSecondary)
                 }
@@ -165,9 +165,9 @@ struct PasswordResetScreen: View {
                 .submitLabel(.done)
                 .onSubmit(submit)
             }
-
+            
             Spacer().frame(height: 24)
-
+            
             Button(action: submit) {
                 Text(submitTitle)
             }
@@ -175,7 +175,7 @@ struct PasswordResetScreen: View {
             .disabled(!context.viewState.canSubmit)
         }
     }
-
+    
     var submitTitle: String {
         switch context.viewState.step {
         case .email:
@@ -186,7 +186,7 @@ struct PasswordResetScreen: View {
             ArcanaLocalization.passwordResetUpdatePassword
         }
     }
-
+    
     private func submit() {
         guard context.viewState.canSubmit else { return }
         context.send(viewAction: .next)
@@ -201,14 +201,14 @@ struct PasswordResetScreen: View {
 
 struct PasswordResetScreen_Previews: PreviewProvider, TestablePreview {
     static let viewModel = makeViewModel()
-
+    
     static var previews: some View {
         ElementNavigationStack {
             PasswordResetScreen(context: viewModel.context)
         }
         .previewDisplayName("Initial State")
     }
-
+    
     static func makeViewModel() -> PasswordResetScreenViewModel {
         PasswordResetScreenViewModel(authenticationService: AuthenticationService.mock,
                                      initialEmail: "alice@example.com",

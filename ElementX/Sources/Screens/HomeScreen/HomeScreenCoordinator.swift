@@ -11,11 +11,10 @@ import SwiftUI
 
 struct HomeScreenCoordinatorParameters {
     let userSession: UserSessionProtocol
+    let availableSessionsPublisher: CurrentValuePublisher<[UserSessionDetails], Never>
     let bugReportService: BugReportServiceProtocol
     let selectedRoomPublisher: CurrentValuePublisher<String?, Never>
-    let appSettings: AppSettings
-    let analyticsService: AnalyticsService
-    let notificationManager: NotificationManagerProtocol
+    let analyticsService: AnalyticsServiceProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
 }
 
@@ -30,17 +29,14 @@ enum HomeScreenCoordinatorAction {
     case transferOwnership(roomIdentifier: String)
     case presentSettingsScreen
     case presentFeedbackScreen
-    case presentSecureBackupSettings
     case presentRecoveryKeyScreen
     case presentEncryptionResetScreen
     case presentStartChatScreen
-    case logout
+    case addAccount
 }
 
 final class HomeScreenCoordinator: CoordinatorProtocol {
     private var viewModel: HomeScreenViewModelProtocol
-    // periphery:ignore - only used in release builds
-    private let bugReportService: BugReportServiceProtocol
     
     private let actionsSubject: PassthroughSubject<HomeScreenCoordinatorAction, Never> = .init()
     private var cancellables = Set<AnyCancellable>()
@@ -51,12 +47,11 @@ final class HomeScreenCoordinator: CoordinatorProtocol {
     
     init(parameters: HomeScreenCoordinatorParameters) {
         viewModel = HomeScreenViewModel(userSession: parameters.userSession,
+                                        availableSessionsPublisher: parameters.availableSessionsPublisher,
                                         selectedRoomPublisher: parameters.selectedRoomPublisher,
-                                        appSettings: parameters.appSettings,
                                         analyticsService: parameters.analyticsService,
-                                        notificationManager: parameters.notificationManager,
+                                        bugReportService: parameters.bugReportService,
                                         userIndicatorController: parameters.userIndicatorController)
-        bugReportService = parameters.bugReportService
         
         viewModel.actions
             .sink { [weak self] action in
@@ -81,16 +76,14 @@ final class HomeScreenCoordinator: CoordinatorProtocol {
                     actionsSubject.send(.presentFeedbackScreen)
                 case .presentSettingsScreen:
                     actionsSubject.send(.presentSettingsScreen)
-                case .presentSecureBackupSettings:
-                    actionsSubject.send(.presentSecureBackupSettings)
                 case .presentRecoveryKeyScreen:
                     actionsSubject.send(.presentRecoveryKeyScreen)
                 case .presentEncryptionResetScreen:
                     actionsSubject.send(.presentEncryptionResetScreen)
                 case .presentStartChatScreen:
                     actionsSubject.send(.presentStartChatScreen)
-                case .logout:
-                    actionsSubject.send(.logout)
+                case .addAccount:
+                    actionsSubject.send(.addAccount)
                 case .transferOwnership(let roomIdentifier):
                     actionsSubject.send(.transferOwnership(roomIdentifier: roomIdentifier))
                 }
@@ -99,16 +92,6 @@ final class HomeScreenCoordinator: CoordinatorProtocol {
     }
     
     // MARK: - Public
-    
-    func start() {
-        #if !DEBUG
-        // Note: bugReportService.isEnabled doesn't determine if a user has opted in to Analytics/Sentry.
-        // Therefore we use lastCrashEventID as this will only be set if we have crash ID from Sentry.
-        if bugReportService.crashedLastRun, bugReportService.lastCrashEventID != nil {
-            viewModel.presentCrashedLastRunAlert()
-        }
-        #endif
-    }
     
     func toPresentable() -> AnyView {
         AnyView(HomeScreen(context: viewModel.context))

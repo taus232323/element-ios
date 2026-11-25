@@ -12,16 +12,17 @@ import OrderedCollections
 import SwiftUI
 
 enum TimelineViewModelAction {
-    case displayEmojiPicker(itemID: TimelineItemIdentifier, selectedEmojis: Set<String>)
+    case displayEmojiPicker(selectedEmojis: Set<String>, continuation: EmojiPickerScreenContinuation)
     case displayReportContent(itemID: TimelineItemIdentifier, senderID: String)
     case displayCameraPicker
     case displayMediaPicker
     case displayDocumentPicker
     case displayLocationPicker
-    case displayPollForm(mode: PollFormMode)
+    case displayNewPollForm
+    case displayEditPollForm(eventID: String, poll: Poll)
     case displayMediaUploadPreviewScreen(mediaURLs: [URL])
     case displaySenderDetails(userID: String)
-    case displayMessageForwarding(forwardingItem: MessageForwardingItem)
+    case displayMessageForwarding(forwardingPayload: MessageForwardingPayload)
     case displayMediaPreview(TimelineMediaPreviewViewModel)
     case displayLocation(StaticLocationData)
     case displayLiveLocation(sender: TimelineItemSender, initialLiveLocationShare: LiveLocationShare)
@@ -35,7 +36,7 @@ enum TimelineViewModelAction {
 }
 
 enum TimelineViewPollAction {
-    case selectOption(pollStartID: String, optionID: String)
+    case sendResponse(pollStartID: String, answerIDs: [String])
     case end(pollStartID: String)
     case edit(pollStartID: String, poll: Poll)
 }
@@ -51,16 +52,28 @@ enum TimelineViewAction {
     case itemDisappeared(itemID: TimelineItemIdentifier)
     
     case mediaTapped(itemID: TimelineItemIdentifier)
+    case galleryItemTapped(GalleryItemID)
     case itemSendInfoTapped(itemID: TimelineItemIdentifier)
     case toggleReaction(key: String, itemID: TimelineItemIdentifier)
+    case playReactionEffect(origin: CGPoint?)
     case sendReadReceiptIfNeeded(TimelineItemIdentifier)
     case paginateBackwards
     case paginateForwards
     case scrollToBottom
     case scrollToFirstItemForCurrentDate
+    case scrollToReadMarker
+    case markAllAsRead
     
     case displayTimelineItemMenu(itemID: TimelineItemIdentifier)
     case handleTimelineItemMenuAction(itemID: TimelineItemIdentifier, action: TimelineItemMenuAction)
+    /// The user has confirmed the removal of an item, optionally giving a reason.
+    case redactConfirmed(itemID: TimelineItemIdentifier, reason: String?)
+    
+    /// Add or remove an item from the active multi-selection.
+    case toggleMessageSelection(itemID: TimelineItemIdentifier)
+    case clearMessageSelection
+    /// Forward the selected messages, in timeline order.
+    case forwardMessageSelection
     
     case tappedOnSenderDetails(sender: TimelineItemSender)
     case displayReactionSummary(itemID: TimelineItemIdentifier, key: String)
@@ -86,6 +99,7 @@ enum TimelineViewAction {
     case hasScrolled(direction: ScrollDirection)
     
     case displayPredecessorRoom
+    case joinActiveCall(isVoiceCall: Bool)
 }
 
 enum TimelineComposerAction {
@@ -98,14 +112,16 @@ enum TimelineComposerAction {
 
 struct TimelineViewState: BindableState {
     let timelineKind: TimelineKind
+    /// The gallery attachments the timeline includes, or `nil` when it isn't filtered.
+    let allowedGalleryItemTypes: [TimelineAllowedGalleryItemType]?
     var roomID: String
     var members: [String: RoomMemberState] = [:]
     var typingMembers: [String] = []
     var showLoading = false
     var showReadReceipts = false
-    var isDirectOneToOneRoom = false
+    var isDM = false
     var timelineState: TimelineState // check the doc before changing this
-
+    
     var ownUserID: String
     var canCurrentUserSendMessage = false
     var canCurrentUserRedactOthers = false
@@ -119,9 +135,12 @@ struct TimelineViewState: BindableState {
     var isViewSourceEnabled: Bool
     var areThreadsEnabled: Bool
     var linkPreviewsEnabled: Bool
+    var jumpToReadMarkerEnabled: Bool
+    
+    var messageSelection = TimelineMessageSelectionState()
     
     let hasPredecessor: Bool
-        
+    
     /// The `pinnedEventIDs` are used only to determine if an item is already pinned or not.
     /// It's updated from the room info, so it's faster than using the timeline
     var pinnedEventIDs: Set<String> = []
@@ -143,16 +162,32 @@ struct TimelineViewState: BindableState {
     var linkMetadataProvider: LinkMetadataProviderProtocol?
     
     var mapTilerConfiguration: MapTilerConfiguration
-
-    var enableKeyShareOnInvite: Bool
     
     var stoppedLiveLocationIDs: Set<TimelineItemIdentifier> = []
-        
+    
+    var pendingReactionEffect: PendingReactionEffect?
+    var particleEffect: ParticleEffect?
+    
     var bindings: TimelineViewStateBindings
+    
+    struct PendingReactionEffect: Equatable {
+        let itemID: TimelineItemIdentifier
+        let key: String
+        let type: ParticleEmitterType
+    }
 }
 
 struct TimelineViewStateBindings {
     var isScrolledToBottom = true
+    
+    /// Whether the read marker (NEW banner) is currently visible in the timeline viewport.
+    /// Used to hide the jump-to-unread button once the user has scrolled to the read marker.
+    var isReadMarkerVisible = false
+    
+    /// Whether new messages have arrived while the user is scrolled away from the bottom of a
+    /// live timeline. Drives the presence dot on the scroll-to-bottom button and resets when the
+    /// user returns to the bottom.
+    var hasNewMessagesAtBottom = false
     
     /// The timestamp of the topmost visible item, used to drive the floating date badge while scrolling.
     var floatingDate: Date?
@@ -172,9 +207,38 @@ struct TimelineViewStateBindings {
     var readReceiptsSummaryInfo: ReadReceiptSummaryInfo?
     
     var manageMemberViewModel: ManageRoomMemberSheetViewModel?
-
+    
+    var redactConfirmationInfo: TimelineRedactConfirmationInfo?
+    
     var showTranslation = false
     var textToBeTranslated: String?
+}
+
+/// The state of the multi-selection of messages.
+struct TimelineMessageSelectionState: Equatable {
+    static let limit = 10
+    
+    /// Stays on when every message is unselected, it only ends when closed or once the messages are forwarded.
+    var isActive = false
+    var selectedEventIDs: Set<String> = []
+    
+    var count: Int {
+        selectedEventIDs.count
+    }
+    
+    var isAtLimit: Bool {
+        count >= Self.limit
+    }
+    
+    func contains(_ eventID: String?) -> Bool {
+        guard let eventID else { return false }
+        return selectedEventIDs.contains(eventID)
+    }
+    
+    mutating func end() {
+        isActive = false
+        selectedEventIDs.removeAll()
+    }
 }
 
 struct TimelineItemActionMenuInfo: Equatable, Identifiable {
@@ -203,10 +267,15 @@ struct ReadReceiptSummaryInfo: Identifiable {
     let id: TimelineItemIdentifier
 }
 
+/// The item that the user has asked to remove and must confirm, optionally giving a reason.
+struct TimelineRedactConfirmationInfo: Identifiable {
+    let id: TimelineItemIdentifier
+}
+
 enum TimelineAlertInfoType: Hashable {
     case audioRecodingPermissionError
     case pollEndConfirmation(String)
-    case sendingFailed
+    case sendingFailed(reason: String?, itemID: TimelineItemIdentifier, target: SendTarget?)
     case encryptionAuthenticity(String)
     case encryptionForwarder(String)
     case inviteAgain
@@ -217,6 +286,7 @@ enum TimelineAlertInfoType: Hashable {
 struct RoomMemberState {
     let displayName: String?
     let avatarURL: URL?
+    let status: UserStatus
 }
 
 /// Used as the state for the TimelineView, to avoid having the context continuously refresh the list of items on each small change.
@@ -237,7 +307,7 @@ struct TimelineState {
             /// The event has already been shown.
             case hasAppeared
         }
-
+        
         /// The ID of the event.
         let eventID: String
         /// How the event should be shown, or whether it has already appeared.
@@ -250,6 +320,7 @@ struct TimelineState {
     /// These can be removed when we have full swiftUI and moved as @State values in the view
     var scrollToBottomPublisher = PassthroughSubject<Void, Never>()
     var scrollToFirstItemForDatePublisher = PassthroughSubject<Void, Never>()
+    var scrollToReadMarkerPublisher = PassthroughSubject<TimelineItemIdentifier.UniqueID, Never>()
     
     var itemsDictionary = OrderedDictionary<TimelineItemIdentifier.UniqueID, RoomTimelineItemViewState>()
     
@@ -259,6 +330,26 @@ struct TimelineState {
     
     var itemViewStates: [RoomTimelineItemViewState] {
         itemsDictionary.values.elements
+    }
+    
+    /// The unique ID of the read marker (NEW banner) in the timeline, if present.
+    /// Recomputed by ``recomputeReadMarkerUniqueID()`` whenever ``itemsDictionary`` changes.
+    private(set) var readMarkerUniqueID: TimelineItemIdentifier.UniqueID?
+    
+    /// The user's `m.fully_read` event ID, pushed from `RoomInfo`. Used as a fallback
+    /// signal when ``readMarkerUniqueID`` is nil because the marker event isn't paginated
+    /// into the loaded timeline window.
+    var fullyReadEventID: String?
+    
+    /// Recomputes ``readMarkerUniqueID`` from ``itemsDictionary``. Call after assigning a new
+    /// value to ``itemsDictionary``.
+    mutating func recomputeReadMarkerUniqueID() {
+        readMarkerUniqueID = itemsDictionary.first { _, viewState in
+            if case .readMarker = viewState.type {
+                return true
+            }
+            return false
+        }?.key
     }
     
     func hasLoadedItem(with eventID: String) -> Bool {
@@ -272,6 +363,47 @@ enum ScrollDirection: Equatable {
 }
 
 extension TimelineViewState {
+    /// Multi-selection is offered everywhere but the media timelines.
+    var canSelectMessages: Bool {
+        switch timelineKind {
+        case .live, .detached, .thread, .pinned: true
+        case .media: false
+        }
+    }
+    
+    /// The user is at the bottom of a live timeline (no jump-to-bottom button needed).
+    var isAtBottomAndLive: Bool {
+        bindings.isScrolledToBottom && timelineState.isLive
+    }
+    
+    /// Whether the scroll-to-bottom button should be shown: the user is scrolled away from the
+    /// bottom of a live timeline.
+    var shouldShowScrollToBottomButton: Bool {
+        !isAtBottomAndLive
+    }
+    
+    /// Whether the jump-to-read-marker button should be shown.
+    ///
+    /// Primary path: the SDK has materialised a virtual `ReadMarker` item in the
+    /// loaded timeline window. Show while it isn't visible in the viewport.
+    ///
+    /// Fallback path: the marker event is older than the loaded window, so no
+    /// virtual item exists. Show only when items have actually loaded AND the
+    /// marker event isn't among them — if the marker IS loaded but no virtual
+    /// item was inserted, the user is caught up (no events newer than the marker)
+    /// and there's nothing to jump to.
+    var shouldShowJumpToReadMarker: Bool {
+        guard jumpToReadMarkerEnabled else { return false }
+        if timelineState.readMarkerUniqueID != nil {
+            return !bindings.isReadMarkerVisible
+        }
+        guard let fullyReadEventID = timelineState.fullyReadEventID else {
+            return false
+        }
+        return !timelineState.itemsDictionary.isEmpty
+            && !timelineState.hasLoadedItem(with: fullyReadEventID)
+    }
+    
     /// The string shown as the message preview.
     ///
     /// This converts the formatted body to a plain string to remove formatting

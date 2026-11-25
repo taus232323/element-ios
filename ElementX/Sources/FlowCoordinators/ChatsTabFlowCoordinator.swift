@@ -14,11 +14,8 @@ import SwiftUI
 enum ChatsTabFlowCoordinatorAction {
     case switchToChatsTab
     case showSettings
-    case showChatBackupSettings
     case sessionVerification(SessionVerificationScreenFlow)
-    case showCallScreen(roomProxy: JoinedRoomProxyProtocol, isVoiceCall: Bool)
-    case hideCallScreenOverlay
-    case logout
+    case addAccount
 }
 
 class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
@@ -31,25 +28,20 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
     
     private let stateMachine: ChatsTabFlowCoordinatorStateMachine
     
-    // periphery:ignore - retaining purpose
     private var roomFlowCoordinator: RoomFlowCoordinator?
     // periphery:ignore - retaining purpose
     private var spaceFlowCoordinator: SpaceFlowCoordinator?
     
-    // periphery:ignore - retaining purpose
     private var bugReportFlowCoordinator: BugReportFlowCoordinator?
     // periphery:ignore - retaining purpose
     private var encryptionResetFlowCoordinator: EncryptionResetFlowCoordinator?
     // periphery:ignore - retaining purpose
     private var startChatFlowCoordinator: StartChatFlowCoordinator?
     
-    // periphery:ignore - retaining purpose
-    private var globalSearchScreenCoordinator: GlobalSearchScreenCoordinator?
-    
     private var cancellables = Set<AnyCancellable>()
     
     private let sidebarNavigationStackCoordinator: NavigationStackCoordinator
-
+    
     private let selectedRoomSubject = CurrentValueSubject<String?, Never>(nil)
     
     private let actionsSubject: PassthroughSubject<ChatsTabFlowCoordinatorAction, Never> = .init()
@@ -57,8 +49,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
         actionsSubject.eraseToAnyPublisher()
     }
     
-    init(isNewLogin: Bool,
-         navigationSplitCoordinator: NavigationSplitCoordinator,
+    init(navigationSplitCoordinator: NavigationSplitCoordinator,
          flowParameters: CommonFlowParameters) {
         stateMachine = flowParameters.stateMachineFactory.makeChatsTabFlowStateMachine()
         self.navigationSplitCoordinator = navigationSplitCoordinator
@@ -75,8 +66,6 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
         stateMachine.processEvent(.start)
     }
     
-    func stop() { }
-
     func isDisplayingRoomScreen(withRoomID roomID: String) -> Bool {
         stateMachine.isDisplayingRoomScreen(withRoomID: roomID)
     }
@@ -84,6 +73,8 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
     // MARK: - FlowCoordinatorProtocol
     
     func handleAppRoute(_ appRoute: AppRoute, animated: Bool) {
+        MXLog.info("Handling app route: \(appRoute)")
+        
         Task {
             await asyncHandleAppRoute(appRoute, animated: animated)
         }
@@ -92,7 +83,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
     func clearRoute(animated: Bool) {
         roomFlowCoordinator?.clearRoute(animated: animated)
     }
-
+    
     // MARK: - Private
     
     func asyncHandleAppRoute(_ appRoute: AppRoute, animated: Bool) async {
@@ -170,9 +161,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
             } else {
                 stateMachine.processEvent(.presentTransferOwnershipScreen(roomID: roomID))
             }
-        case .globalSearch:
-            presentGlobalSearch()
-        case .accountProvisioningLink, .invite, .settings, .chatBackupSettings, .call, .genericCallLink:
+        case .authentication, .accountProvisioningLink, .oAuthCallback, .invite, .settings, .chatBackupSettings, .call, .search:
             break // These routes cannot be handled.
         }
     }
@@ -202,7 +191,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
                 handleSelectRoomTransition(roomID: roomID, via: via, entryPoint: entryPoint, detailState: detailState, animated: animated)
             case(.roomList, .deselectRoom, .roomList):
                 dismissRoomFlow(animated: animated)
-            
+                
             case(.roomList, .startSpaceFlow, .roomList):
                 guard let spaceRoomListProxy = userInfo?.spaceRoomListProxy else { fatalError("A space room list proxy is required.") }
                 startSpaceFlow(spaceRoomListProxy: spaceRoomListProxy, animated: animated)
@@ -210,10 +199,11 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
                 dismissSpaceFlow(animated: animated)
                 
             case (.roomList, .feedbackScreen, .feedbackScreen):
-                bugReportFlowCoordinator = BugReportFlowCoordinator(parameters: .init(presentationMode: .sheet(sidebarNavigationStackCoordinator),
-                                                                                      userIndicatorController: flowParameters.userIndicatorController,
+                bugReportFlowCoordinator = BugReportFlowCoordinator(parameters: .init(flow: .userSession(userSession),
+                                                                                      presentationMode: .sheet(sidebarNavigationStackCoordinator),
                                                                                       bugReportService: flowParameters.bugReportService,
-                                                                                      userSession: userSession))
+                                                                                      bugReportHook: userSession.userHooks.bugReportHook,
+                                                                                      userIndicatorController: flowParameters.userIndicatorController))
                 bugReportFlowCoordinator?.actionsPublisher.sink { [weak self] action in
                     switch action {
                     case .complete:
@@ -245,7 +235,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
                 presentRoomDirectorySearch()
             case (.roomDirectorySearchScreen, .dismissedRoomDirectorySearchScreen, .roomList):
                 dismissRoomDirectorySearch()
-            
+                
             case (_, .showUserProfileScreen(let userID), .userProfileScreen):
                 presentUserProfileScreen(userID: userID, animated: animated)
             case (.userProfileScreen, .dismissedUserProfileScreen, .roomList):
@@ -329,7 +319,6 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
                           detached: false,
                           animated: animated)
         }
-        actionsSubject.send(.hideCallScreenOverlay) // Turn any active call into a PiP so that navigation from a notification is visible to the user.
     }
     
     private func setupObservers() {
@@ -341,11 +330,6 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
                 switch action {
                 case .receivedDecryptionError(let info):
                     processDecryptionError(info)
-                case .receivedSyncUpdate:
-                    Task {
-                        let roomSummaries = self.userSession.clientProxy.staticRoomSummaryProvider.roomListPublisher.value
-                        await self.flowParameters.notificationManager.removeDeliveredNotificationsForFullyReadRooms(roomSummaries)
-                    }
                 default:
                     break
                 }
@@ -369,6 +353,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
         case .historicalMessageAndBackupIsDisabled, .historicalMessageAndDeviceIsUnverified: .HistoricalMessage
         case .withheldForUnverifiedOrInsecureDevice: .RoomKeysWithheldForUnverifiedDevice
         case .withheldBySender: .OlmKeysNotSentError
+        case .malformed: .UnknownError // TBC: Should we add an error for this?
         }
         
         flowParameters.analytics.trackError(context: nil,
@@ -384,11 +369,10 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
     
     private func presentHomeScreen() {
         let parameters = HomeScreenCoordinatorParameters(userSession: userSession,
+                                                         availableSessionsPublisher: flowParameters.availableSessionsPublisher,
                                                          bugReportService: flowParameters.bugReportService,
                                                          selectedRoomPublisher: selectedRoomSubject.asCurrentValuePublisher(),
-                                                         appSettings: flowParameters.appSettings,
                                                          analyticsService: flowParameters.analytics,
-                                                         notificationManager: flowParameters.notificationManager,
                                                          userIndicatorController: flowParameters.userIndicatorController)
         let coordinator = HomeScreenCoordinator(parameters: parameters)
         
@@ -416,16 +400,14 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
                     actionsSubject.send(.showSettings)
                 case .presentFeedbackScreen:
                     stateMachine.processEvent(.feedbackScreen)
-                case .presentSecureBackupSettings:
-                    actionsSubject.send(.showChatBackupSettings)
                 case .presentRecoveryKeyScreen:
                     MXLog.info("Ignoring recovery key screen request in Arcana")
                 case .presentEncryptionResetScreen:
                     stateMachine.processEvent(.startEncryptionResetFlow)
                 case .presentStartChatScreen:
                     stateMachine.processEvent(.startStartChatFlow)
-                case .logout:
-                    actionsSubject.send(.logout)
+                case .addAccount:
+                    actionsSubject.send(.addAccount)
                 case .presentDeclineAndBlock(let userID, let roomID):
                     stateMachine.processEvent(.presentDeclineAndBlockScreen(userID: userID, roomID: roomID))
                 case .transferOwnership(let roomIdentifier):
@@ -535,8 +517,6 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
             guard let self else { return }
             
             switch action {
-            case .presentCallScreen(let roomProxy, let isVoiceCall):
-                actionsSubject.send(.showCallScreen(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
             case .verifyUser(let userID):
                 actionsSubject.send(.sessionVerification(.userInitiator(userID: userID)))
             case .continueWithSpaceFlow(let spaceRoomListProxy):
@@ -570,11 +550,11 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
         case .thread(let rootEventID, let focusEventID):
             coordinator.handleAppRoute(.thread(roomID: roomID, threadRootEventID: rootEventID, focusEventID: focusEventID), animated: animated)
         }
-                
+        
         Task {
             let _ = await userSession.clientProxy.trackRecentlyVisitedRoom(roomID)
             
-            await flowParameters.notificationManager.removeDeliveredMessageNotifications(for: roomID)
+            userSession.notificationService.removeDeliveredMessageNotifications(for: roomID)
         }
     }
     
@@ -597,8 +577,6 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
             .sink { [weak self] action in
                 guard let self else { return }
                 switch action {
-                case .presentCallScreen(let roomProxy, let isVoiceCall):
-                    actionsSubject.send(.showCallScreen(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
                 case .verifyUser(let userID):
                     actionsSubject.send(.sessionVerification(.userInitiator(userID: userID)))
                 case .finished:
@@ -635,7 +613,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
                 switch action {
                 case .finished(let result):
                     navigationSplitCoordinator.setSheetCoordinator(nil)
-
+                    
                     switch result {
                     case .room(let roomID):
                         stateMachine.processEvent(.selectRoom(roomID: roomID, via: [], entryPoint: .room))
@@ -668,7 +646,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
                                                                             userIndicatorController: flowParameters.userIndicatorController,
                                                                             isModallyPresented: true)
         
-        let coordinator = SecureBackupRecoveryKeyScreenCoordinator(parameters: parameters)
+        let coordinator = userSession.userHooks.recoveryKeyScreenHook.makeCoordinator(parameters: parameters, isCheckingKey: false)
         coordinator.actions.sink { [weak self] action in
             guard let self else { return }
             switch action {
@@ -688,7 +666,7 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
     private func startEncryptionResetFlow(animated: Bool) {
         let sheetNavigationStackCoordinator = NavigationStackCoordinator()
         let parameters = EncryptionResetFlowCoordinatorParameters(userSession: userSession,
-                                                                  appSettings: flowParameters.appSettings,
+                                                                  appMediator: flowParameters.appMediator,
                                                                   userIndicatorController: flowParameters.userIndicatorController,
                                                                   navigationStackCoordinator: sheetNavigationStackCoordinator,
                                                                   windowManger: flowParameters.windowManager)
@@ -701,6 +679,10 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
                 navigationSplitCoordinator.setSheetCoordinator(nil)
             case .cancel:
                 navigationSplitCoordinator.setSheetCoordinator(nil)
+            case .logoutWithoutConfirmation:
+                // Signing out is only offered when resetting is the user's only option, which can't be the case when started from here.
+                MXLog.error("Unexpected sign out request from the encryption reset flow.")
+                fatalError("The encryption reset flow shouldn't offer signing out when started from the chats tab.")
             }
         }
         .store(in: &cancellables)
@@ -711,45 +693,6 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
         navigationSplitCoordinator.setSheetCoordinator(sheetNavigationStackCoordinator, animated: animated) { [weak self] in
             self?.stateMachine.processEvent(.finishedEncryptionResetFlow)
         }
-    }
-    
-    // MARK: Global search
-    
-    private func presentGlobalSearch() {
-        let roomSummaryProvider = userSession.clientProxy.alternateRoomSummaryProvider
-        
-        let coordinator = GlobalSearchScreenCoordinator(parameters: .init(roomSummaryProvider: roomSummaryProvider,
-                                                                          mediaProvider: userSession.mediaProvider))
-        
-        globalSearchScreenCoordinator = coordinator
-        
-        coordinator.actions
-            .sink { [weak self] action in
-                guard let self else { return }
-                
-                switch action {
-                case .dismiss:
-                    dismissGlobalSearch()
-                case .select(let roomID):
-                    dismissGlobalSearch()
-                    handleAppRoute(.room(roomID: roomID, via: []), animated: true)
-                    actionsSubject.send(.switchToChatsTab)
-                }
-            }
-            .store(in: &cancellables)
-        
-        let hostingController = UIHostingController(rootView: coordinator.toPresentable())
-        hostingController.view.backgroundColor = .clear
-        flowParameters.windowManager.globalSearchWindow.rootViewController = hostingController
-        
-        flowParameters.windowManager.showGlobalSearch()
-    }
-    
-    private func dismissGlobalSearch() {
-        flowParameters.windowManager.globalSearchWindow.rootViewController = nil
-        flowParameters.windowManager.hideGlobalSearch()
-        
-        globalSearchScreenCoordinator = nil
     }
     
     // MARK: Room Directory Search
@@ -790,9 +733,8 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
         let parameters = UserProfileScreenCoordinatorParameters(userID: userID,
                                                                 isPresentedModally: true,
                                                                 userSession: userSession,
-                                                                userIndicatorController: flowParameters.userIndicatorController,
                                                                 analytics: flowParameters.analytics,
-                                                                appSettings: flowParameters.appSettings)
+                                                                userIndicatorController: flowParameters.userIndicatorController)
         let coordinator = UserProfileScreenCoordinator(parameters: parameters)
         coordinator.actionsPublisher.sink { [weak self] action in
             guard let self else { return }
@@ -801,8 +743,6 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
             case .openDirectChat(let roomID):
                 navigationSplitCoordinator.setSheetCoordinator(nil)
                 stateMachine.processEvent(.selectRoom(roomID: roomID, via: [], entryPoint: .room))
-            case .startCall(let roomProxy, let isVoiceCall):
-                actionsSubject.send(.showCallScreen(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
             case .dismiss:
                 navigationSplitCoordinator.setSheetCoordinator(nil)
             }
@@ -881,6 +821,6 @@ class ChatsTabFlowCoordinator: FlowCoordinatorProtocol {
         flowParameters.userIndicatorController.submitIndicator(UserIndicator(id: Self.failureIndicatorIdentifier,
                                                                              type: .toast,
                                                                              title: L10n.errorUnknown,
-                                                                             iconName: "xmark"))
+                                                                             icon: \.close))
     }
 }

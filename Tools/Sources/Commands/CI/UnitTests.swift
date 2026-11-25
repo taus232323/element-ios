@@ -5,14 +5,19 @@ struct UnitTests: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "unit-tests",
                                                     abstract: "Runs the unit test CI workflow: lint, unit tests, preview tests, and result collection.")
     
-    @Option(help: "Device name for unit tests.")
-    var device = "iPhone 17"
-    
-    @Option(help: "iOS version for the simulator.")
-    var osVersion = "26.4.1"
-    
     @Flag(help: "Skip preview tests")
     var skipPreviews = false
+    
+    @Flag(help: "Only run the English preview tests, skipping the Pseudolanguage ones.")
+    var englishOnlyPreviews = false
+    
+    @Flag(help: "Run the unit tests on a saturated CPU to reproduce the flakiness of a busy CI runner.")
+    var constrained = false
+    
+    private static let osVersion = CI.defaultOSVersion
+    // Shares the preview tests' simulator so only one is ever created and booted on the runner.
+    private static let device = "iPhone SE (3rd generation)"
+    private static let simulatorType = "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation"
     
     func run() async throws {
         try await CI.lint()
@@ -22,22 +27,31 @@ struct UnitTests: AsyncParsableCommand {
         // Run unit tests
         do {
             logger.info("\n🧪 Running unit tests…\n")
-            try await RunTests.parse([
+            
+            var arguments = [
                 "--scheme", "UnitTests",
-                "--device", device,
-                "--os-version", osVersion,
+                "--device", Self.device,
+                "--os-version", Self.osVersion,
+                "--create-simulator-name", Self.device,
+                "--create-simulator-type", Self.simulatorType,
                 "--retries", "3"
-            ]).run()
+            ]
+            if constrained {
+                arguments.append("--constrained")
+            }
+            
+            try await RunTests.parse(arguments).run()
         } catch {
-            failures.append("Unit tests failed: \(error)")
+            failures.append("UnitTests")
             logger.error("\n❌ Unit tests failed. \(error)\n")
         }
         
         if !skipPreviews {
             do {
-                try await PreviewTests.parse(["--os-version", osVersion]).run()
+                try await PreviewTests.parse(englishOnlyPreviews ? ["--english-only"] : []).run()
             } catch {
-                failures.append("Preview tests failed: \(error)")
+                failures.append("PreviewTests")
+                logger.error("\n❌ Preview tests failed. \(error)\n")
             }
         }
         
@@ -50,7 +64,9 @@ struct UnitTests: AsyncParsableCommand {
         await CI.collectTestResults(resultBundle: "UnitTests.xcresult", outputName: "unit-junit.xml")
         
         if !failures.isEmpty {
-            logger.error("\n❌ \(failures.count) test suite(s) failed.\n")
+            let failedSuites = "[\(failures.joined(separator: ","))]"
+            logger.error("\n❌ \(failures.count) test suite(s) failed \(failedSuites)\n")
+            CI.annotateError(title: "\(failures.count) test suite(s) failed", "Failing suites: \(failedSuites). Download the artifacts for the xcresult bundles.")
             throw ExitCode.failure
         }
         

@@ -11,141 +11,84 @@ import Combine
 import Foundation
 import Testing
 
+@MainActor
 final class BugReportServiceTests {
-    var appSettings: AppSettings!
     var bugReportService: BugReportServiceProtocol!
     
     init() throws {
-        AppSettings.resetAllSettings()
-        appSettings = AppSettings()
-        appSettings.bugReportRageshakeURL.reset()
-        
-        let bugReportServiceMock = BugReportServiceMock()
-        bugReportServiceMock.underlyingCrashedLastRun = false
-        bugReportServiceMock.submitBugReportProgressListenerReturnValue = .success(SubmitBugReportResponse(reportURL: "https://www.example.com/123"))
-        bugReportService = bugReportServiceMock
+        bugReportService = BugReportServiceMock(.init())
     }
     
-    deinit {
-        appSettings.bugReportRageshakeURL.reset()
-    }
-    
-    @Test
+    @Test("The mock service starts without a crash event")
     func initialStateWithMockService() {
-        #expect(!bugReportService.crashedLastRun)
+        #expect(bugReportService.lastCrashEventIDSubject.value == nil)
     }
     
-    @Test
+    @Test("The mock service returns a report URL")
     func submitBugReportWithMockService() async throws {
-        let bugReport = BugReport(userID: "@mock:client.com",
-                                  deviceID: nil,
-                                  ed25519: nil,
-                                  curve25519: nil,
-                                  text: "i cannot send message",
-                                  logFiles: [URL(filePath: "/logs/1.log"), URL(filePath: "/logs/2.log")],
-                                  canContact: false,
-                                  githubLabels: [],
-                                  files: [])
-        let progressSubject = CurrentValueSubject<Double, Never>(0.0)
-        let response = try await bugReportService.submitBugReport(bugReport, progressListener: progressSubject).get()
+        let response = try await bugReportService.submitBugReport(.mock(logFiles: [URL(filePath: "/logs/1.log"), URL(filePath: "/logs/2.log")]),
+                                                                  flow: .authentication(.volatile()),
+                                                                  progressListener: CurrentValueSubject<Double, Never>(0.0)).get()
         let reportURL = try #require(response.reportURL)
         #expect(!reportURL.isEmpty)
     }
     
-    @Test
-    @MainActor
+    @Test("The real service starts without a crash event")
     func initialStateWithRealService() {
-        let urlPublisher: CurrentValueSubject<RageshakeConfiguration, Never> = .init(.url("https://example.com/submit"))
-        let service = BugReportService(rageshakeURLPublisher: urlPublisher.asCurrentValuePublisher(),
-                                       applicationID: "mock_app_id",
-                                       sdkGitSHA: "1234",
-                                       session: .mock,
-                                       appHooks: AppHooks())
-        #expect(service.isEnabled)
-        #expect(!service.crashedLastRun)
+        let service = makeService()
+        #expect(service.lastCrashEventIDSubject.value == nil)
     }
     
-    @Test
-    func initialStateWithRealServiceAndDisabled() {
-        let urlPublisher: CurrentValueSubject<RageshakeConfiguration, Never> = .init(.disabled)
-        let service = BugReportService(rageshakeURLPublisher: urlPublisher.asCurrentValuePublisher(),
-                                       applicationID: "mock_app_id",
-                                       sdkGitSHA: "1234",
-                                       session: .mock,
-                                       appHooks: AppHooks())
-        #expect(!service.isEnabled)
-        #expect(!service.crashedLastRun)
-    }
-    
-    @Test @MainActor
-    func submitBugReportWithRealService() async throws {
-        let urlPublisher: CurrentValueSubject<RageshakeConfiguration, Never> = .init(.url("https://example.com/submit"))
-        let service = BugReportService(rageshakeURLPublisher: urlPublisher.asCurrentValuePublisher(),
-                                       applicationID: "mock_app_id",
-                                       sdkGitSHA: "1234",
-                                       session: .mock,
-                                       appHooks: AppHooks())
-        
-        let bugReport = BugReport(userID: "@mock:client.com",
-                                  deviceID: nil,
-                                  ed25519: nil,
-                                  curve25519: nil,
-                                  text: "i cannot send message",
-                                  logFiles: Tracing.logFiles,
-                                  canContact: false,
-                                  githubLabels: [],
-                                  files: [])
-        let progressSubject = CurrentValueSubject<Double, Never>(0.0)
-        let response = try await service.submitBugReport(bugReport, progressListener: progressSubject).get()
-        
-        #expect(response.reportURL == "https://example.com/123")
-    }
-    
-    @Test
-    @MainActor
-    func configurations() async throws {
-        guard case let .url(initialURL) = appSettings.bugReportRageshakeURL.publisher.value else {
-            Issue.record("Unexpected initial configuration.")
+    @Test("A report from the authentication start screen is sent to the bundled rageshake server")
+    func submitBugReportForAuthentication() async throws {
+        let service = makeService()
+        let appSettings = AppSettings.volatile()
+        guard case .url(let rageshakeURL) = appSettings.bundledBugReportRageshakeConfiguration else {
+            Issue.record("The bundled rageshake server is missing.")
             return
         }
         
-        let service = BugReportService(rageshakeURLPublisher: appSettings.bugReportRageshakeURL.publisher,
-                                       applicationID: "mock_app_id",
-                                       sdkGitSHA: "1234",
-                                       session: .mock,
-                                       appHooks: AppHooks())
-        #expect(service.isEnabled)
+        let response = try await service.submitBugReport(.mock(), flow: .authentication(appSettings), progressListener: CurrentValueSubject<Double, Never>(0.0)).get()
         
-        appSettings.bugReportRageshakeURL.applyRemoteValue(.disabled)
-        #expect(!service.isEnabled)
+        #expect(response.reportURL == rageshakeURL.deletingLastPathComponent().appending(path: "123").absoluteString)
+    }
+    
+    @Test("A report for a specific user session is sent to the account's rageshake server")
+    func submitBugReportForUserSession() async throws {
+        let service = makeService()
+        let userSession = UserSessionMock(.init())
+        userSession.userSettings.account.bugReportRageshakeConfiguration.applyRemoteValue(.url("https://bugs.server.net/submit"))
         
-        appSettings.bugReportRageshakeURL.applyRemoteValue(.url("https://bugs.server.net/submit"))
-        #expect(service.isEnabled)
+        let response = try await service.submitBugReport(.mock(), flow: .userSession(userSession), progressListener: CurrentValueSubject<Double, Never>(0.0)).get()
         
-        let bugReport = BugReport(userID: "@mock:client.com",
-                                  deviceID: nil,
-                                  ed25519: nil,
-                                  curve25519: nil,
-                                  text: "i cannot send message",
-                                  logFiles: Tracing.logFiles,
-                                  canContact: false,
-                                  githubLabels: [],
-                                  files: [])
-        let progressSubject = CurrentValueSubject<Double, Never>(0.0)
-        let customConfigurationResponse = try await service.submitBugReport(bugReport, progressListener: progressSubject).get()
-        
-        #expect(customConfigurationResponse.reportURL == "https://bugs.server.net/123")
-        
-        appSettings.bugReportRageshakeURL.reset()
-        #expect(service.isEnabled)
-        
-        let defaultConfigurationResponse = try await service.submitBugReport(bugReport, progressListener: progressSubject).get()
-        
-        #expect(defaultConfigurationResponse.reportURL == initialURL.absoluteString.replacingOccurrences(of: "submit", with: "123"))
+        #expect(response.reportURL == "https://bugs.server.net/123")
+    }
+    
+    // MARK: - Helpers
+    
+    private func makeService() -> BugReportService {
+        BugReportService(applicationID: "mock_app_id",
+                         sdkGitSHA: "1234",
+                         session: .mock,
+                         appHooks: AppHooks())
     }
 }
 
-private class MockURLProtocol: URLProtocol {
+private extension BugReport {
+    static func mock(logFiles: [URL] = Tracing.logFiles) -> BugReport {
+        BugReport(userID: "@mock:client.com",
+                  deviceID: nil,
+                  ed25519: nil,
+                  curve25519: nil,
+                  text: "i cannot send message",
+                  logFiles: logFiles,
+                  canContact: false,
+                  githubLabels: [],
+                  files: [])
+    }
+}
+
+private nonisolated class MockURLProtocol: URLProtocol {
     override func startLoading() {
         guard let url = request.url else { return }
         let reportURL = url.deletingLastPathComponent().appending(path: "123")

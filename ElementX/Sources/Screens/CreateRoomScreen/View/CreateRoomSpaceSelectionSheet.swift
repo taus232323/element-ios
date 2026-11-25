@@ -42,10 +42,8 @@ struct CreateRoomSpaceSelectionSheet: View {
                     }
                 }
             }
-            .listStyle(.plain)
             .environment(\.defaultMinListRowHeight, 66)
-            .scrollContentBackground(.hidden)
-            .background(Color.compound.bgCanvasDefault.ignoresSafeArea())
+            .compoundList(.plain)
             .navigationTitle(L10n.screenCreateRoomSpaceSelectionSheetTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -71,13 +69,13 @@ struct CreateRoomSpaceSelectionSheet_Previews: PreviewProvider, TestablePreview 
                                          spaceSelectionMode: .editableSpacesList(preSelectedSpace: nil),
                                          shouldShowCancelButton: false,
                                          userSession: userSession,
-                                         analytics: ServiceLocator.shared.analytics,
-                                         userIndicatorController: UserIndicatorControllerMock(),
-                                         appSettings: ServiceLocator.shared.settings)
+                                         appMediator: AppMediatorMock(.init()),
+                                         analytics: AnalyticsServiceMock(.init()),
+                                         userIndicatorController: UserIndicatorControllerMock())
     }()
     
     static var previews: some View {
         CreateRoomSpaceSelectionSheet(context: viewModel.context)
-            .snapshotPreferences(expect: viewModel.context.$viewState.map { $0.editableSpaces.count > 0 })
+            .snapshotPreferences(expect: viewModel.context.$viewState.map { !$0.editableSpaces.isEmpty })
     }
 }

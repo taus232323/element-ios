@@ -40,11 +40,11 @@ struct LocationShareSheet: View {
 // MARK: - Previews
 
 struct LocationShareSheet_Previews: PreviewProvider {
-    static let profile = UserProfileProxy(userID: "@alice:example.com", displayName: "Alice")
-    static let annotation = LocationAnnotation(id: profile.userID,
+    static let profile = UserProfile(userID: "@alice:example.com", displayName: "Alice")
+    static let annotation = LocationAnnotation(id: profile.id,
                                                coordinate: .init(latitude: 51.509865, longitude: -0.118092),
                                                kind: .liveUser(profile))
-
+    
     static var previews: some View {
         LocationShareSheet(annotation: annotation)
             .previewDisplayName("Live location share sheet")

@@ -16,17 +16,16 @@ class SessionVerificationScreenViewModel: SessionVerificationViewModelType, Sess
     private let flow: SessionVerificationScreenFlow
     
     private var stateMachine: SessionVerificationScreenStateMachine
-
+    
     private var actionsSubject: PassthroughSubject<SessionVerificationScreenViewModelAction, Never> = .init()
     
     var actions: AnyPublisher<SessionVerificationScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
-
+    
     init(sessionVerificationControllerProxy: SessionVerificationControllerProxyProtocol,
          flow: SessionVerificationScreenFlow,
-         appSettings: AppSettings,
-         mediaProvider: MediaProviderProtocol,
+         userSession: UserSessionProtocol,
          verificationState: SessionVerificationScreenStateMachine.State = .initial) {
         self.sessionVerificationControllerProxy = sessionVerificationControllerProxy
         self.flow = flow
@@ -34,9 +33,10 @@ class SessionVerificationScreenViewModel: SessionVerificationViewModelType, Sess
         stateMachine = SessionVerificationScreenStateMachine(state: verificationState)
         
         super.init(initialViewState: .init(flow: flow,
-                                           learnMoreURL: appSettings.encryptionURL,
+                                           learnMoreURL: userSession.userSettings.app.encryptionURL,
+                                           ownProfile: userSession.clientProxy.userProfilePublisher.value,
                                            verificationState: verificationState),
-                   mediaProvider: mediaProvider)
+                   mediaProvider: userSession.mediaProvider)
         
         setupStateMachine()
         
@@ -67,6 +67,11 @@ class SessionVerificationScreenViewModel: SessionVerificationViewModelType, Sess
                     self.stateMachine.processEvent(.didFail)
                 }
             }
+            .store(in: &cancellables)
+        
+        userSession.clientProxy.userProfilePublisher
+            .receive(on: DispatchQueue.main)
+            .weakAssign(to: \.state.ownProfile, on: self)
             .store(in: &cancellables)
         
         switch flow {
@@ -115,7 +120,7 @@ class SessionVerificationScreenViewModel: SessionVerificationViewModelType, Sess
     private func setupStateMachine() {
         stateMachine.addTransitionHandler { [weak self] context in
             guard let self else { return }
-                
+            
             state.verificationState = context.toState
             
             switch (context.fromState, context.event, context.toState) {
@@ -131,7 +136,9 @@ class SessionVerificationScreenViewModel: SessionVerificationViewModelType, Sess
                         self.stateMachine.processEvent(.didFail)
                     }
                 }
-            case (.acceptingVerificationRequest, .didAcceptVerificationRequest, .verificationRequestAccepted):
+            case (.acceptingVerificationRequest, .didAcceptVerificationRequest, .verificationRequestAccepted),
+                 (.requestingVerification, .didAcceptVerificationRequest, .verificationRequestAccepted):
+                // Either side may start the SAS verification, the SDK resolves the conflict if both do.
                 startSasVerification()
             case (.showingChallenge, .acceptChallenge, .acceptingChallenge):
                 acceptChallenge()
@@ -166,7 +173,8 @@ class SessionVerificationScreenViewModel: SessionVerificationViewModelType, Sess
             
             switch await sessionVerificationControllerProxy.acceptVerificationRequest() {
             case .success:
-                stateMachine.processEvent(.didAcceptVerificationRequest)
+                // Need to wait for the callback from the remote
+                break
             case .failure:
                 stateMachine.processEvent(.didFail)
             }

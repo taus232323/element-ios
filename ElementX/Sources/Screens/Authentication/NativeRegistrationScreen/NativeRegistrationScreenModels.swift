@@ -24,7 +24,7 @@ struct NativeRegistrationScreenViewState: BindableState {
     var step: NativeRegistrationScreenStep = .email
     var pendingRegistration: PendingNativeRegistration?
     var bindings = NativeRegistrationScreenBindings()
-
+    
     var hasValidCredentials: Bool {
         switch step {
         case .email:
@@ -37,11 +37,11 @@ struct NativeRegistrationScreenViewState: BindableState {
             false
         }
     }
-
+    
     var canSubmit: Bool {
         hasValidCredentials && !isLoading
     }
-
+    
     var canResendVerificationCode: Bool {
         pendingRegistration != nil && !isLoading
     }

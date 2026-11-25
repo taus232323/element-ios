@@ -8,6 +8,7 @@
 
 import Combine
 import Compound
+import MatrixRustSDKMocks
 import SwiftUI
 
 struct HomeScreenRoomCell: View {
@@ -15,7 +16,6 @@ struct HomeScreenRoomCell: View {
     @Environment(\.redactionReasons) private var redactionReasons
     
     let room: HomeScreenRoom
-    var roomListActivityVisibility: RoomListActivityVisibility = .current
     let isSelected: Bool
     let mediaProvider: MediaProviderProtocol!
     let action: (HomeScreenViewAction) -> Void
@@ -44,7 +44,7 @@ struct HomeScreenRoomCell: View {
         .accessibilityHidden(redactionReasons.contains(.placeholder) ? true : false)
     }
     
-    @ViewBuilder @MainActor
+    @ViewBuilder
     private var avatar: some View {
         if dynamicTypeSize < .accessibility3 {
             RoomAvatarImage(avatar: room.avatar,
@@ -74,28 +74,23 @@ struct HomeScreenRoomCell: View {
     
     private var header: some View {
         HStack(alignment: .top, spacing: 16) {
-            Text(room.name)
-                .font(headerFont)
-                .foregroundColor(.compound.textPrimary)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 4) {
+                Text(room.name)
+                    .lineLimit(1)
+                
+                if let statusEmoji = room.statusEmoji {
+                    Text(String(statusEmoji))
+                }
+            }
+            .font(.compound.bodyLGSemibold)
+            .foregroundColor(.compound.textPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
             
             if let timestamp = room.timestamp {
                 Text(timestamp)
                     .font(room.isHighlighted ? .compound.bodySMSemibold : .compound.bodySM)
                     .foregroundColor(room.isHighlighted ? .compound.textActionAccent : .compound.textSecondary)
             }
-        }
-    }
-    
-    private var headerFont: Font {
-        switch roomListActivityVisibility {
-        case .current:
-            .compound.bodyLGSemibold
-        case .show:
-            room.hasUnreads ? .compound.bodyLGSemibold : .compound.bodyLG
-        case .hide:
-            room.isHighlighted ? .compound.bodyLGSemibold : .compound.bodyLG
         }
     }
     
@@ -140,7 +135,7 @@ struct HomeScreenRoomCell: View {
                     CompoundIcon(\.videoCallSolid, size: .xSmall, relativeTo: .compound.bodySM)
                         .accessibilityLabel(L10n.a11yNotificationsOngoingCall)
                 }
-                 
+                
                 if room.badges.isMuteShown {
                     CompoundIcon(\.notificationsOffSolid, size: .custom(15), relativeTo: .compound.bodyMD)
                         .accessibilityLabel(L10n.a11yNotificationsMuted)
@@ -151,15 +146,20 @@ struct HomeScreenRoomCell: View {
                 }
                 
                 if room.badges.isDotShown {
-                    Circle()
-                        .frame(width: 12, height: 12)
-                        .accessibilityLabel(L10n.a11yNotificationsNewMessages)
+                    if room.isHighlighted, room.badges.notificationCount > 0 {
+                        NotificationCountBadge(count: Int(room.badges.notificationCount))
+                            .accessibilityLabel(L10n.a11yNotificationsNewMessages)
+                    } else {
+                        Circle()
+                            .frame(width: 12, height: 12)
+                            .accessibilityLabel(L10n.a11yNotificationsNewMessages)
+                    }
                 }
             }
-            .foregroundColor(room.isHighlighted ? .compound.iconAccentTertiary : .compound.iconQuaternary)
+            .foregroundColor(room.isHighlighted ? .compound.iconAccentPrimary : .compound.iconQuaternary)
         }
     }
-            
+    
     private var mentionIcon: some View {
         CompoundIcon(\.mention, size: .custom(15), relativeTo: .compound.bodyMD)
             .accessibilityLabel(L10n.a11yNotificationsNewMentions)
@@ -169,19 +169,8 @@ struct HomeScreenRoomCell: View {
     private var lastMessage: some View {
         if let displayedLastMessage = room.displayedLastMessage {
             Text(displayedLastMessage)
-                .font(lastMessageFont)
+                .font(.compound.bodyMD)
                 .lastMessageFormatting(hasFailed: room.lastMessageState == .failed)
-        }
-    }
-    
-    private var lastMessageFont: Font {
-        switch roomListActivityVisibility {
-        case .current:
-            .compound.bodyMD
-        case .show:
-            room.hasUnreads ? .compound.bodyMDSemibold : .compound.bodyMD
-        case .hide:
-            room.isHighlighted ? .compound.bodyMDSemibold : .compound.bodyMD
         }
     }
 }
@@ -207,31 +196,31 @@ private extension View {
 
 // MARK: - Previews
 
-import MatrixRustSDKMocks
-
 struct HomeScreenRoomCell_Previews: PreviewProvider, TestablePreview {
     static let summaryProviderGeneric = RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))
-    static let genericRooms = summaryProviderGeneric.roomListPublisher.value.compactMap(mockRoom)
+    static let genericRooms = summaryProviderGeneric.roomListPublisher.value.compactMap { mockRoom(summary: $0) }
     
     static let summaryProviderForNotificationsState = RoomSummaryProviderMock(.init(state: .loaded(.mockRoomsWithNotificationsState)))
-    static let notificationsStateRooms = summaryProviderForNotificationsState.roomListPublisher.value.compactMap(mockRoom)
+    static let notificationsStateRooms = summaryProviderForNotificationsState.roomListPublisher.value.compactMap { mockRoom(summary: $0) }
     
     static let lastMessageStateRooms = [makeRoom(lastMessageState: .sending), makeRoom(lastMessageState: .failed)]
+    
+    static let roomHeroRooms = [makeRoom(heroes: [.mockDan]), makeRoom(heroes: [.mockErin])]
     
     static var previews: some View {
         VStack(spacing: 0) {
             ForEach(genericRooms) { room in
-                HomeScreenRoomCell(room: room, isSelected: false, mediaProvider: MediaProviderMock(configuration: .init())) { _ in }
+                HomeScreenRoomCell(room: room, isSelected: false, mediaProvider: MediaProviderMock(.init())) { _ in }
             }
             
-            HomeScreenRoomCell(room: .placeholder(), isSelected: false, mediaProvider: MediaProviderMock(configuration: .init())) { _ in }
+            HomeScreenRoomCell(room: .placeholder(), isSelected: false, mediaProvider: MediaProviderMock(.init())) { _ in }
                 .redacted(reason: .placeholder)
         }
         .previewDisplayName("Generic")
         
         VStack(spacing: 0) {
             ForEach(notificationsStateRooms) { room in
-                HomeScreenRoomCell(room: room, isSelected: false, mediaProvider: MediaProviderMock(configuration: .init())) { _ in }
+                HomeScreenRoomCell(room: room, isSelected: false, mediaProvider: MediaProviderMock(.init())) { _ in }
             }
         }
         .previewLayout(.sizeThatFits)
@@ -239,37 +228,41 @@ struct HomeScreenRoomCell_Previews: PreviewProvider, TestablePreview {
         
         VStack(spacing: 0) {
             ForEach(lastMessageStateRooms) { room in
-                HomeScreenRoomCell(room: room, isSelected: false, mediaProvider: MediaProviderMock(configuration: .init())) { _ in }
+                HomeScreenRoomCell(room: room, isSelected: false, mediaProvider: MediaProviderMock(.init())) { _ in }
             }
         }
         .previewLayout(.sizeThatFits)
         .previewDisplayName("Last Message State")
+        
+        VStack(spacing: 0) {
+            ForEach(roomHeroRooms) { room in
+                HomeScreenRoomCell(room: room, isSelected: false, mediaProvider: MediaProviderMock(.init())) { _ in }
+            }
+        }
+        .previewLayout(.sizeThatFits)
+        .previewDisplayName("Room Heroes")
     }
     
     static func mockRoom(summary: RoomSummary) -> HomeScreenRoom? {
         HomeScreenRoom(summary: summary)
     }
     
-    static func makeViewModel(roomSummaryProvider: RoomSummaryProviderProtocol) -> HomeScreenViewModel {
-        let userSession = UserSessionMock(.init(clientProxy: ClientProxyMock(.init(userID: "John Doe", roomSummaryProvider: roomSummaryProvider))))
-
-        return HomeScreenViewModel(userSession: userSession,
-                                   selectedRoomPublisher: CurrentValueSubject<String?, Never>(nil).asCurrentValuePublisher(),
-                                   appSettings: ServiceLocator.shared.settings,
-                                   analyticsService: ServiceLocator.shared.analytics,
-                                   notificationManager: NotificationManagerMock(),
-                                   userIndicatorController: ServiceLocator.shared.userIndicatorController)
-    }
-    
-    static func makeRoom(lastMessageState: RoomSummary.LastMessageState) -> HomeScreenRoom {
+    static func makeRoom(lastMessageState: RoomSummary.LastMessageState? = nil,
+                         heroes: [UserProfile] = []) -> HomeScreenRoom {
+        let name = if heroes.count == 1 {
+            heroes[0].displayName ?? heroes[0].id
+        } else {
+            "Foundation and Empire"
+        }
         let summary = RoomSummary(room: RoomSDKMock(),
                                   id: UUID().uuidString,
                                   joinRequestType: nil,
-                                  name: "Foundation and Empire",
-                                  isDirect: false,
+                                  isJoined: true,
+                                  name: name,
+                                  isDirect: heroes.count == 1,
                                   isSpace: false,
-                                  avatarURL: .mockMXCAvatar,
-                                  heroes: [],
+                                  avatarURL: heroes.count == 1 ? nil : .mockMXCAvatar,
+                                  heroes: heroes,
                                   activeMembersCount: 0,
                                   lastMessage: AttributedString("How do you see the Emperor then? You think he keeps office hours?"),
                                   lastMessageDate: .mock,

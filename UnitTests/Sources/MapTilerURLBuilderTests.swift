@@ -10,6 +10,7 @@
 import CoreLocation
 import Testing
 
+@MainActor
 struct MapTilerURLBuilderTests {
     private static let baseURL: URL = "http://www.foo.com"
     private static let apiKey = "some_key"
@@ -75,5 +76,30 @@ struct MapTilerURLBuilderTests {
         
         let dynamicMapURL = builder.interactiveMapURL(for: .light)
         #expect(dynamicMapURL == nil)
+    }
+    
+    @Test
+    mutating func emptyAPIKey() {
+        // An empty key means the server proxies it for us, so location sharing remains enabled
+        // but the URLs mustn't contain a key.
+        let configuration = MapTilerConfiguration(baseURL: Self.baseURL,
+                                                  apiKey: "",
+                                                  lightStyleID: Self.lightStyleID,
+                                                  darkStyleID: Self.darkStyleID)
+        #expect(configuration.isEnabled)
+        
+        builder = configuration
+        
+        let staticMapURL = builder.staticMapTileImageURL(for: .dark,
+                                                         coordinates: .init(latitude: 1, longitude: 2),
+                                                         zoomLevel: 5,
+                                                         size: .init(width: 300, height: 200),
+                                                         attribution: .topLeft)
+        let expectedStaticMapURL: URL = "http://www.foo.com/dea61faf-292b-4774-9660-58fcef89a7f3/static/2.000000,1.000000,5.000000/300x200@2x.png?attribution=topleft"
+        #expect(staticMapURL == expectedStaticMapURL)
+        
+        let dynamicMapURL = builder.interactiveMapURL(for: .light)
+        let expectedDynamicMapURL: URL = "http://www.foo.com/9bc819c8-e627-474a-a348-ec144fe3d810/style.json"
+        #expect(dynamicMapURL == expectedDynamicMapURL)
     }
 }

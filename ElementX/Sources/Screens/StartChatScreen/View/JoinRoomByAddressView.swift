@@ -12,8 +12,6 @@ import SwiftUI
 struct JoinRoomByAddressView: View {
     @ObservedObject var context: StartChatScreenViewModel.Context
     
-    @Environment(\.dismiss) private var dismiss
-    
     @State private var sheetHeight: CGFloat = .zero
     @FocusState private var textFieldFocus
     private let topPadding: CGFloat = 22
@@ -31,7 +29,7 @@ struct JoinRoomByAddressView: View {
         }
     }
     
-    private var textFieldState: ElementTextFieldStyle.State {
+    private var textFieldState: CompoundTextFieldStyle.State {
         switch context.viewState.joinByAddressState {
         case .addressFound:
             .success
@@ -47,12 +45,13 @@ struct JoinRoomByAddressView: View {
             VStack(spacing: 24) {
                 TextField(L10n.screenStartChatJoinRoomByAddressPlaceholder,
                           text: $context.roomAddress)
-                    .textFieldStyle(.element(labelText: L10n.screenStartChatJoinRoomByAddressAction,
-                                             footerText: footerText,
-                                             state: textFieldState))
+                    .textFieldStyle(.compound(labelText: L10n.screenStartChatJoinRoomByAddressAction,
+                                              footerText: footerText,
+                                              state: textFieldState))
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .textContentType(.URL)
+                    .accessibilityLabel(L10n.screenStartChatJoinRoomByAddressPlaceholder)
                     .focused($textFieldFocus)
                     .onChange(of: context.roomAddress) { _, newValue in
                         context.roomAddress = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -82,11 +81,11 @@ struct JoinRoomByAddressView_Previews: PreviewProvider, TestablePreview {
         let userSession = UserSessionMock(.init(clientProxy: ClientProxyMock(.init(userID: "@userid:example.com"))))
         let userDiscoveryService = UserDiscoveryServiceMock()
         userDiscoveryService.searchProfilesWithReturnValue = .success([.mockAlice])
+        
         return StartChatScreenViewModel(userSession: userSession,
-                                        analytics: ServiceLocator.shared.analytics,
+                                        analytics: AnalyticsServiceMock(.init()),
                                         userIndicatorController: UserIndicatorControllerMock(),
-                                        userDiscoveryService: userDiscoveryService,
-                                        appSettings: ServiceLocator.shared.settings)
+                                        userDiscoveryService: userDiscoveryService)
     }()
     
     static var previews: some View {

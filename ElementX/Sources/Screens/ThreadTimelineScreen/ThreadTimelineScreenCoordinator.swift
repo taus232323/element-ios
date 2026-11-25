@@ -21,8 +21,7 @@ struct ThreadTimelineScreenCoordinatorParameters {
     let linkMetadataProvider: LinkMetadataProviderProtocol
     let completionSuggestionService: CompletionSuggestionServiceProtocol
     let appMediator: AppMediatorProtocol
-    let appSettings: AppSettings
-    let analytics: AnalyticsService
+    let analytics: AnalyticsServiceProtocol
     let composerDraftService: ComposerDraftServiceProtocol
     let timelineControllerFactory: TimelineControllerFactoryProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
@@ -30,33 +29,33 @@ struct ThreadTimelineScreenCoordinatorParameters {
 
 enum ThreadTimelineScreenCoordinatorAction {
     case presentReportContent(itemID: TimelineItemIdentifier, senderID: String)
-    case presentMediaUploadPicker(mode: MediaPickerScreenMode)
-    case presentMediaUploadPreviewScreen(mediaURLs: [URL])
+    case presentMediaUploadPicker(mode: MediaPickerScreenMode, caption: NSAttributedString)
+    case presentMediaUploadPreviewScreen(mediaURLs: [URL], caption: NSAttributedString)
     case presentLocationPicker
     case presentLocationViewer(StaticLocationData)
     case presentLiveLocationViewer(sender: TimelineItemSender, initialLiveLocationShare: LiveLocationShare)
     case presentPollForm(mode: PollFormMode)
-    case presentEmojiPicker(itemID: TimelineItemIdentifier, selectedEmojis: Set<String>)
+    case presentEmojiPicker(selectedEmojis: Set<String>, continuation: EmojiPickerScreenContinuation)
     case presentRoomMemberDetails(userID: String)
-    case presentMessageForwarding(forwardingItem: MessageForwardingItem)
+    case presentMessageForwarding(forwardingPayload: MessageForwardingPayload)
     case presentResolveSendFailure(failure: TimelineItemSendFailure.VerifiedUser, sendHandle: SendHandleProxy)
 }
 
 final class ThreadTimelineScreenCoordinator: CoordinatorProtocol {
-    private let parameters: ThreadTimelineScreenCoordinatorParameters
     private let viewModel: ThreadTimelineScreenViewModelProtocol
     private let timelineViewModel: TimelineViewModelProtocol
     private var composerViewModel: ComposerToolbarViewModelProtocol
+    private let userSettings: UserSettings
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
     private let actionsSubject: PassthroughSubject<ThreadTimelineScreenCoordinatorAction, Never> = .init()
     var actions: AnyPublisher<ThreadTimelineScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
     
     init(parameters: ThreadTimelineScreenCoordinatorParameters) {
-        self.parameters = parameters
+        userSettings = parameters.userSession.userSettings
         
         viewModel = ThreadTimelineScreenViewModel(roomProxy: parameters.roomProxy, userSession: parameters.userSession)
         
@@ -67,7 +66,6 @@ final class ThreadTimelineScreenCoordinator: CoordinatorProtocol {
                                               mediaPlayerProvider: parameters.mediaPlayerProvider,
                                               userIndicatorController: parameters.userIndicatorController,
                                               appMediator: parameters.appMediator,
-                                              appSettings: parameters.appSettings,
                                               analyticsService: parameters.analytics,
                                               emojiProvider: parameters.emojiProvider,
                                               linkMetadataProvider: parameters.linkMetadataProvider,
@@ -84,7 +82,7 @@ final class ThreadTimelineScreenCoordinator: CoordinatorProtocol {
                                                      completionSuggestionService: parameters.completionSuggestionService,
                                                      mediaProvider: parameters.userSession.mediaProvider,
                                                      mentionDisplayHelper: ComposerMentionDisplayHelper(timelineContext: timelineViewModel.context),
-                                                     appSettings: parameters.appSettings,
+                                                     userSettings: parameters.userSession.userSettings,
                                                      analyticsService: parameters.analytics,
                                                      composerDraftService: parameters.composerDraftService)
     }
@@ -94,8 +92,8 @@ final class ThreadTimelineScreenCoordinator: CoordinatorProtocol {
             .sink { [weak self] action in
                 guard let self else { return }
                 switch action {
-                case .displayMessageForwarding(let forwardingItem):
-                    actionsSubject.send(.presentMessageForwarding(forwardingItem: forwardingItem))
+                case .displayMessageForwarding(let forwardingPayload):
+                    actionsSubject.send(.presentMessageForwarding(forwardingPayload: forwardingPayload))
                 }
             }
             .store(in: &cancellables)
@@ -103,18 +101,21 @@ final class ThreadTimelineScreenCoordinator: CoordinatorProtocol {
         timelineViewModel.actions
             .sink { [weak self] action in
                 guard let self else { return }
-
+                
                 switch action {
-                case .displayEmojiPicker(let itemID, let selectedEmojis):
-                    actionsSubject.send(.presentEmojiPicker(itemID: itemID, selectedEmojis: selectedEmojis))
+                case .displayEmojiPicker(let selectedEmojis, let continuation):
+                    actionsSubject.send(.presentEmojiPicker(selectedEmojis: selectedEmojis, continuation: continuation))
                 case .displayReportContent(let itemID, let senderID):
                     actionsSubject.send(.presentReportContent(itemID: itemID, senderID: senderID))
                 case .displayCameraPicker:
-                    actionsSubject.send(.presentMediaUploadPicker(mode: .init(source: .camera, selectionType: .multiple)))
+                    actionsSubject.send(.presentMediaUploadPicker(mode: .init(source: .camera, selectionType: .multiple(galleryEnabled: userSettings.app.galleryEnabled)),
+                                                                  caption: composerViewModel.context.plainComposerText))
                 case .displayMediaPicker:
-                    actionsSubject.send(.presentMediaUploadPicker(mode: .init(source: .photoLibrary, selectionType: .multiple)))
+                    actionsSubject.send(.presentMediaUploadPicker(mode: .init(source: .photoLibrary, selectionType: .multiple(galleryEnabled: userSettings.app.galleryEnabled)),
+                                                                  caption: composerViewModel.context.plainComposerText))
                 case .displayDocumentPicker:
-                    actionsSubject.send(.presentMediaUploadPicker(mode: .init(source: .documents, selectionType: .multiple)))
+                    actionsSubject.send(.presentMediaUploadPicker(mode: .init(source: .documents(), selectionType: .multiple(galleryEnabled: userSettings.app.galleryEnabled)),
+                                                                  caption: composerViewModel.context.plainComposerText))
                 case .displayMediaPreview(let mediaPreviewViewModel):
                     viewModel.displayMediaPreview(mediaPreviewViewModel)
                 case .displayLocationPicker:
@@ -123,14 +124,17 @@ final class ThreadTimelineScreenCoordinator: CoordinatorProtocol {
                     actionsSubject.send(.presentLocationViewer(location))
                 case .displayLiveLocation(let sender, let initialLiveLocationShare):
                     actionsSubject.send(.presentLiveLocationViewer(sender: sender, initialLiveLocationShare: initialLiveLocationShare))
-                case .displayPollForm(let mode):
-                    actionsSubject.send(.presentPollForm(mode: mode))
+                case .displayNewPollForm:
+                    actionsSubject.send(.presentPollForm(mode: .new(topic: composerViewModel.context.plainComposerText.string)))
+                case .displayEditPollForm(let eventID, let poll):
+                    actionsSubject.send(.presentPollForm(mode: .edit(eventID: eventID, poll: poll)))
                 case .displayMediaUploadPreviewScreen(let mediaURLs):
-                    actionsSubject.send(.presentMediaUploadPreviewScreen(mediaURLs: mediaURLs))
+                    actionsSubject.send(.presentMediaUploadPreviewScreen(mediaURLs: mediaURLs,
+                                                                         caption: composerViewModel.context.plainComposerText))
                 case .displaySenderDetails(userID: let userID):
                     actionsSubject.send(.presentRoomMemberDetails(userID: userID))
-                case .displayMessageForwarding(let forwardingItem):
-                    actionsSubject.send(.presentMessageForwarding(forwardingItem: forwardingItem))
+                case .displayMessageForwarding(let forwardingPayload):
+                    actionsSubject.send(.presentMessageForwarding(forwardingPayload: forwardingPayload))
                 case .displayResolveSendFailure(let failure, let sendHandle):
                     actionsSubject.send(.presentResolveSendFailure(failure: failure,
                                                                    sendHandle: sendHandle))
@@ -147,7 +151,7 @@ final class ThreadTimelineScreenCoordinator: CoordinatorProtocol {
         composerViewModel.actions
             .sink { [weak self] action in
                 guard let self else { return }
-
+                
                 timelineViewModel.process(composerAction: action)
             }
             .store(in: &cancellables)
@@ -161,7 +165,7 @@ final class ThreadTimelineScreenCoordinator: CoordinatorProtocol {
         composerViewModel.stop()
         viewModel.stop()
     }
-        
+    
     func toPresentable() -> AnyView {
         let composerToolbar = ComposerToolbar(context: composerViewModel.context)
         
@@ -172,5 +176,9 @@ final class ThreadTimelineScreenCoordinator: CoordinatorProtocol {
     
     func focusOnEvent(eventID: String) {
         Task { await timelineViewModel.focusOnEvent(eventID: eventID) }
+    }
+    
+    func clearMessageSelection() {
+        timelineViewModel.clearMessageSelection()
     }
 }

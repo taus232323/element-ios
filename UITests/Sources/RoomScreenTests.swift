@@ -6,16 +6,17 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+import SnapshotTesting
 import XCTest
 
 @MainActor
 class RoomScreenUITests: XCTestCase {
     func testPlainNoAvatar() async throws {
         let app = Application.launch(.roomPlainNoAvatar)
-
+        
         XCTAssert(app.buttons[A11yIdentifiers.roomScreen.name].exists)
         XCTAssert(app.buttons[A11yIdentifiers.roomScreen.avatar].exists)
-
+        
         try await app.assertScreenshot()
     }
     
@@ -37,7 +38,7 @@ class RoomScreenUITests: XCTestCase {
         // When a back pagination occurs and an incoming message arrives.
         try await performOperation(.incomingMessage, using: client)
         try await performOperation(.paginate, using: client)
-
+        
         // Then the 4 visible messages should stay aligned to the bottom.
         try await app.assertScreenshot()
     }
@@ -52,7 +53,7 @@ class RoomScreenUITests: XCTestCase {
         
         // When a large back pagination occurs.
         try await performOperation(.paginate, using: client)
-
+        
         // The bottom of the timeline should remain visible with more items added above.
         try await app.assertScreenshot()
     }
@@ -69,15 +70,16 @@ class RoomScreenUITests: XCTestCase {
         for _ in 0...5 {
             app.swipeDown()
         }
-        try await app.assertScreenshot() // Assert initial state for comparison.
+        let initialScreenshot = try await app.assertScreenshot(step: 0) // Assert initial state for comparison.
         
         // When a back pagination occurs.
         try await performOperation(.paginate, using: client)
-
+        
         // Then the bottom of the timeline should remain unchanged (with new items having been added above).
-        try await app.assertScreenshot()
+        let paginatedScreenshot = try await app.assertScreenshot(step: 1)
+        assertBottomHalvesMatch(initialScreenshot, paginatedScreenshot)
     }
-
+    
     func testTimelineLayoutAtBottom() async throws {
         let client = try UITestsSignalling.Client(mode: .tests)
         
@@ -126,42 +128,55 @@ class RoomScreenUITests: XCTestCase {
         // Then the item should also be highlighted and scrolled to in the same state as before.
         try await app.assertScreenshot()
     }
-
+    
     func testTimelineReadReceipts() async throws {
         let app = Application.launch(.roomSmallTimelineWithReadReceipts)
-
+        
         // The messages should be bottom aligned.
         try await app.assertScreenshot()
     }
-
+    
     func testTimelineDisclosedPolls() async throws {
         let app = Application.launch(.roomWithDisclosedPolls)
-
+        
         try await app.assertScreenshot()
     }
-
+    
     func testTimelineUndisclosedPolls() async throws {
         let app = Application.launch(.roomWithUndisclosedPolls)
-
+        
         try await app.assertScreenshot()
     }
-
+    
     func testTimelineOutgoingPolls() async throws {
         let app = Application.launch(.roomWithOutgoingPolls)
-
+        
         try await app.assertScreenshot()
     }
-
+    
     // MARK: - Helper Methods
     
     private func performOperation(_ operation: UITestsSignal.Timeline, using client: UITestsSignalling.Client) async throws {
         try client.send(.timeline(operation))
-        await _ = client.signals.values.first { $0 == .success }
+        // The type is not sendable so we can't use the first function directly on the values.
+        // So we need to make an async iterator which allows us to await a value on the same isolation context.
+        var iterator = client.signals.values.makeAsyncIterator()
+        while let signal = await iterator.next(isolation: #isolation), signal != .success { }
         try await Task.sleep(for: .seconds(2)) // Allow the timeline to update
     }
     
     private func tapMessageComposer(in app: XCUIApplication) async throws {
         app.textViews.element.tap()
         try await Task.sleep(for: .seconds(10)) // Allow the animations to complete
+    }
+    
+    /// Fails the test if the bottom halves of two screenshots differ, using the same tolerance as the snapshots.
+    private func assertBottomHalvesMatch(_ first: UIImage, _ second: UIImage) {
+        let topHalfInsets = UIEdgeInsets(top: first.size.height / 2, left: 0, bottom: 0, right: 0)
+        let diffing = Diffing<UIImage>.image(precision: 0.99, perceptualPrecision: 0.98)
+        guard let difference = diffing.diffV2(first.inset(by: topHalfInsets), second.inset(by: topHalfInsets)) else { return }
+        
+        let (message, _) = difference
+        XCTFail("The bottom of the timeline moved: \(message)")
     }
 }

@@ -9,7 +9,7 @@
 import Combine
 import Foundation
 
-enum SecureBackupRecoveryState {
+nonisolated enum SecureBackupRecoveryState {
     case unknown
     case disabled
     case enabled
@@ -19,7 +19,7 @@ enum SecureBackupRecoveryState {
     case settingUp
 }
 
-enum SecureBackupKeyBackupState {
+nonisolated enum SecureBackupKeyBackupState {
     /// Any state where backups couldn't have been enabled but we didn't explicitly disable them on this client.
     /// For all intents and purposes, within the client, this can be treated as `disabled`.
     case unknown
@@ -41,8 +41,9 @@ enum SecureBackupControllerError: Error {
     case failedDisablingBackup
     
     case failedGeneratingRecoveryKey
+    case failedActivatingRecoveryKey
     case failedConfirmingRecoveryKey
-        
+    
     case failedUploadingForBackup
 }
 
@@ -55,8 +56,16 @@ protocol SecureBackupControllerProtocol {
     func enable() async -> Result<Void, SecureBackupControllerError>
     func disable() async -> Result<Void, SecureBackupControllerError>
     
-    func generateRecoveryKey() async -> Result<String, SecureBackupControllerError>
+    /// Generates a new recovery key without activating it, so it can be shown to the user first.
+    func generateRecoveryKey() -> String
+    /// Makes the most recently generated recovery key the active one.
+    func activateRecoveryKey() async -> Result<Void, SecureBackupControllerError>
+    /// Generates a recovery key (from the passphrase if given) and activates it straight away.
+    func generateRecoveryKey(withPassphrase passphrase: String?) async -> Result<String, SecureBackupControllerError>
     func confirmRecoveryKey(_ key: String) async -> Result<Void, SecureBackupControllerError>
+    
+    /// Checks that the key unlocks the key storage, without otherwise changing the backup the way `confirmRecoveryKey` does.
+    func checkRecoveryKey(_ key: String) async -> Result<Void, SecureBackupControllerError>
     
     func waitForKeyBackupUpload(uploadStateSubject: CurrentValueSubject<SecureBackupSteadyState, Never>) async -> Result<Void, SecureBackupControllerError>
 }

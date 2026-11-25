@@ -12,27 +12,25 @@ import Combine
 import SwiftUI
 import Testing
 
-@MainActor
 struct PreviewTests {
     private struct SnapshotDevice {
         let name: String
         let device: String
     }
     
-    private let deviceConfig: ViewImageConfig = .iPhoneX
     private let simulatorDevice: String? = "iPhone14,6" // iPhone SE 3rd Generation
-    private let requiredOSVersion = (major: 26, minor: 4)
+    private let requiredOSVersion = (major: 27, minor: 2)
     /// The key is the name we will give to the snapshot
     /// The value is the actual device that will be used to render the preview
     private let snapshotDevices: [SnapshotDevice] = [.init(name: "iPhone", device: "iPhone 17"),
                                                      .init(name: "iPad", device: "iPad")]
     private var recordMode: SnapshotTestingConfiguration.Record = .missing
-
+    
     init() {
         if ProcessInfo().environment["RECORD_FAILURES"].map(Bool.init) == true {
             recordMode = .failed
         }
-
+        
         checkEnvironments()
         UIView.setAnimationsEnabled(false)
     }
@@ -45,7 +43,7 @@ struct PreviewTests {
                 fatalError("\(deviceModel ?? "Unknown") is the wrong one. Switch to using \(simulatorDevice) for these tests.")
             }
         }
-
+        
         let osVersion = ProcessInfo().operatingSystemVersion
         guard osVersion.majorVersion == requiredOSVersion.major, osVersion.minorVersion == requiredOSVersion.minor else {
             fatalError("Switch to iOS \(requiredOSVersion) for these tests.")
@@ -56,7 +54,7 @@ struct PreviewTests {
     }
     
     // MARK: - Snapshots
-
+    
     func assertSnapshots(matching preview: _Preview,
                          step: Int,
                          testName: String = #function,
@@ -124,15 +122,15 @@ struct PreviewTests {
         }
         return languageCode + "-" + regionCode
     }
-
+    
     private var languageCode: String {
         Locale.current.language.languageCode?.identifier ?? ""
     }
-
+    
     private var regionCode: String {
         Locale.current.language.region?.identifier ?? ""
     }
-
+    
     private func assertSnapshots(matching view: AnyView,
                                  name: String?,
                                  isScreen: Bool,
@@ -193,7 +191,7 @@ private extension Snapshotting where Value: SwiftUI.View, Format == UIImage {
                              layout: SwiftUISnapshotLayout = .sizeThatFits,
                              traits: UITraitCollection = .init()) -> Snapshotting {
         let config: ViewImageConfig
-
+        
         switch layout {
         #if os(iOS) || os(tvOS)
         case let .device(config: deviceConfig):
@@ -207,30 +205,74 @@ private extension Snapshotting where Value: SwiftUI.View, Format == UIImage {
             // Make sure to use the workaround safe area insets.
             config = .init(safeArea: .one, size: size, traits: traits)
         }
-
+        
         return SimplySnapshotting<UIImage>(pathExtension: "png", diffing: .prefireImage(preferences: preferences, scale: traits.displayScale))
             .asyncPullback { view in
                 var config = config
-
+                
                 let controller: UIViewController
-
+                
                 if config.size != nil {
                     controller = UIHostingController(rootView: view)
                 } else {
                     let hostingController = UIHostingController(rootView: view)
-
+                    // iOS 27 applies the window's safe area when rendering, which sizeThatFits ignores, clipping the content.
+                    hostingController.safeAreaRegions = []
+                    
                     let maxSize = CGSize.zero
                     config.size = hostingController.sizeThatFits(in: maxSize)
-
+                    
                     controller = hostingController
                 }
+                
+                let sceneAttachingController = SceneAttachingViewController(child: controller)
                 
                 return snapshotView(config: config,
                                     drawHierarchyInKeyWindow: drawHierarchyInKeyWindow,
                                     traits: traits,
-                                    view: controller.view,
-                                    viewController: controller)
+                                    view: sceneAttachingController.view,
+                                    viewController: sceneAttachingController)
             }
+    }
+}
+
+/// Temporary workaround: swift-snapshot-testing doesn't manage which scene its render window belongs to, and on iOS 27 a
+/// navigation stack in a window without a scene reserves space for a large title it never shows. Drop this once
+/// swift-snapshot-testing handles its window's scene.
+private final class SceneAttachingViewController: UIViewController {
+    private let child: UIViewController
+    
+    init(child: UIViewController) {
+        self.child = child
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func loadView() {
+        view = SceneAttachingView()
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        addChild(child)
+        child.view.frame = view.bounds
+        child.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(child.view)
+        child.didMove(toParent: self)
+    }
+}
+
+private final class SceneAttachingView: UIView {
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        
+        guard let window, window.windowScene == nil else { return }
+        window.windowScene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
     }
 }
 

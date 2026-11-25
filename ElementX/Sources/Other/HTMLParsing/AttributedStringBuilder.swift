@@ -10,9 +10,10 @@ import Compound
 import LRUCache
 import MatrixRustSDK
 import SwiftSoup
+import Synchronization
 import UIKit
 
-protocol MentionBuilderProtocol {
+nonisolated protocol MentionBuilderProtocol: Sendable {
     func handleUserMention(for attributedString: NSMutableAttributedString, in range: NSRange, url: URL, userID: String, userDisplayName: String?)
     func handleRoomIDMention(for attributedString: NSMutableAttributedString, in range: NSRange, url: URL, roomID: String)
     func handleRoomAliasMention(for attributedString: NSMutableAttributedString, in range: NSRange, url: URL, roomAlias: String, roomDisplayName: String?)
@@ -21,8 +22,9 @@ protocol MentionBuilderProtocol {
     func handleAllUsersMention(for attributedString: NSMutableAttributedString, in range: NSRange)
 }
 
-extension NSAttributedString.Key {
+nonisolated extension NSAttributedString.Key {
     static let MatrixBlockquote: NSAttributedString.Key = .init(rawValue: BlockquoteAttribute.name)
+    static let MatrixDetails: NSAttributedString.Key = .init(rawValue: DetailsAttribute.name)
     static let MatrixUserID: NSAttributedString.Key = .init(rawValue: UserIDAttribute.name)
     static let MatrixUserDisplayName: NSAttributedString.Key = .init(rawValue: UserDisplayNameAttribute.name)
     static let MatrixRoomDisplayName: NSAttributedString.Key = .init(rawValue: RoomDisplayNameAttribute.name)
@@ -33,27 +35,34 @@ extension NSAttributedString.Key {
     static let MatrixAllUsersMention: NSAttributedString.Key = .init(rawValue: AllUsersMentionAttribute.name)
     static let CodeBlock: NSAttributedString.Key = .init(rawValue: CodeBlockAttribute.name)
     static let InlineCode: NSAttributedString.Key = .init(rawValue: InlineCodeAttribute.name)
+    static let MatrixEmoticon: NSAttributedString.Key = .init(rawValue: EmoticonAttribute.name)
 }
 
-struct AttributedStringBuilder: AttributedStringBuilderProtocol {
+nonisolated struct AttributedStringBuilder: AttributedStringBuilderProtocol {
     private static let defaultKey = "default"
     
     private let cacheKey: String
     private let mentionBuilder: MentionBuilderProtocol
+    /// Whether custom emoticons are rendered as images, which requires a text view that supports
+    /// attachments. When `false` they are shown using their fallback text instead (e.g. `:wave:`).
+    private let rendersEmoticonsAsImages: Bool
     
     private static let attributeMSC4286 = "msc4286-external-payment-details"
-    private static let cacheDispatchQueue = DispatchQueue(label: "io.element.elementx.attributed_string_builder_v2_cache")
-    private static var caches: [String: LRUCache<String, AttributedString>] = [:]
-
+    /// Tags whose content already ends in a newline.
+    private static let lineTerminatingTags: Set = ["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "ul", "ol", "li"]
+    private static let caches = Mutex<[String: LRUCache<String, AttributedString>]>([:])
+    
     static func invalidateCaches() {
-        caches.removeAll()
+        caches.withLock { $0.removeAll() }
     }
     
-    init(cacheKey: String = defaultKey, mentionBuilder: MentionBuilderProtocol) {
-        self.cacheKey = cacheKey
+    init(cacheKey: String = defaultKey, mentionBuilder: MentionBuilderProtocol, rendersEmoticonsAsImages: Bool = true) {
+        // Emoticons are baked into the cached strings so builders that differ only by this flag mustn't share them.
+        self.cacheKey = rendersEmoticonsAsImages ? cacheKey : "\(cacheKey)-plainEmoticons"
         self.mentionBuilder = mentionBuilder
+        self.rendersEmoticonsAsImages = rendersEmoticonsAsImages
     }
-        
+    
     func fromPlain(_ string: String?) -> AttributedString? {
         guard let string else {
             return nil
@@ -62,7 +71,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         if let cached = Self.cachedValue(forKey: string, cacheKey: cacheKey) {
             return cached
         }
-
+        
         let mutableAttributedString = NSMutableAttributedString(string: string)
         addLinksAndMentions(mutableAttributedString)
         addMatrixEntityPermalinkAttributesTo(mutableAttributedString)
@@ -72,7 +81,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         
         return result
     }
-        
+    
     /// Do not use the default HTML renderer of NSAttributedString because this method
     /// runs on the UI thread which we want to avoid because renderHTMLString is called
     /// most of the time from a background thread.
@@ -84,7 +93,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         if let cached = Self.cachedValue(forKey: originalHTMLString, cacheKey: cacheKey) {
             return cached
         }
-                
+        
         let htmlString = originalHTMLString.replacingHtmlBreaksOccurrences()
         
         let doc = try? SwiftSoup.parseBodyFragment(htmlString)
@@ -99,13 +108,14 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         addLinksAndMentions(mutableAttributedString)
         addMatrixEntityPermalinkAttributesTo(mutableAttributedString)
         removeParsingArtefacts(mutableAttributedString)
+        addEmoticons(mutableAttributedString)
         
         let result = try? AttributedString(mutableAttributedString, including: \.elementX)
         Self.cacheValue(result, forKey: originalHTMLString, cacheKey: cacheKey)
         
         return result
     }
-        
+    
     // MARK: - Private
     
     // swiftlint:disable:next function_body_length cyclomatic_complexity
@@ -119,6 +129,14 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         
         for node in element.getChildNodes() {
             if let textNode = node as? TextNode {
+                // Markdown generated HTML separates block elements and list items with newlines.
+                // SwiftSoup normalises those whitespace only nodes into stray spaces which misindent
+                // the following line, whereas HTML rendering collapses them away entirely.
+                if !preserveFormatting, textNode.isBlank(),
+                   Self.isLineTerminating(node.previousSibling()) || Self.isLineTerminating(node.nextSibling()) {
+                    continue
+                }
+                
                 // If this node is plain text append the whitespace normalised version
                 if node.parent() == documentBody {
                     result.append(NSAttributedString(string: textNode.text()))
@@ -133,7 +151,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
                 if (node.previousSibling() as? Element)?.tagName() == "br" {
                     text.trimPrefix(" ")
                 }
-                 
+                
                 result.append(NSAttributedString(string: text))
                 continue
             }
@@ -155,7 +173,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
                 content = attributedString(element: childElement, documentBody: documentBody, preserveFormatting: preserveFormatting, listTag: listTag, listIndex: &childIndex, indentLevel: indentLevel)
                 content.append(NSAttributedString(string: "\n"))
                 content.setFontPreservingSymbolicTraits(UIFont.boldSystemFont(ofSize: size))
-
+                
             case "p", "div":
                 content = attributedString(element: childElement, documentBody: documentBody, preserveFormatting: preserveFormatting, listTag: listTag, listIndex: &childIndex, indentLevel: indentLevel)
                 content.append(NSAttributedString(string: "\n"))
@@ -175,7 +193,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
                 content = attributedString(element: childElement, documentBody: documentBody, preserveFormatting: preserveFormatting, listTag: listTag, listIndex: &childIndex, indentLevel: indentLevel)
                 content.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: NSRange(location: 0, length: content.length))
                 
-            case "s", "del":
+            case "s", "del", "strike":
                 content = attributedString(element: childElement, documentBody: documentBody, preserveFormatting: preserveFormatting, listTag: listTag, listIndex: &childIndex, indentLevel: indentLevel)
                 content.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: NSRange(location: 0, length: content.length))
                 
@@ -192,6 +210,22 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
             case "blockquote":
                 content = attributedString(element: childElement, documentBody: documentBody, preserveFormatting: preserveFormatting, listTag: listTag, listIndex: &childIndex, indentLevel: indentLevel)
                 content.addAttribute(.MatrixBlockquote, value: true, range: NSRange(location: 0, length: content.length))
+                
+            case "details":
+                // Pull the summary out of the tree so that it isn't rendered inline with the content,
+                // it is used as the title of the collapsed component instead.
+                let summaryElement = childElement.getChildNodes()
+                    .lazy
+                    .compactMap { $0 as? Element }
+                    .first { $0.tagName().lowercased() == "summary" }
+                let summary = summaryElement.flatMap { try? $0.text() } ?? ""
+                try? summaryElement?.remove()
+                
+                content = attributedString(element: childElement, documentBody: documentBody, preserveFormatting: preserveFormatting, listTag: listTag, listIndex: &childIndex, indentLevel: indentLevel)
+                
+                // Browsers fall back to a default title when the summary is missing, match them.
+                let title = summary.isEmpty ? L10n.a11yViewDetails : summary
+                content.addAttribute(.MatrixDetails, value: title, range: NSRange(location: 0, length: content.length))
                 
             case "code", "pre":
                 let isCodeBlock = tag == "pre"
@@ -245,7 +279,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
                 if indentLevel > 0 || !element.ownText().isEmpty {
                     content.insert(NSAttributedString("\n"), at: 0)
                 }
-
+                
             case "li":
                 var bullet = String(repeating: "  ", count: indentLevel)
                 if listTag == "ol" {
@@ -262,10 +296,14 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
                 }
                 
             case "img":
-                if let alt = try? childElement.attr("alt"), !alt.isEmpty {
-                    content = NSMutableAttributedString(string: "[img: \(alt)]")
+                let alt = (try? childElement.attr("alt")).flatMap { $0.isEmpty ? nil : $0 }
+                if childElement.hasAttr("data-mx-emoticon"),
+                   let source = try? childElement.attr("src"),
+                   source.hasPrefix("mxc://"),
+                   let url = URL(string: source) {
+                    content = NSMutableAttributedString(string: alt ?? "[img]", attributes: [.MatrixEmoticon: EmoticonAttribute.Value(url: url)])
                 } else {
-                    content = NSMutableAttributedString(string: "[img]")
+                    content = NSMutableAttributedString(string: alt.map { "[img: \($0)]" } ?? "[img]")
                 }
                 
             default:
@@ -278,8 +316,16 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         return result
     }
     
+    private static func isLineTerminating(_ node: Node?) -> Bool {
+        guard let element = node as? Element else {
+            return false
+        }
+        
+        return lineTerminatingTags.contains(element.tagName().lowercased())
+    }
+    
     private static func cacheValue(_ value: AttributedString?, forKey key: String, cacheKey: String) {
-        cacheDispatchQueue.sync {
+        caches.withLock { caches in
             if caches[cacheKey] == nil {
                 caches[cacheKey] = LRUCache<String, AttributedString>(countLimit: 1000)
             }
@@ -289,12 +335,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
     }
     
     private static func cachedValue(forKey key: String, cacheKey: String) -> AttributedString? {
-        var result: AttributedString?
-        cacheDispatchQueue.sync {
-            result = caches[cacheKey]?.value(forKey: key)
-        }
-        
-        return result
+        caches.withLock { $0[cacheKey]?.value(forKey: key) }
     }
     
     // swiftlint:disable:next cyclomatic_complexity
@@ -310,7 +351,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
             }
             
             let identifier = String(string[matchRange])
-
+            
             return TextParsingMatch(type: .userID(identifier: identifier), range: match.range)
         }
         
@@ -352,7 +393,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
             TextParsingMatch(type: .atRoom, range: match.range)
         })
         
-        guard matches.count > 0 else {
+        guard !matches.isEmpty else {
             return
         }
         
@@ -376,7 +417,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
             if hasLink {
                 return
             }
-                        
+            
             switch match.type {
             case .atRoom:
                 attributedString.addAttribute(.MatrixAllUsersMention, value: true, range: match.range)
@@ -399,21 +440,20 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
     
     func addMatrixEntityPermalinkAttributesTo(_ attributedString: NSMutableAttributedString) {
         attributedString.enumerateAttribute(.link, in: .init(location: 0, length: attributedString.length), options: []) { value, range, _ in
-            if value != nil {
-                if let url = value as? URL,
-                   let matrixEntity = parseMatrixEntityFrom(uri: url.absoluteString) {
-                    switch matrixEntity.id {
-                    case .user(let userID):
-                        mentionBuilder.handleUserMention(for: attributedString, in: range, url: url, userID: userID, userDisplayName: nil)
-                    case .room(let roomID):
-                        mentionBuilder.handleRoomIDMention(for: attributedString, in: range, url: url, roomID: roomID)
-                    case .roomAlias(let alias):
-                        mentionBuilder.handleRoomAliasMention(for: attributedString, in: range, url: url, roomAlias: alias, roomDisplayName: nil)
-                    case .eventOnRoomId(let roomID, let eventID):
-                        mentionBuilder.handleEventOnRoomIDMention(for: attributedString, in: range, url: url, eventID: eventID, roomID: roomID)
-                    case .eventOnRoomAlias(let alias, let eventID):
-                        mentionBuilder.handleEventOnRoomAliasMention(for: attributedString, in: range, url: url, eventID: eventID, roomAlias: alias)
-                    }
+            if value != nil,
+               let url = value as? URL,
+               let matrixEntity = parseMatrixEntityFrom(uri: url.absoluteString) {
+                switch matrixEntity.id {
+                case .user(let userID):
+                    mentionBuilder.handleUserMention(for: attributedString, in: range, url: url, userID: userID, userDisplayName: nil)
+                case .room(let roomID):
+                    mentionBuilder.handleRoomIDMention(for: attributedString, in: range, url: url, roomID: roomID)
+                case .roomAlias(let alias):
+                    mentionBuilder.handleRoomAliasMention(for: attributedString, in: range, url: url, roomAlias: alias, roomDisplayName: nil)
+                case .eventOnRoomId(let roomID, let eventID):
+                    mentionBuilder.handleEventOnRoomIDMention(for: attributedString, in: range, url: url, eventID: eventID, roomID: roomID)
+                case .eventOnRoomAlias(let alias, let eventID):
+                    mentionBuilder.handleEventOnRoomAliasMention(for: attributedString, in: range, url: url, eventID: eventID, roomAlias: alias)
                 }
             }
         }
@@ -425,7 +465,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
             }
         }
     }
-        
+    
     private func detectPhishingAttempts(_ attributedString: NSMutableAttributedString) {
         attributedString.enumerateAttribute(.link, in: .init(location: 0, length: attributedString.length), options: []) { value, range, _ in
             guard value != nil, let internalURL = value as? URL else {
@@ -460,6 +500,27 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
         attributedString.addAttribute(.link, value: finalURL, range: range)
     }
     
+    /// Replaces the fallback text of custom emoticons with image attachments.
+    ///
+    /// Must be called after the fonts are applied, as the images are sized to match the surrounding text.
+    private func addEmoticons(_ attributedString: NSMutableAttributedString) {
+        attributedString.enumerateAttribute(.MatrixEmoticon,
+                                            in: NSRange(location: 0, length: attributedString.length),
+                                            options: .reverse) { value, range, _ in
+            guard let emoticon = value as? EmoticonAttribute.Value else { return }
+            attributedString.removeAttribute(.MatrixEmoticon, range: range)
+            
+            guard rendersEmoticonsAsImages else { return }
+            
+            let attributes = attributedString.attributes(at: range.location, effectiveRange: nil)
+            let font = attributes[.font] as? UIFont ?? .preferredFont(forTextStyle: .body)
+            let fallbackText = attributedString.attributedSubstring(from: range).string
+            let emoticonString = NSMutableAttributedString(attachment: EmoticonTextAttachment(url: emoticon.url, fallbackText: fallbackText, font: font))
+            emoticonString.addAttributes(attributes, range: NSRange(location: 0, length: emoticonString.length))
+            attributedString.replaceCharacters(in: range, with: emoticonString)
+        }
+    }
+    
     private func removeParsingArtefacts(_ attributedString: NSMutableAttributedString) {
         guard attributedString.length > 0 else {
             return
@@ -473,7 +534,7 @@ struct AttributedStringBuilder: AttributedStringBuilderProtocol {
     }
 }
 
-private struct TextParsingMatch {
+private nonisolated struct TextParsingMatch {
     enum MatchType {
         case userID(identifier: String)
         case roomAlias(alias: String)
@@ -497,7 +558,7 @@ private struct TextParsingMatch {
     }
 }
 
-private extension NSMutableAttributedString {
+private nonisolated extension NSMutableAttributedString {
     func setFontPreservingSymbolicTraits(_ newFont: UIFont) {
         enumerateAttribute(.font, in: NSRange(location: 0, length: length)) { value, range, _ in
             if let oldFont = value as? UIFont {
@@ -517,7 +578,7 @@ private extension NSMutableAttributedString {
     }
 }
 
-private extension NSString {
+private nonisolated extension NSString {
     func hasSuffixCharacter(from characterSet: CharacterSet) -> Bool {
         if length == 0 {
             return false

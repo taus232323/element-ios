@@ -13,19 +13,13 @@ import UniformTypeIdentifiers
 
 final class MediaUploadingPreprocessorTests {
     let maxUploadSize: UInt = 100 * 1024 * 1024
-    var appSettings: AppSettings!
+    var userSettings: UserSettings!
     var mediaUploadingPreprocessor: MediaUploadingPreprocessor!
     
     init() {
-        AppSettings.resetAllSettings()
-        appSettings = AppSettings()
-        appSettings.optimizeMediaUploads = false
-        ServiceLocator.shared.register(appSettings: appSettings)
-        mediaUploadingPreprocessor = MediaUploadingPreprocessor(appSettings: appSettings)
-    }
-    
-    deinit {
-        AppSettings.resetAllSettings()
+        userSettings = UserSettings.mock()
+        userSettings.app.optimizeMediaUploads = false
+        mediaUploadingPreprocessor = MediaUploadingPreprocessor(userSettings: userSettings)
     }
     
     @Test
@@ -42,11 +36,11 @@ final class MediaUploadingPreprocessorTests {
         #expect(audioURL.lastPathComponent == "test_audio.mp3")
         
         #expect(audioInfo.mimetype == "audio/mpeg")
-        #expect(isEqual(audioInfo.duration ?? 0, 27, within: 100))
+        #expect(isEqual(audioInfo.duration ?? 0, 10.03, within: 0.1))
         #expect(isEqual(audioInfo.size ?? 0, 194_811, within: 100))
     }
     
-    @Test
+    @Test(.timeLimit(.minutes(2))) // Transcoding videos can be slow on a busy CI runner.
     func landscapeMovVideoProcessing() async throws {
         let url = try #require(Bundle(for: Self.self).url(forResource: "landscape_test_video.mov", withExtension: nil), "Failed retrieving test asset")
         
@@ -73,16 +67,20 @@ final class MediaUploadingPreprocessorTests {
         #expect(isEqual(videoInfo.size ?? 0, 4_016_620, within: 100))
         #expect(videoInfo.width == 1280)
         #expect(videoInfo.height == 720)
-        #expect(isEqual(videoInfo.duration ?? 0, 30, within: 100))
+        #expect(isEqual(videoInfo.duration ?? 0, 5.03, within: 0.1))
         
         #expect(videoInfo.thumbnailInfo != nil)
         #expect(videoInfo.thumbnailInfo?.mimetype == "image/jpeg")
         #expect(isEqual(videoInfo.thumbnailInfo?.size ?? 0, 183_093, within: 100))
         #expect(videoInfo.thumbnailInfo?.width == 800)
         #expect(videoInfo.thumbnailInfo?.height == 450)
+    }
+    
+    @Test(.timeLimit(.minutes(2))) // Transcoding videos can be slow on a busy CI runner.
+    func landscapeMovVideoOptimizedProcessing() async throws {
+        let url = try #require(Bundle(for: Self.self).url(forResource: "landscape_test_video.mov", withExtension: nil), "Failed retrieving test asset")
         
-        // Repeat with optimised media setting
-        appSettings.optimizeMediaUploads = true
+        userSettings.app.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
               case let .video(optimizedVideoURL, _, optimizedVideoInfo) = optimizedResult else {
@@ -98,10 +96,10 @@ final class MediaUploadingPreprocessorTests {
         #expect(isEqual(optimizedVideoInfo.size ?? 0, 4_016_620, within: 100)) // Note: The video is already 720p so it doesn't change size.
         #expect(optimizedVideoInfo.width == 1280)
         #expect(optimizedVideoInfo.height == 720)
-        #expect(isEqual(optimizedVideoInfo.duration ?? 0, 30, within: 100))
+        #expect(isEqual(optimizedVideoInfo.duration ?? 0, 5.03, within: 0.1))
     }
     
-    @Test
+    @Test(.timeLimit(.minutes(2))) // Transcoding videos can be slow on a busy CI runner.
     func portraitMp4VideoProcessing() async throws {
         let url = try #require(Bundle(for: Self.self).url(forResource: "portrait_test_video.mp4", withExtension: nil), "Failed retrieving test asset")
         
@@ -124,20 +122,24 @@ final class MediaUploadingPreprocessorTests {
         
         // Check resulting video info
         #expect(videoInfo.mimetype == "video/mp4")
-        #expect(videoInfo.blurhash == "KSB{R8O]MuwQS4oJvcaIt8")
-        #expect(isEqual(videoInfo.size ?? 0, 5_824_946, within: 100))
+        #expect(videoInfo.blurhash == "KRB{K[TLMtw7S4oez,emtS")
+        #expect(isEqual(videoInfo.size ?? 0, 2_004_280, within: 100))
         #expect(videoInfo.width == 1080)
         #expect(videoInfo.height == 1920)
-        #expect(isEqual(videoInfo.duration ?? 0, 21, within: 100))
+        #expect(isEqual(videoInfo.duration ?? 0, 3.07, within: 0.1))
         
         #expect(videoInfo.thumbnailInfo != nil)
         #expect(videoInfo.thumbnailInfo?.mimetype == "image/jpeg")
         #expect(isEqual(videoInfo.thumbnailInfo?.size ?? 0, 40976, within: 100))
         #expect(videoInfo.thumbnailInfo?.width == 337)
         #expect(videoInfo.thumbnailInfo?.height == 600)
+    }
+    
+    @Test(.timeLimit(.minutes(2))) // Transcoding videos can be slow on a busy CI runner.
+    func portraitMp4VideoOptimizedProcessing() async throws {
+        let url = try #require(Bundle(for: Self.self).url(forResource: "portrait_test_video.mp4", withExtension: nil), "Failed retrieving test asset")
         
-        // Repeat with optimised media setting
-        appSettings.optimizeMediaUploads = true
+        userSettings.app.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
               case let .video(optimizedVideoURL, _, optimizedVideoInfo) = optimizedResult else {
@@ -149,11 +151,11 @@ final class MediaUploadingPreprocessorTests {
         
         // Check optimised video info
         #expect(optimizedVideoInfo.mimetype == "video/mp4")
-        #expect(optimizedVideoInfo.blurhash == "KSC5.vO]MuwQS4oJvcaIt8")
-        #expect(isEqual(optimizedVideoInfo.size ?? 0, 12_169_117, within: 100)) // Note: This is slightly stupid because it is larger now 🤦‍♂️
+        #expect(optimizedVideoInfo.blurhash == "KRB{K[TLMtw7S4oez,emtS")
+        #expect(isEqual(optimizedVideoInfo.size ?? 0, 3_780_012, within: 100)) // Note: This is slightly stupid because it is larger now 🤦‍♂️
         #expect(optimizedVideoInfo.width == 720)
         #expect(optimizedVideoInfo.height == 1280)
-        #expect(isEqual(optimizedVideoInfo.duration ?? 0, 30, within: 100))
+        #expect(isEqual(optimizedVideoInfo.duration ?? 0, 3.07, within: 0.1))
     }
     
     @Test
@@ -182,7 +184,7 @@ final class MediaUploadingPreprocessorTests {
         #expect(imageInfo.thumbnailInfo?.height == 344)
         
         // Repeat with optimised media setting
-        appSettings.optimizeMediaUploads = true
+        userSettings.app.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
               case let .image(optimizedImageURL, thumbnailURL, optimizedImageInfo) = optimizedResult else {
@@ -195,7 +197,7 @@ final class MediaUploadingPreprocessorTests {
         // Check optimised image info
         #expect(optimizedImageInfo.mimetype == "image/jpeg")
         #expect(optimizedImageInfo.blurhash == "K%I#.NofkC_4ayaxxujsWB")
-        #expect(isEqual(optimizedImageInfo.size ?? 0, 524_226, within: 100))
+        #expect(isEqual(optimizedImageInfo.size ?? 0, 523_809, within: 100))
         #expect(optimizedImageInfo.width == 2048)
         #expect(optimizedImageInfo.height == 879)
     }
@@ -226,7 +228,7 @@ final class MediaUploadingPreprocessorTests {
         #expect(imageInfo.thumbnailInfo?.height == 800)
         
         // Repeat with optimised media setting
-        appSettings.optimizeMediaUploads = true
+        userSettings.app.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
               case let .image(optimizedImageURL, thumbnailURL, optimizedImageInfo) = optimizedResult else {
@@ -239,7 +241,7 @@ final class MediaUploadingPreprocessorTests {
         // Check optimised image info
         #expect(optimizedImageInfo.mimetype == "image/jpeg")
         #expect(optimizedImageInfo.blurhash == "KdE|0Ls+RP^-n*RP%OWAV@")
-        #expect(isEqual(optimizedImageInfo.size ?? 0, 1_462_937, within: 100))
+        #expect(isEqual(optimizedImageInfo.size ?? 0, 1_466_366, within: 100))
         #expect(optimizedImageInfo.width == 1536)
         #expect(optimizedImageInfo.height == 2048)
     }
@@ -272,7 +274,7 @@ final class MediaUploadingPreprocessorTests {
         #expect(imageInfo.thumbnailInfo?.height == 240)
         
         // Repeat with optimised media setting
-        appSettings.optimizeMediaUploads = true
+        userSettings.app.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
               case let .image(optimizedImageURL, _, optimizedImageInfo) = optimizedResult else {
@@ -323,7 +325,7 @@ final class MediaUploadingPreprocessorTests {
         #expect(imageInfo.thumbnailInfo?.height == 800)
         
         // Repeat with optimised media setting
-        appSettings.optimizeMediaUploads = true
+        userSettings.app.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
               case let .image(optimizedImageURL, thumbnailURL, optimizedImageInfo) = optimizedResult else {
@@ -339,10 +341,120 @@ final class MediaUploadingPreprocessorTests {
         
         // Check optimised image info
         #expect(optimizedImageInfo.mimetype == "image/jpeg")
-        #expect(optimizedImageInfo.blurhash == "KGD]3ns:T00#kWxFb^s:xv")
-        #expect(isEqual(optimizedImageInfo.size ?? 0, 1_049_393, within: 100))
+        #expect(optimizedImageInfo.blurhash == "KGD]3ns:T00#kWxFXms:xv")
+        #expect(isEqual(optimizedImageInfo.size ?? 0, 1_063_370, within: 100))
         #expect(optimizedImageInfo.width == 1536)
         #expect(optimizedImageInfo.height == 2048)
+    }
+    
+    @Test
+    func hdrImageProcessingStripsLocationFromImageAndGainMap() async throws {
+        let imageSource = try await processedImageSource(at: makeHDRImageWithLocation())
+        
+        let metadata = try #require(CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as NSDictionary?)
+        #expect(metadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") == nil)
+        
+        let gainMapMetadata = try gainMapMetadata(from: imageSource)
+        #expect(CGImageMetadataCopyTagWithPath(gainMapMetadata, nil, "exif:GPSLatitude" as CFString) == nil)
+        #expect(CGImageMetadataCopyTagWithPath(gainMapMetadata, nil, "exif:GPSLongitude" as CFString) == nil)
+    }
+    
+    @Test
+    func hdrImageProcessingPreservesGainMap() async throws {
+        let imageSource = try await processedImageSource(at: makeHDRImageWithLocation())
+        
+        let gainMapMetadata = try gainMapMetadata(from: imageSource)
+        #expect(CGImageMetadataCopyTagWithPath(gainMapMetadata, nil, "HDRGainMap:HDRGainMapVersion" as CFString) != nil)
+    }
+    
+    @Test
+    func multiImageHDRProcessingKeepsGainMapOnItsImage() async throws {
+        let imageSource = try await processedImageSource(at: makeHDRImageWithLocation(imageCount: 3))
+        
+        #expect(CGImageSourceGetCount(imageSource) == 3)
+        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) != nil)
+        #expect(CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 2, kCGImageAuxiliaryDataTypeHDRGainMap) == nil)
+    }
+    
+    @Test
+    func multiImageProcessingStripsLocationFoundOnlyOnLaterImage() async throws {
+        let imageSource = try await processedImageSource(at: makeImageWithLocationOnSecondImage())
+        
+        #expect(CGImageSourceGetCount(imageSource) == 2)
+        for index in 0..<CGImageSourceGetCount(imageSource) {
+            let metadata = try #require(CGImageSourceCopyPropertiesAtIndex(imageSource, index, nil) as NSDictionary?)
+            #expect(metadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") == nil)
+        }
+    }
+    
+    @Test
+    func spatialImageProcessingKeepsStereoPair() async throws {
+        let imageSource = try await processedImageSource(at: makeSpatialImageWithLocation())
+        
+        let group = try #require(stereoGroup(of: imageSource))
+        #expect(group[kCGImagePropertyGroupImageIndexMonoscopic] as? Int == 0)
+        #expect(group[kCGImagePropertyGroupImageIndexRight] as? Int == 1)
+        #expect(group[kCGImagePropertyGroupImageIndexLeft] as? Int == 2)
+        #expect(group[kCGImagePropertyGroupImageDisparityAdjustment] as? Int == 800)
+        #expect(group[kCGImagePropertyGroupMonoscopicImageLocation] as? String == kIIOMonoscopicImageLocation_Right as String)
+    }
+    
+    @Test
+    func spatialImageProcessingKeepsEyeCameras() async throws {
+        let imageSource = try await processedImageSource(at: makeSpatialImageWithLocation())
+        
+        for eyeIndex in [1, 2] {
+            let properties = try #require(CGImageSourceCopyPropertiesAtIndex(imageSource, eyeIndex, nil) as? [CFString: Any])
+            let camera = properties[kCGImagePropertyHEIFDictionary] as? [CFString: Any]
+            #expect(camera?[kIIOMetadata_CameraExtrinsicsKey] != nil)
+            #expect(camera?[kIIOMetadata_CameraModelKey] != nil)
+        }
+    }
+    
+    @Test
+    func spatialImageProcessingStripsLocationFromEveryImage() async throws {
+        let imageSource = try await processedImageSource(at: makeSpatialImageWithLocation())
+        
+        #expect(CGImageSourceGetCount(imageSource) == 3)
+        for index in 0..<CGImageSourceGetCount(imageSource) {
+            let metadata = try #require(CGImageSourceCopyPropertiesAtIndex(imageSource, index, nil) as NSDictionary?)
+            #expect(metadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") == nil)
+        }
+    }
+    
+    @Test
+    func spatialImageProcessingKeepsGainMapOnEachImage() async throws {
+        let url = try makeSpatialImageWithLocation()
+        let originalSource = try #require(CGImageSourceCreateWithURL(url as NSURL, nil))
+        
+        let imageSource = try await processedImageSource(at: url)
+        
+        for index in 0..<CGImageSourceGetCount(originalSource) {
+            #expect(gainMapWidth(of: imageSource, at: index) == gainMapWidth(of: originalSource, at: index))
+        }
+    }
+    
+    @Test
+    func optimisedImageProcessingSkipsStrippingLocation() async throws {
+        // A read-only image can't be rewritten in place, so it can only be processed when the strip is skipped.
+        let url = try copyResourceToTemporaryDirectory("landscape_test_image.jpg")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        try FileManager.default.setAttributes([.posixPermissions: 0o444], ofItemAtPath: url.path(percentEncoded: false))
+        
+        guard case .failure(.failedProcessingImage(.failedStrippingLocationData)) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize) else {
+            Issue.record("Expected stripping the location to fail")
+            return
+        }
+        
+        userSettings.app.optimizeMediaUploads = true
+        
+        guard case let .success(result) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
+              case let .image(optimizedImageURL, thumbnailURL, _) = result else {
+            Issue.record("Failed processing asset")
+            return
+        }
+        
+        try compare(originalImageAt: url, toConvertedImageAt: optimizedImageURL, withThumbnailAt: thumbnailURL)
     }
     
     @Test
@@ -375,7 +487,7 @@ final class MediaUploadingPreprocessorTests {
         #expect(imageInfo.thumbnailInfo?.height == 472)
         
         // Repeat with optimised media setting
-        appSettings.optimizeMediaUploads = true
+        userSettings.app.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
               case let .image(optimizedImageURL, _, optimizedImageInfo) = optimizedResult else {
@@ -393,6 +505,24 @@ final class MediaUploadingPreprocessorTests {
         #expect(isEqual(optimizedImageInfo.size ?? 0, originalSize, within: 100))
         #expect(optimizedImageInfo.width == 331)
         #expect(optimizedImageInfo.height == 472)
+    }
+    
+    @Test
+    func animatedGIFWithLocationProcessingKeepsAllFrames() async throws {
+        let url = try makeAnimatedGIFWithLocation(loopCount: 3)
+        let originalSource = try #require(CGImageSourceCreateWithURL(url as NSURL, nil))
+        
+        let imageSource = try await processedImageSource(at: url)
+        
+        #expect(CGImageSourceGetCount(imageSource) == CGImageSourceGetCount(originalSource))
+        #expect(gifProperties(of: imageSource)?[kCGImagePropertyGIFLoopCount] as? Int == 3)
+        
+        for index in 0..<CGImageSourceGetCount(imageSource) {
+            let metadata = try #require(CGImageSourceCopyPropertiesAtIndex(imageSource, index, nil) as NSDictionary?)
+            #expect(metadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") == nil)
+            #expect(gifProperties(of: imageSource, at: index)?[kCGImagePropertyGIFDelayTime] as? Double ==
+                gifProperties(of: originalSource, at: index)?[kCGImagePropertyGIFDelayTime] as? Double)
+        }
     }
     
     @Test
@@ -417,7 +547,7 @@ final class MediaUploadingPreprocessorTests {
         #expect(imageInfo.thumbnailInfo?.height == 800)
         
         // Repeat with optimised media setting
-        appSettings.optimizeMediaUploads = true
+        userSettings.app.optimizeMediaUploads = true
         
         guard case let .success(optimizedResult) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize),
               case let .image(optimizedImageURL, thumbnailURL, optimizedImageInfo) = optimizedResult else {
@@ -433,7 +563,252 @@ final class MediaUploadingPreprocessorTests {
         #expect(optimizedImageInfo.height == 2048)
     }
     
+    @Test
+    func batchPreservesInputOrderBeyondConcurrencyLimit() async throws {
+        let names = ["test_image.png", "test_animated_image.gif", "landscape_test_image.jpg"]
+        try #require(names.count > MediaUploadingPreprocessor.Constants.maximumConcurrentProcessingCount)
+        let inputs = try names.map { try #require(Bundle(for: Self.self).url(forResource: $0, withExtension: nil)) }
+        let results = try await mediaUploadingPreprocessor.processMedia(at: inputs, maxUploadSize: maxUploadSize).get()
+        defer {
+            for result in results {
+                try? FileManager.default.removeItem(at: result.url.deletingLastPathComponent())
+            }
+        }
+        #expect(results.map(\.url.lastPathComponent) == names)
+        for result in results {
+            let thumbnailURL = try #require(result.thumbnailURL)
+            #expect(try Data(contentsOf: result.url).isEmpty == false)
+            #expect(try Data(contentsOf: thumbnailURL).isEmpty == false)
+        }
+    }
+    
+    @Test
+    func failedPreparationRemovesItsFiles() async throws {
+        let url = try copyResourceToTemporaryDirectory("test_image.png")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        
+        guard case .failure(.maxUploadSizeExceeded) = await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: 1) else {
+            Issue.record("Expected the upload size to be exceeded")
+            return
+        }
+        #expect(try preparedFolders(for: url).isEmpty)
+    }
+    
+    @Test
+    func batchFailureReturnsTheErrorAndRemovesPreparedFiles() async throws {
+        let url = try copyResourceToTemporaryDirectory("test_image.png")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let missingURL = url.deletingLastPathComponent().appendingPathComponent("missing.png")
+        
+        // The missing file comes last so that at least one image has already been prepared when the batch fails.
+        guard case .failure(.failedProcessingMedia) = await mediaUploadingPreprocessor.processMedia(at: [url, url, missingURL], maxUploadSize: maxUploadSize) else {
+            Issue.record("Expected the missing file to fail the batch")
+            return
+        }
+        #expect(try preparedFolders(for: url).isEmpty)
+    }
+    
+    @Test
+    func cancellationRemovesPreparedFiles() async throws {
+        let url = try copyResourceToTemporaryDirectory("test_image.png")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        
+        let task = Task { await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize) }
+        await Task.yield() // Let the preparation start.
+        task.cancel()
+        
+        guard case .failure(.cancelled) = await task.value else {
+            Issue.record("Expected the preparation to be cancelled")
+            return
+        }
+        #expect(try preparedFolders(for: url).isEmpty)
+    }
+    
     // MARK: - Private
+    
+    /// Copies a test asset to a uniquely named file, so the folders the preprocessor prepares from it can be found afterwards.
+    private func copyResourceToTemporaryDirectory(_ resource: String) throws -> URL {
+        let assetURL = try #require(Bundle(for: Self.self).url(forResource: resource, withExtension: nil))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("\(Self.self)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("\(UUID().uuidString).\(assetURL.pathExtension)")
+        try FileManager.default.copyItem(at: assetURL, to: url)
+        return url
+    }
+    
+    /// Processes the image at the given URL, returning a source for the resulting image.
+    private func processedImageSource(at url: URL) async throws -> CGImageSource {
+        let mediaInfo = try await mediaUploadingPreprocessor.processMedia(at: url, maxUploadSize: maxUploadSize).get()
+        return try #require(CGImageSourceCreateWithURL(mediaInfo.url as NSURL, nil))
+    }
+    
+    private func gainMapMetadata(from imageSource: CGImageSource) throws -> CGImageMetadata {
+        let gainMapInfo = try #require(CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, 0, kCGImageAuxiliaryDataTypeHDRGainMap) as? [CFString: Any])
+        let gainMapMetadata = try #require(gainMapInfo[kCGImageAuxiliaryDataInfoMetadata])
+        // swiftlint:disable:next force_cast
+        return gainMapMetadata as! CGImageMetadata
+    }
+    
+    /// Generates a HEIC with an HDR gain map on its first image and GPS metadata (on both the images and the gain map) in a unique temporary directory.
+    private func makeHDRImageWithLocation(imageCount: Int = 1) throws -> URL {
+        let extent = CGRect(x: 0, y: 0, width: 64, height: 64)
+        let image = try #require(CIContext().createCGImage(CIImage(color: .gray).cropped(to: extent), from: extent))
+        
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("\(Self.self)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("hdr_test_image.heic")
+        
+        let destination = try #require(CGImageDestinationCreateWithURL(url as NSURL, UTType.heic.identifier as CFString, imageCount, nil))
+        let location = [kCGImagePropertyGPSDictionary: [kCGImagePropertyGPSLatitude: 51.5, kCGImagePropertyGPSLongitude: 0.1]]
+        CGImageDestinationAddImage(destination, image, location as NSDictionary)
+        CGImageDestinationAddAuxiliaryDataInfo(destination, kCGImageAuxiliaryDataTypeHDRGainMap, makeGainMapInfoWithLocation(size: 32))
+        for _ in 1..<imageCount {
+            CGImageDestinationAddImage(destination, image, location as NSDictionary)
+        }
+        try #require(CGImageDestinationFinalize(destination))
+        
+        // Without location data the preprocessor leaves the image untouched.
+        let imageSource = try #require(CGImageSourceCreateWithURL(url as NSURL, nil))
+        let metadata = try #require(CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as NSDictionary?)
+        try #require(metadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") != nil)
+        try #require(CGImageMetadataCopyTagWithPath(gainMapMetadata(from: imageSource), nil, "exif:GPSLatitude" as CFString) != nil)
+        
+        return url
+    }
+    
+    /// Generates a two image HEIC with GPS metadata on its second image only in a unique temporary directory.
+    private func makeImageWithLocationOnSecondImage() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("\(Self.self)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("second_image_location_test_image.heic")
+        
+        let extent = CGRect(x: 0, y: 0, width: 64, height: 64)
+        let image = try #require(CIContext().createCGImage(CIImage(color: .gray).cropped(to: extent), from: extent))
+        let destination = try #require(CGImageDestinationCreateWithURL(url as NSURL, UTType.heic.identifier as CFString, 2, nil))
+        CGImageDestinationAddImage(destination, image, nil)
+        let location = [kCGImagePropertyGPSDictionary: [kCGImagePropertyGPSLatitude: 51.5, kCGImagePropertyGPSLongitude: 0.1]]
+        CGImageDestinationAddImage(destination, image, location as NSDictionary)
+        try #require(CGImageDestinationFinalize(destination))
+        
+        let imageSource = try #require(CGImageSourceCreateWithURL(url as NSURL, nil))
+        let firstMetadata = try #require(CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as NSDictionary?)
+        let secondMetadata = try #require(CGImageSourceCopyPropertiesAtIndex(imageSource, 1, nil) as NSDictionary?)
+        try #require(firstMetadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") == nil)
+        try #require(secondMetadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") != nil)
+        
+        return url
+    }
+    
+    /// Generates a HEIC laid out like an iPhone spatial photo in a unique temporary directory: a monoscopic primary image, then the right and
+    /// left eyes, all in one stereo pair group. Every image has GPS metadata and an HDR gain map of its own size, and each eye has its camera.
+    private func makeSpatialImageWithLocation() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("\(Self.self)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("spatial_test_image.heic")
+        
+        let roles = [kCGImagePropertyGroupImageIsMonoscopicImage, kCGImagePropertyGroupImageIsRightImage, kCGImagePropertyGroupImageIsLeftImage]
+        let destination = try #require(CGImageDestinationCreateWithURL(url as NSURL, UTType.heic.identifier as CFString, roles.count, nil))
+        let extent = CGRect(x: 0, y: 0, width: 64, height: 64)
+        let image = try #require(CIContext().createCGImage(CIImage(color: .gray).cropped(to: extent), from: extent))
+        
+        for (index, role) in roles.enumerated() {
+            var properties: [CFString: Any] = [kCGImagePropertyGPSDictionary: [kCGImagePropertyGPSLatitude: 51.5, kCGImagePropertyGPSLongitude: 0.1],
+                                               kCGImagePropertyGroups: [kCGImagePropertyGroupIndex: 0,
+                                                                        kCGImagePropertyGroupType: kCGImagePropertyGroupTypeStereoPair,
+                                                                        kCGImagePropertyGroupImageDisparityAdjustment: 800,
+                                                                        kCGImagePropertyGroupMonoscopicImageLocation: kIIOMonoscopicImageLocation_Right,
+                                                                        role: true]]
+            if role != kCGImagePropertyGroupImageIsMonoscopicImage {
+                properties[kCGImagePropertyHEIFDictionary] = [kIIOMetadata_CameraExtrinsicsKey: [kIIOCameraExtrinsics_Position: [0.0, 0.0, 0.0],
+                                                                                                 kIIOCameraExtrinsics_Rotation: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]],
+                                                              kIIOMetadata_CameraModelKey: [kIIOCameraModel_Intrinsics: [1000.0, 0.0, 32.0, 0.0, 1000.0, 32.0, 0.0, 0.0, 1.0]]]
+            }
+            CGImageDestinationAddImage(destination, image, properties as NSDictionary)
+            CGImageDestinationAddAuxiliaryDataInfo(destination, kCGImageAuxiliaryDataTypeHDRGainMap, makeGainMapInfoWithLocation(size: 16 + 8 * index))
+        }
+        try #require(CGImageDestinationFinalize(destination))
+        
+        let imageSource = try #require(CGImageSourceCreateWithURL(url as NSURL, nil))
+        try #require(stereoGroup(of: imageSource) != nil)
+        
+        return url
+    }
+    
+    /// Builds a square HDR gain map with GPS metadata for ImageIO to attach to an image.
+    private func makeGainMapInfoWithLocation(size: Int) -> NSDictionary {
+        // Built by hand as Core Image's `.hdrGainMapImage` export option writes no gain map since iOS 27.2.
+        let metadata = CGImageMetadataCreateMutable()
+        CGImageMetadataRegisterNamespaceForPrefix(metadata, "http://ns.apple.com/HDRGainMap/1.0/" as CFString, "HDRGainMap" as CFString, nil)
+        CGImageMetadataSetValueWithPath(metadata, nil, "HDRGainMap:HDRGainMapVersion" as CFString, 65536 as CFNumber)
+        CGImageMetadataSetValueWithPath(metadata, nil, "HDRGainMap:HDRGainMapHeadroom" as CFString, 2.0 as CFNumber)
+        CGImageMetadataSetValueWithPath(metadata, nil, "exif:GPSLatitude" as CFString, "51,30.0N" as CFString)
+        CGImageMetadataSetValueWithPath(metadata, nil, "exif:GPSLongitude" as CFString, "0,6.0W" as CFString)
+        
+        let description: [String: Any] = ["Width": size, "Height": size, "BytesPerRow": size, "PixelFormat": kCVPixelFormatType_OneComponent8]
+        return [kCGImageAuxiliaryDataInfoData: Data(repeating: 255, count: size * size) as NSData,
+                kCGImageAuxiliaryDataInfoDataDescription: description,
+                kCGImageAuxiliaryDataInfoMetadata: metadata]
+    }
+    
+    /// The stereo pair group of a spatial photo, which ImageIO reports on the whole image rather than on each of its images.
+    private func stereoGroup(of imageSource: CGImageSource) -> [CFString: Any]? {
+        let groups = (CGImageSourceCopyProperties(imageSource, nil) as? [CFString: Any])?[kCGImagePropertyGroups] as? [[CFString: Any]]
+        return groups?.first { $0[kCGImagePropertyGroupType] as? String == kCGImagePropertyGroupTypeStereoPair as String }
+    }
+    
+    private func gainMapWidth(of imageSource: CGImageSource, at index: Int) -> Int? {
+        let gainMapInfo = CGImageSourceCopyAuxiliaryDataInfoAtIndex(imageSource, index, kCGImageAuxiliaryDataTypeHDRGainMap) as? [CFString: Any]
+        let description = gainMapInfo?[kCGImageAuxiliaryDataInfoDataDescription] as? [String: Any]
+        return description?["Width"] as? Int
+    }
+    
+    /// Generates a copy of the animated test GIF with GPS metadata on every frame in a unique temporary directory.
+    private func makeAnimatedGIFWithLocation(loopCount: Int) throws -> URL {
+        let assetURL = try #require(Bundle(for: Self.self).url(forResource: "test_animated_image.gif", withExtension: nil))
+        let gifSource = try #require(CGImageSourceCreateWithURL(assetURL as NSURL, nil))
+        // A handful of frames is enough to check they're all kept, re-encoding all of the asset's frames is slow.
+        let frameCount = min(CGImageSourceGetCount(gifSource), 5)
+        try #require(frameCount > 1)
+        
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("\(Self.self)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("gif_test_image.gif")
+        
+        let destination = try #require(CGImageDestinationCreateWithURL(url as NSURL, UTType.gif.identifier as CFString, frameCount, nil))
+        CGImageDestinationSetProperties(destination, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: loopCount]] as NSDictionary)
+        let location = [kCGImagePropertyGPSDictionary: [kCGImagePropertyGPSLatitude: 51.5, kCGImagePropertyGPSLongitude: 0.1]]
+        for index in 0..<frameCount {
+            CGImageDestinationAddImageFromSource(destination, gifSource, index, location as NSDictionary)
+        }
+        try #require(CGImageDestinationFinalize(destination))
+        
+        // Without location data the preprocessor leaves the image untouched.
+        let metadata = try metadata(from: Data(contentsOf: url))
+        try #require(metadata.value(forKeyPath: "\(kCGImagePropertyGPSDictionary)") != nil)
+        
+        return url
+    }
+    
+    /// The GIF properties of the whole image, or of the frame at the given index.
+    private func gifProperties(of imageSource: CGImageSource, at index: Int? = nil) -> [CFString: Any]? {
+        let properties = if let index {
+            CGImageSourceCopyPropertiesAtIndex(imageSource, index, nil)
+        } else {
+            CGImageSourceCopyProperties(imageSource, nil)
+        }
+        return (properties as? [CFString: Any])?[kCGImagePropertyGIFDictionary] as? [CFString: Any]
+    }
+    
+    /// The unique folders created by the preprocessor for the given file that still exist.
+    private func preparedFolders(for url: URL) throws -> [URL] {
+        let name = url.deletingPathExtension().lastPathComponent
+        return try FileManager.default.contentsOfDirectory(at: FileManager.default.temporaryDirectory, includingPropertiesForKeys: nil)
+            .filter { UUID(uuidString: $0.lastPathComponent) != nil }
+            .filter { folder in
+                let contents = (try? FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? []
+                return contents.contains { $0.contains(name) }
+            }
+    }
     
     private func isEqual<N: UnsignedInteger>(_ lhs: N, _ rhs: N, within tolerance: N) -> Bool {
         isEqual(Double(lhs), Double(rhs), within: Double(tolerance))
@@ -451,7 +826,7 @@ final class MediaUploadingPreprocessorTests {
             fatalError()
         }
         
-        if appSettings.optimizeMediaUploads {
+        if userSettings.app.optimizeMediaUploads {
             // Check that new image has been scaled within the requirements for an optimised image
             #expect(convertedImage.size.width <= MediaUploadingPreprocessor.Constants.optimizedMaxPixelSize)
             #expect(convertedImage.size.height <= MediaUploadingPreprocessor.Constants.optimizedMaxPixelSize)

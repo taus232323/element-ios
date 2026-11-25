@@ -29,7 +29,7 @@ enum LoginScreenCoordinatorAction {
 /// Note: This code was brought over from Riot, we should move the authentication service logic into the view model.
 final class LoginScreenCoordinator: CoordinatorProtocol {
     private var viewModel: LoginScreenViewModelProtocol
-
+    
     private let actionsSubject: PassthroughSubject<LoginScreenCoordinatorAction, Never> = .init()
     private var cancellables = Set<AnyCancellable>()
     
@@ -46,7 +46,7 @@ final class LoginScreenCoordinator: CoordinatorProtocol {
     }
     
     // MARK: - Public
-
+    
     func start() {
         viewModel.actions
             .sink { [weak self] action in
@@ -63,7 +63,7 @@ final class LoginScreenCoordinator: CoordinatorProtocol {
             }
             .store(in: &cancellables)
     }
-
+    
     func stop() {
         viewModel.stopLoading()
     }

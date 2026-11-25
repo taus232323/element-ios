@@ -15,13 +15,13 @@ import Testing
 struct UserSessionFlowCoordinatorTests {
     private var userSessionFlowCoordinator: UserSessionFlowCoordinator!
     private var rootCoordinator: NavigationRootCoordinator!
-    private var userIndicatorController: UserIndicatorControllerMock!
+    private let userIndicatorController: UserIndicatorControllerMock
     private let stateMachineFactory = PublishedStateMachineFactory()
     
     private let networkReachabilitySubject: CurrentValueSubject<NetworkMonitorReachability, Never> = .init(.reachable)
-    private let homeserverReachabilitySubject: CurrentValueSubject<NetworkMonitorReachability, Never> = .init(.reachable)
-    private var cancellables = Set<AnyCancellable>()
-    
+    private let homeserverReachabilitySubject: CurrentValueSubject<HomeserverReachability, Never> = .init(.reachable)
+    private let loadingStateSubject: CurrentValueSubject<ClientProxyLoadingState, Never> = .init(.notLoading)
+    private let elementCallService = ElementCallServiceMock(.init())
     private var tabCoordinator: NavigationTabCoordinator<UserSessionFlowCoordinator.HomeTab>? {
         rootCoordinator?.rootCoordinator as? NavigationTabCoordinator
     }
@@ -41,28 +41,27 @@ struct UserSessionFlowCoordinatorTests {
     init() async throws {
         rootCoordinator = NavigationRootCoordinator()
         
-        let clientProxy = ClientProxyMock(.init(userID: "hi@bob", roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))))
+        let clientProxy = ClientProxyMock(.init(userID: "hi@bob", deviceID: "call-device-id", roomSummaryProvider: RoomSummaryProviderMock(.init(state: .loaded(.mockRooms)))))
         clientProxy.homeserverReachabilityPublisher = homeserverReachabilitySubject.asCurrentValuePublisher()
+        clientProxy.loadingStatePublisher = loadingStateSubject.asCurrentValuePublisher()
         
-        let networkMonitor = NetworkMonitorMock.default
+        let networkMonitor = NetworkMonitorMock(.init())
         networkMonitor.reachabilityPublisher = networkReachabilitySubject.asCurrentValuePublisher()
-        let appMediator = AppMediatorMock.default
+        let appMediator = AppMediatorMock(.init())
         appMediator.networkMonitor = networkMonitor
         
         userIndicatorController = UserIndicatorControllerMock()
+        let userSession = UserSessionMock(.init(clientProxy: clientProxy, elementCallService: elementCallService))
         
-        let flowParameters = CommonFlowParameters(userSession: UserSessionMock(.init(clientProxy: clientProxy)),
+        let flowParameters = CommonFlowParameters(userSession: userSession,
+                                                  availableSessionsPublisher: .init([.init(userSession: userSession)]),
                                                   bugReportService: BugReportServiceMock(.init()),
-                                                  elementCallService: ElementCallServiceMock(.init()),
                                                   timelineControllerFactory: TimelineControllerFactoryMock(.init()),
-                                                  emojiProvider: EmojiProvider(appSettings: ServiceLocator.shared.settings),
+                                                  emojiProvider: EmojiProvider(userSettings: userSession.userSettings),
                                                   linkMetadataProvider: LinkMetadataProvider(),
                                                   appMediator: appMediator,
-                                                  appSettings: ServiceLocator.shared.settings,
-                                                  appHooks: AppHooks(),
-                                                  analytics: ServiceLocator.shared.analytics,
+                                                  analytics: AnalyticsServiceMock(.init()),
                                                   userIndicatorController: userIndicatorController,
-                                                  notificationManager: NotificationManagerMock(),
                                                   stateMachineFactory: stateMachineFactory)
         
         userSessionFlowCoordinator = UserSessionFlowCoordinator(isNewLogin: false,
@@ -75,38 +74,40 @@ struct UserSessionFlowCoordinatorTests {
     
     // MARK: Navigation
     
-    @Test
+    @Test("The flow starts on the room list without a room")
     func initialState() {
         #expect(chatsSplitCoordinator != nil)
         #expect(detailCoordinator == nil)
     }
     
-    @Test
+    @Test("The settings route presents the settings screen")
     mutating func settingsPresentation() async throws {
         try await process(route: .settings, expectedUserSessionState: .settingsScreen)
         #expect((tabCoordinator?.sheetCoordinator as? NavigationStackCoordinator)?.rootCoordinator is SettingsScreenCoordinator)
     }
     
-    @Test
+    @Test("The room route presents the room")
     mutating func roomPresentation() async throws {
         try await process(route: .room(roomID: "1", via: []), expectedChatsState: .roomList(detailState: .room(roomID: "1")))
         #expect(detailNavigationStack?.rootCoordinator is RoomScreenCoordinator)
         #expect(detailCoordinator != nil)
     }
     
-    @Test
+    @Test("Presenting a room closes the settings screen")
     mutating func roomPresentationClearsSettings() async throws {
         try await process(route: .settings, expectedUserSessionState: .settingsScreen)
         #expect((tabCoordinator?.sheetCoordinator as? NavigationStackCoordinator)?.rootCoordinator is SettingsScreenCoordinator)
         #expect(detailCoordinator == nil)
         
-        try await process(route: .room(roomID: "1", via: []), expectedChatsState: .roomList(detailState: .room(roomID: "1")))
+        try await process(route: .room(roomID: "1", via: []),
+                          expectedUserSessionState: .tabBar,
+                          expectedChatsState: .roomList(detailState: .room(roomID: "1")))
         #expect(tabCoordinator?.sheetCoordinator == nil)
         #expect(detailNavigationStack?.rootCoordinator is RoomScreenCoordinator)
         #expect(detailCoordinator != nil)
     }
     
-    @Test
+    @Test("The child room route pushes the room above the current one")
     mutating func childRoomPresentation() async throws {
         try await process(route: .room(roomID: "1", via: []), expectedChatsState: .roomList(detailState: .room(roomID: "1")))
         let detailNavigationStack = try #require(detailNavigationStack, "There must be a navigation stack.")
@@ -122,7 +123,7 @@ struct UserSessionFlowCoordinatorTests {
         #expect(detailNavigationStack.stackCoordinators.first is RoomScreenCoordinator)
     }
     
-    @Test
+    @Test("Sharing media without a room asks which room to share to")
     mutating func shareMediaRouteWithoutRoom() async throws {
         try await process(route: .settings, expectedUserSessionState: .settingsScreen)
         #expect((tabCoordinator?.sheetCoordinator as? NavigationStackCoordinator)?.rootCoordinator is SettingsScreenCoordinator)
@@ -136,7 +137,7 @@ struct UserSessionFlowCoordinatorTests {
         #expect((chatsSplitCoordinator?.sheetCoordinator as? NavigationStackCoordinator)?.rootCoordinator is RoomSelectionScreenCoordinator)
     }
     
-    @Test
+    @Test("Sharing media to a room opens the room with an upload preview")
     mutating func shareMediaRouteWithRoom() async throws {
         try await process(route: .event(eventID: "1", roomID: "1", via: []), expectedChatsState: .roomList(detailState: .room(roomID: "1")))
         #expect(detailNavigationStack?.rootCoordinator is RoomScreenCoordinator)
@@ -147,12 +148,16 @@ struct UserSessionFlowCoordinatorTests {
         try await process(route: .share(sharePayload),
                           expectedChatsState: .roomList(detailState: .room(roomID: "2")))
         
+        let splitCoordinator = try #require(chatsSplitCoordinator)
+        let deferredSheet = deferFulfillment(splitCoordinator.observe(\.sheetCoordinatorID)) { $0 != nil }
+        try await deferredSheet.fulfill()
+        
         #expect(detailNavigationStack?.rootCoordinator is RoomScreenCoordinator)
         #expect(tabCoordinator?.sheetCoordinator == nil)
-        #expect((chatsSplitCoordinator?.sheetCoordinator as? NavigationStackCoordinator)?.rootCoordinator is MediaUploadPreviewScreenCoordinator)
+        #expect(splitCoordinator.sheetCoordinator is MediaUploadPreviewScreenCoordinator)
     }
     
-    @Test
+    @Test("Sharing text without a room asks which room to share to")
     mutating func shareTextRouteWithoutRoom() async throws {
         try await process(route: .settings, expectedUserSessionState: .settingsScreen)
         #expect((tabCoordinator?.sheetCoordinator as? NavigationStackCoordinator)?.rootCoordinator is SettingsScreenCoordinator)
@@ -166,7 +171,7 @@ struct UserSessionFlowCoordinatorTests {
         #expect((chatsSplitCoordinator?.sheetCoordinator as? NavigationStackCoordinator)?.rootCoordinator is RoomSelectionScreenCoordinator)
     }
     
-    @Test
+    @Test("Sharing text to a room opens the room without an upload preview")
     mutating func shareTextRouteWithRoom() async throws {
         try await process(route: .event(eventID: "1", roomID: "1", via: []), expectedChatsState: .roomList(detailState: .room(roomID: "1")))
         #expect(detailNavigationStack?.rootCoordinator is RoomScreenCoordinator)
@@ -184,7 +189,7 @@ struct UserSessionFlowCoordinatorTests {
     
     // MARK: Indicators
     
-    @Test
+    @Test("Reachability indicators follow the network and the homeserver")
     func reachabilityIndicators() async throws {
         // Given a flow in its initial state.
         try await Task.sleep(for: .milliseconds(100))
@@ -227,25 +232,67 @@ struct UserSessionFlowCoordinatorTests {
         // Then the indicator should be hidden now as everything is back to normal
         #expect(userIndicatorController.submitIndicatorDelayCallsCount == 3)
         #expect(retractReachabilityIndicatorCallsCount == 2)
+        
+        // When the client is suspended.
+        homeserverReachabilitySubject.send(.suspended)
+        try await Task.sleep(for: .milliseconds(100))
+        
+        // Then no unreachable indicator should be shown as the pause is intentional.
+        #expect(userIndicatorController.submitIndicatorDelayCallsCount == 3)
+        #expect(retractReachabilityIndicatorCallsCount == 3)
+    }
+    
+    @Test("The syncing indicator follows the session's loading state while it's reachable")
+    func syncingIndicator() async throws {
+        // Given a flow in its initial state.
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!userIndicatorController.submitIndicatorDelayCalled)
+        #expect(retractSyncingIndicatorCallsCount == 0)
+        
+        // When the session starts loading.
+        loadingStateSubject.send(.loading)
+        try await Task.sleep(for: .milliseconds(100))
+        
+        // Then a syncing indicator should be shown.
+        #expect(userIndicatorController.submitIndicatorDelayCallsCount == 1)
+        #expect(userIndicatorController.submitIndicatorDelayReceivedArguments?.indicator.title == L10n.commonSyncing)
+        
+        // When the session finishes loading.
+        loadingStateSubject.send(.notLoading)
+        try await Task.sleep(for: .milliseconds(100))
+        
+        // Then the syncing indicator should be hidden.
+        #expect(retractSyncingIndicatorCallsCount == 1)
+        
+        // When the homeserver is unreachable and the session starts loading again.
+        homeserverReachabilitySubject.send(.unreachable)
+        try await Task.sleep(for: .milliseconds(100))
+        let submitIndicatorCallsCount = userIndicatorController.submitIndicatorDelayCallsCount
+        loadingStateSubject.send(.loading)
+        try await Task.sleep(for: .milliseconds(100))
+        
+        // Then no syncing indicator should be shown.
+        #expect(userIndicatorController.submitIndicatorDelayCallsCount == submitIndicatorCallsCount)
     }
     
     // MARK: - Helpers
     
-    private mutating func process(route: AppRoute,
-                                  expectedUserSessionState: UserSessionFlowCoordinator.State? = nil,
-                                  expectedChatsState: ChatsTabFlowCoordinatorStateMachine.State? = nil) async throws {
+    private func process(route: AppRoute,
+                         expectedUserSessionState: UserSessionFlowCoordinator.State? = nil,
+                         expectedChatsState: ChatsTabFlowCoordinatorStateMachine.State? = nil) async throws {
+        // Keep the previous root coordinator alive while waiting, otherwise a newly presented
+        // coordinator could be allocated at the same address and be mistaken for it below.
+        let previousDetailRootCoordinator = chatsSplitCoordinator?.detailRootCoordinator
+        let previousDetailRootCoordinatorID = previousDetailRootCoordinator.map { ObjectIdentifier($0) }
+        
         let deferredUserSession: DeferredFulfillment<UserSessionFlowCoordinator.State>? = if let expectedUserSessionState {
-            deferFulfillment(stateMachineFactory.userSessionFlowStatePublisher.delay(for: .milliseconds(100), scheduler: DispatchQueue.main)) {
-                $0 == expectedUserSessionState
-            }
+            deferFulfillment(stateMachineFactory.userSessionFlowStatePublisher) { $0 == expectedUserSessionState }
         } else {
             nil
         }
         
         let deferredChatsState: DeferredFulfillment<ChatsTabFlowCoordinatorStateMachine.State>? = if let expectedChatsState {
-            deferFulfillment(stateMachineFactory.chatsTabFlowStatePublisher.delay(for: .milliseconds(100), scheduler: DispatchQueue.main)) {
-                $0 == expectedChatsState
-            }
+            deferFulfillment(stateMachineFactory.chatsTabFlowStatePublisher) { $0 == expectedChatsState }
         } else {
             nil
         }
@@ -253,6 +300,36 @@ struct UserSessionFlowCoordinatorTests {
         userSessionFlowCoordinator.handleAppRoute(route, animated: true)
         try await deferredUserSession?.fulfill()
         try await deferredChatsState?.fulfill()
+        
+        // The state machines' states change before the coordinators have updated their stacks,
+        // so also wait for the navigation side effects implied by the expected states.
+        switch expectedUserSessionState {
+        case .settingsScreen:
+            let tabCoordinator = try #require(tabCoordinator)
+            let deferredSheet = deferFulfillment(tabCoordinator.observe(\.sheetCoordinatorID)) { $0 != nil }
+            try await deferredSheet.fulfill()
+        case .tabBar:
+            let tabCoordinator = try #require(tabCoordinator)
+            let deferredSheet = deferFulfillment(tabCoordinator.observe(\.sheetCoordinatorID)) { $0 == nil }
+            try await deferredSheet.fulfill()
+        default:
+            break
+        }
+        
+        switch expectedChatsState {
+        case .roomList(detailState: .some(.room)):
+            let splitCoordinator = try #require(chatsSplitCoordinator)
+            let deferredDetail = deferFulfillment(splitCoordinator.observe(\.detailRootCoordinatorID)) { $0 != nil && $0 != previousDetailRootCoordinatorID }
+            try await deferredDetail.fulfill()
+        case .shareExtensionRoomList:
+            let splitCoordinator = try #require(chatsSplitCoordinator)
+            let deferredSheet = deferFulfillment(splitCoordinator.observe(\.sheetCoordinatorID)) { $0 != nil }
+            try await deferredSheet.fulfill()
+        default:
+            break
+        }
+        
+        withExtendedLifetime(previousDetailRootCoordinator) { }
     }
     
     /// Other services retract indicators, so this filters based on the reachability ID.
@@ -260,6 +337,13 @@ struct UserSessionFlowCoordinatorTests {
         userIndicatorController
             .retractIndicatorWithIdReceivedInvocations
             .filter { $0 == "io.element.elementx.reachability.notification" }
+            .count
+    }
+    
+    private var retractSyncingIndicatorCallsCount: Int {
+        userIndicatorController
+            .retractIndicatorWithIdReceivedInvocations
+            .filter { $0 == "StaleDataIndicator" }
             .count
     }
 }

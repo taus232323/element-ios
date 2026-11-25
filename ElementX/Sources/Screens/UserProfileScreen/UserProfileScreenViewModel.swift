@@ -14,9 +14,8 @@ typealias UserProfileScreenViewModelType = StateStoreViewModelV2<UserProfileScre
 
 class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScreenViewModelProtocol {
     private let userSession: UserSessionProtocol
+    private let analytics: AnalyticsServiceProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
-    private let analytics: AnalyticsService
-    private let appSettings: AppSettings
     
     private var actionsSubject: PassthroughSubject<UserProfileScreenViewModelAction, Never> = .init()
     var actionsPublisher: AnyPublisher<UserProfileScreenViewModelAction, Never> {
@@ -26,20 +25,19 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
     init(userID: String,
          isPresentedModally: Bool,
          userSession: UserSessionProtocol,
-         userIndicatorController: UserIndicatorControllerProtocol,
-         analytics: AnalyticsService,
-         appSettings: AppSettings) {
+         analytics: AnalyticsServiceProtocol,
+         userIndicatorController: UserIndicatorControllerProtocol) {
         self.userSession = userSession
-        self.userIndicatorController = userIndicatorController
         self.analytics = analytics
-        self.appSettings = appSettings
+        self.userIndicatorController = userIndicatorController
         
         let initialViewState = UserProfileScreenViewState(userID: userID,
                                                           isOwnUser: userID == userSession.clientProxy.userID,
                                                           isPresentedModally: isPresentedModally,
                                                           bindings: .init())
         
-        super.init(initialViewState: initialViewState, mediaProvider: userSession.mediaProvider)
+        super.init(initialViewState: userSession.userHooks.userProfileScreenHook.update(initialViewState),
+                   mediaProvider: userSession.mediaProvider)
         
         showLoadingIndicator(allowsInteraction: true)
         Task {
@@ -71,19 +69,30 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
             actionsSubject.send(.dismiss)
         }
     }
-
+    
     // MARK: - Private
     
+    // The proxies aren't Sendable, fetch through these helpers so that
+    // they never leave the main actor when running calls in parallel.
+    
+    private func fetchProfile() async -> Result<UserProfile, ClientProxyError> {
+        await userSession.clientProxy.profile(for: state.userID)
+    }
+    
+    private func fetchUserIdentity() async -> Result<UserIdentityProxyProtocol?, ClientProxyError> {
+        await userSession.clientProxy.userIdentity(for: state.userID, fallBackToServer: true)
+    }
+    
     private func loadProfile() async {
-        async let profileResult = userSession.clientProxy.profile(for: state.userID)
-        async let identityResult = userSession.clientProxy.userIdentity(for: state.userID, fallBackToServer: true)
+        async let profileResult = fetchProfile()
+        async let identityResult = fetchUserIdentity()
         
         switch await profileResult {
         case .success(let userProfile):
             state.userProfile = userProfile
             state.permalink = (try? matrixToUserPermalink(userId: state.userID)).flatMap(URL.init(string:))
             
-            switch userSession.clientProxy.directRoomForUserID(userProfile.userID) {
+            switch userSession.clientProxy.directRoomForUserID(userProfile.id) {
             case .success(let roomID):
                 state.dmRoomID = roomID
             case .failure:
@@ -109,11 +118,7 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
         showLoadingIndicator(allowsInteraction: false)
         defer { hideLoadingIndicator() }
         
-        // We don't actually know the mime type here, assume it's an image.
-        if let mediaSource = try? MediaSourceProxy(url: url, mimeType: "image/jpeg"),
-           case let .success(file) = await userSession.mediaProvider.loadFileFromSource(mediaSource) {
-            state.bindings.mediaPreviewItem = MediaPreviewItem(file: file, title: userProfile.displayName)
-        }
+        state.bindings.mediaPreviewItem = await MediaPreviewItem.load(from: url, title: userProfile.displayName, using: userSession.mediaProvider)
     }
     
     private func openDirectChat() {
@@ -122,22 +127,18 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
         showLoadingIndicator(allowsInteraction: false)
         defer { hideLoadingIndicator() }
         
-        switch userSession.clientProxy.directRoomForUserID(userProfile.userID) {
+        switch userSession.clientProxy.directRoomForUserID(userProfile.id) {
         case .success(let roomID):
             if let roomID {
                 actionsSubject.send(.openDirectChat(roomID: roomID))
             } else {
-                if appSettings.enableKeyShareOnInvite {
-                    Task {
-                        let isUnknown = if case let .success(identity) = await userSession.clientProxy.userIdentity(for: userProfile.userID, fallBackToServer: false) {
-                            identity == nil
-                        } else {
-                            true
-                        }
-                        state.bindings.inviteConfirmationUser = .init(user: userProfile, isUnknown: isUnknown)
+                Task {
+                    let isUnknown = if case let .success(identity) = await userSession.clientProxy.userIdentity(for: userProfile.id, fallBackToServer: false) {
+                        identity == nil
+                    } else {
+                        true
                     }
-                } else {
-                    state.bindings.inviteConfirmationUser = .init(user: userProfile, isUnknown: false)
+                    state.bindings.inviteConfirmationUser = .init(user: userProfile, isUnknown: isUnknown)
                 }
             }
         case .failure:
@@ -151,7 +152,8 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
         showLoadingIndicator(allowsInteraction: false)
         defer { hideLoadingIndicator() }
         
-        switch await userSession.clientProxy.createDirectRoom(with: userProfile.userID, expectedRoomName: userProfile.displayName) {
+        let parameters = userSession.userHooks.userProfileScreenHook.update(.directRoom(userID: userProfile.id))
+        switch await userSession.clientProxy.createRoom(parameters) {
         case .success(let roomID):
             analytics.trackCreatedRoom(isDM: true)
             actionsSubject.send(.openDirectChat(roomID: roomID))
@@ -165,7 +167,7 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
             showErrorIndicator()
             return
         }
-        actionsSubject.send(.startCall(roomProxy: roomProxy, isVoiceCall: isVoiceCall))
+        userSession.elementCallService.requestCall(roomProxy: roomProxy, isVoiceCall: isVoiceCall)
     }
     
     // MARK: User Indicators
@@ -173,7 +175,7 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
     private var loadingIndicatorIdentifier: String {
         "\(Self.self)-Loading"
     }
-
+    
     private var statusIndicatorIdentifier: String {
         "\(Self.self)-Status"
     }
@@ -194,6 +196,6 @@ class UserProfileScreenViewModel: UserProfileScreenViewModelType, UserProfileScr
         userIndicatorController.submitIndicator(UserIndicator(id: statusIndicatorIdentifier,
                                                               type: .toast,
                                                               title: L10n.errorUnknown,
-                                                              iconName: "xmark"))
+                                                              icon: \.close))
     }
 }

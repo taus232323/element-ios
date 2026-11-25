@@ -44,22 +44,21 @@ class UserIndicatorController: ObservableObject, UserIndicatorControllerProtocol
         if let index = indicatorQueue.firstIndex(where: { $0.id == indicator.id }) {
             indicatorQueue[index] = indicator
             displayTimes[indicator.id] = .now
-        } else {
-            if let delay {
-                delayedIndicators.insert(indicator.id)
+            announceIfNeeded(indicator)
+        } else if let delay {
+            delayedIndicators.insert(indicator.id)
+            
+            Task {
+                try? await Task.sleep(for: .seconds(delay.seconds))
                 
-                Task {
-                    try? await Task.sleep(for: .seconds(delay.seconds))
-                    
-                    guard delayedIndicators.contains(indicator.id) else {
-                        return
-                    }
-
-                    enqueue(indicator: indicator)
+                guard delayedIndicators.contains(indicator.id) else {
+                    return
                 }
-            } else {
+                
                 enqueue(indicator: indicator)
             }
+        } else {
+            enqueue(indicator: indicator)
         }
     }
     
@@ -85,10 +84,21 @@ class UserIndicatorController: ObservableObject, UserIndicatorControllerProtocol
     }
     
     // MARK: - Private
-
+    
     private func enqueue(indicator: UserIndicator) {
         retractIndicatorWithId(indicator.id)
         indicatorQueue.append(indicator)
         displayTimes[indicator.id] = .now
+        announceIfNeeded(indicator)
+    }
+    
+    private func announceIfNeeded(_ indicator: UserIndicator) {
+        guard case .toast = indicator.type else {
+            return
+        }
+        
+        var announcement = AttributedString(indicator.title)
+        announcement.accessibilitySpeechAnnouncementPriority = .high
+        AccessibilityNotification.Announcement(announcement).post()
     }
 }

@@ -6,13 +6,12 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+import Compound
 import SwiftUI
 
 struct FormattedBodyText: View {
-    @Environment(\.layoutDirection) private var layoutDirection
-    
     private let attributedString: AttributedString
-    private let additionalWhitespacesCount: Int
+    private let trailingReservedSize: CGSize
     private let boostFontSize: Bool
     
     private let defaultAttributesContainer: AttributeContainer = {
@@ -22,16 +21,11 @@ struct FormattedBodyText: View {
         container.foregroundColor = UIColor.compound.textPrimary
         return container
     }()
-        
+    
     private var attributedComponents: [AttributedStringBuilderComponent] {
-        var adjustedAttributedString = attributedString + AttributedString(additionalWhitespacesSuffix)
+        var adjustedAttributedString = attributedString
         
-        // If this is not a list, force the writing direction by adding the correct unicode character.
-        if !String(attributedString.characters).starts(with: "\t") {
-            adjustedAttributedString = AttributedString(layoutDirection.isolateLayoutUnicodeString) + adjustedAttributedString
-        }
-        
-        // Required to allow the underlying TextView to use  body font when no font is specifie in the AttributedString.
+        // Required to allow the underlying TextView to use  body font when no font is specified in the AttributedString.
         adjustedAttributedString.mergeAttributes(defaultAttributesContainer, mergePolicy: .keepCurrent)
         
         let string = String(attributedString.characters)
@@ -44,63 +38,80 @@ struct FormattedBodyText: View {
     }
     
     init(attributedString: AttributedString,
-         additionalWhitespacesCount: Int = 0,
+         trailingReservedSize: CGSize = .zero,
          boostFontSize: Bool = false) {
         self.attributedString = attributedString
-        self.additionalWhitespacesCount = additionalWhitespacesCount
+        self.trailingReservedSize = trailingReservedSize
         self.boostFontSize = boostFontSize
     }
     
-    init(text: String, additionalWhitespacesCount: Int = 0, boostFontSize: Bool = false) {
+    init(text: String, trailingReservedSize: CGSize = .zero, boostFontSize: Bool = false) {
         self.init(attributedString: AttributedString(text),
-                  additionalWhitespacesCount: additionalWhitespacesCount,
+                  trailingReservedSize: trailingReservedSize,
                   boostFontSize: boostFontSize)
     }
     
-    /// These is needed to create the slightly off inlined timestamp effect
-    private var additionalWhitespacesSuffix: String {
-        .generateBreakableWhitespaceEnd(whitespaceCount: additionalWhitespacesCount, layoutDirection: layoutDirection)
+    /// Details components contain a control that VoiceOver needs to reach, so their children can't be merged away.
+    private var containsDetails: Bool {
+        attributedString.runs[\.details].contains { $0.0 != nil }
     }
     
     var body: some View {
         layout
             .tint(.compound.textLinkExternal)
-            .accessibilityElement(children: .ignore)
+            .accessibilityElement(children: containsDetails ? .contain : .ignore)
             .accessibilityLabel(Text(attributedString))
     }
     
     /// The attributed components laid out for the bubbles timeline style.
     var layout: some View {
-        TimelineBubbleLayout(spacing: 8) {
-            ForEach(attributedComponents) { component in
-                // Ignore if the string contains only the layout correction
-                if String(component.attributedString.characters) == layoutDirection.isolateLayoutUnicodeString {
-                    EmptyView()
-                } else {
-                    switch component.type {
-                    case .blockquote:
-                        BlockquoteView(attributedString: component.attributedString, mode: .rendering)
-                            .timelineBubbleLayoutSize(.bubbleWidth(mode: .rendering))
-                    case .codeBlock:
-                        CodeBlockView(attributedString: component.attributedString, mode: .rendering)
-                            .timelineBubbleLayoutSize(.bubbleWidth(mode: .rendering))
-                            .contextMenu {
-                                Button(L10n.actionCopy) {
-                                    UIPasteboard.general.string = component.attributedString.string
-                                }
+        // The trailing reserved area must only be applied to the last plain text
+        // component so that the bubble's natural size accommodates the overlaid
+        // timestamp, and TextKit decides whether to keep the timestamp on the last
+        // line or push it to a new one.
+        var components = attributedComponents
+        // When the body ends in a block component (blockquote/codeBlock) the overlaid
+        // timestamp would land on top of it, so append an empty trailing plain-text
+        // component that exists solely to reserve space for the timestamp underneath.
+        if trailingReservedSize != .zero, let last = components.last, last.type != .plainText {
+            components.append(AttributedStringBuilderComponent(id: "",
+                                                               attributedString: AttributedString(),
+                                                               type: .plainText))
+        }
+        let lastPlainTextIndex = components.lastIndex { $0.type == .plainText }
+        
+        return TimelineBubbleLayout(spacing: 8) {
+            // The `ForEach` needs to iterate over the id of the element to allow
+            // SwiftUI animations to work properly ater any edit.
+            ForEach(Array(components.enumerated()), id: \.element.id) { index, component in
+                switch component.type {
+                case .blockquote:
+                    BlockquoteView(attributedString: component.attributedString, mode: .rendering)
+                        .timelineBubbleLayoutSize(.bubbleWidth(mode: .rendering))
+                case .codeBlock:
+                    CodeBlockView(attributedString: component.attributedString, mode: .rendering)
+                        .timelineBubbleLayoutSize(.bubbleWidth(mode: .rendering))
+                        .contextMenu {
+                            Button(L10n.actionCopy) {
+                                UIPasteboard.general.string = component.attributedString.string
                             }
-                    case .plainText:
-                        MessageText(attributedString: component.attributedString)
-                            .padding(.horizontal, 4)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .timelineBubbleLayoutSize(.natural)
-                    }
+                        }
+                case .details(let summary):
+                    DetailsView(summary: summary, attributedString: component.attributedString)
+                        .padding(.horizontal, 4)
+                        .timelineBubbleLayoutSize(.natural)
+                case .plainText:
+                    MessageText(attributedString: component.attributedString,
+                                trailingReservedSize: index == lastPlainTextIndex ? trailingReservedSize : .zero)
+                        .padding(.horizontal, 4)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .timelineBubbleLayoutSize(.natural)
                 }
             }
             
             // Make a second iteration through the components adding naturally sized versions of the
             // block quotes and code blocks which are used for layout calculations but won't be rendered.
-            ForEach(attributedComponents) { component in
+            ForEach(components) { component in
                 switch component.type {
                 case .blockquote:
                     BlockquoteView(attributedString: component.attributedString, mode: .layout)
@@ -110,7 +121,7 @@ struct FormattedBodyText: View {
                     CodeBlockView(attributedString: component.attributedString, mode: .layout)
                         .timelineBubbleLayoutSize(.bubbleWidth(mode: .layout))
                         .hidden()
-                case .plainText:
+                case .details, .plainText:
                     EmptyView()
                 }
             }
@@ -153,6 +164,34 @@ struct FormattedBodyText: View {
             container.foregroundColor = UIColor.compound.textSecondary
             
             return container
+        }
+    }
+    
+    /// The view used to render a `<details>` component, collapsing its content behind its `<summary>`.
+    private struct DetailsView: View {
+        let summary: String
+        let attributedString: AttributedString
+        
+        @State private var isExpanded = false
+        
+        var body: some View {
+            VStack(alignment: .leading, spacing: 4) {
+                Button { isExpanded.toggle() } label: {
+                    HStack(alignment: .center, spacing: 4) {
+                        CompoundIcon(\.chevronRight, size: .xSmall, relativeTo: .compound.bodyLG)
+                            .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        Text(summary)
+                    }
+                    .font(.compound.bodyLGSemibold)
+                    .foregroundStyle(.compound.textPrimary)
+                }
+                .buttonStyle(.plain)
+                
+                if isExpanded {
+                    MessageText(attributedString: attributedString)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
     
@@ -220,6 +259,7 @@ struct FormattedBodyText_Previews: PreviewProvider, TestablePreview {
         <blockquote>A</blockquote>
         <pre><code>B</code></pre>
         <p>C</p>
+        <details><summary>D</summary><p>E</p></details>
         """
         
         if let attributedString = attributedStringBuilder.fromHTML(html) {

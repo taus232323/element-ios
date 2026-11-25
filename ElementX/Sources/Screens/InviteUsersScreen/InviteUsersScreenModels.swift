@@ -9,18 +9,18 @@
 import Foundation
 import MatrixRustSDK
 
-// periphery:ignore - for generic conformance
 enum InviteUsersScreenErrorType: Error {
     case unknown
 }
 
 enum InviteUsersScreenViewModelAction {
     case dismiss
+    case openRoom(roomID: String)
 }
 
 enum InviteUsersScreenRoomType {
-    case draft
-    case room(roomProxy: JoinedRoomProxyProtocol)
+    case draft(mandatoryInvitees: [UserProfile])
+    case existingRoom(roomProxy: JoinedRoomProxyProtocol)
 }
 
 struct InviteUsersScreenViewState: BindableState {
@@ -28,9 +28,10 @@ struct InviteUsersScreenViewState: BindableState {
     
     var usersSection: UserDiscoverySection = .init(type: .suggestions, users: [])
     
-    var selectedUsers: [UserProfileProxy] = []
+    var selectedUsers: [UserProfile] = []
+    var mandatoryInvitees: [UserProfile] = []
     var membershipState: [String: MembershipState] = .init()
-    var usersToConfirm: [UserProfileProxy] = []
+    var usersToConfirm: [UserProfile] = []
     
     var isSearching = false
     
@@ -38,32 +39,31 @@ struct InviteUsersScreenViewState: BindableState {
         !isSearching && usersSection.type == .searchResult && usersSection.users.isEmpty
     }
     
-    func isUserSelected(_ user: UserProfileProxy) -> Bool {
-        isUserDisabled(user) || selectedUsers.contains { $0.userID == user.userID }
+    var hasInvitableSelectedUsers: Bool {
+        selectedUsers.contains { !isInviteeMandatory($0) }
     }
     
-    func isUserDisabled(_ user: UserProfileProxy) -> Bool {
+    func isUserSelected(_ user: UserProfile) -> Bool {
+        isUserDisabled(user) || selectedUsers.contains { $0.id == user.id }
+    }
+    
+    func isUserDisabled(_ user: UserProfile) -> Bool {
+        if isInviteeMandatory(user) {
+            return true
+        }
         let membershipState = membershipState(user)
         return membershipState == .invite || membershipState == .join
     }
     
-    func membershipState(_ user: UserProfileProxy) -> MembershipState? {
-        membershipState[user.userID]
+    func isInviteeMandatory(_ user: UserProfile) -> Bool {
+        mandatoryInvitees.contains { $0.id == user.id }
+    }
+    
+    func membershipState(_ user: UserProfile) -> MembershipState? {
+        membershipState[user.id]
     }
     
     let isSkippable: Bool
-    
-    var actionText: String {
-        if isSkippable, selectedUsers.isEmpty {
-            L10n.actionSkip
-        } else {
-            L10n.actionInvite
-        }
-    }
-    
-    var isActionDisabled: Bool {
-        isSkippable ? false : selectedUsers.isEmpty
-    }
 }
 
 struct InviteUsersScreenViewStateBindings {
@@ -82,5 +82,5 @@ enum InviteUsersScreenViewAction {
     case proceed
     case removeUnknownUsers
     case confirmUnknownUsers
-    case toggleUser(UserProfileProxy)
+    case toggleUser(UserProfile)
 }

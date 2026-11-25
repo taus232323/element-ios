@@ -8,19 +8,18 @@
 
 import Combine
 import SwiftState
-import SwiftUI
 
-@MainActor
-protocol AuthenticationFlowCoordinatorDelegate: AnyObject {
-    func authenticationFlowCoordinator(didLoginWithSession userSession: UserSessionProtocol)
+enum AuthenticationFlowCoordinatorAction {
+    case signInComplete(userSession: UserSessionProtocol)
+    case cancelAddingAccount
 }
 
 class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     private let authenticationService: AuthenticationServiceProtocol
-    private let bugReportService: BugReportServiceProtocol
-    private let navigationRootCoordinator: NavigationRootCoordinator
+    private let isAddingAccount: Bool
+    private let homeserverHistoryManager: HomeserverHistoryManager
     private let navigationStackCoordinator: NavigationStackCoordinator
-    private let appMediator: AppMediatorProtocol
+    private let bugReportService: BugReportServiceProtocol
     private let appSettings: AppSettings
     private let appHooks: AppHooks
     private let userIndicatorController: UserIndicatorControllerProtocol
@@ -31,6 +30,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
         /// The initial screen shown when you first launch the app.
         case startScreen
+        
         /// The screen to login with a password.
         case loginScreen
         /// The screen to register a new account.
@@ -51,6 +51,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
         /// Modify the flow using the provisioning parameters in the `userInfo`.
         case applyProvisioningParameters
+        
         /// Show the screen to login with password (with the optional login hint in the `userInfo`).
         case continueWithPassword
         /// Show the screen to register a new account.
@@ -72,6 +73,8 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
         /// The user has successfully signed in. The new session can be found in the `userInfo`.
         case signedIn
+        /// The user cancelled adding another account.
+        case cancelledAddingAccount
     }
     
     private let stateMachine: StateMachine<State, Event>
@@ -80,24 +83,29 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     // periphery:ignore - retaining purpose
     private var bugReportFlowCoordinator: BugReportFlowCoordinator?
     
-    weak var delegate: AuthenticationFlowCoordinatorDelegate?
+    private let actionsSubject: PassthroughSubject<AuthenticationFlowCoordinatorAction, Never> = .init()
+    var actionsPublisher: AnyPublisher<AuthenticationFlowCoordinatorAction, Never> {
+        actionsSubject.eraseToAnyPublisher()
+    }
     
     init(authenticationService: AuthenticationServiceProtocol,
+         isAddingAccount: Bool = false,
+         navigationStackCoordinator: NavigationStackCoordinator,
          bugReportService: BugReportServiceProtocol,
-         navigationRootCoordinator: NavigationRootCoordinator,
          appMediator: AppMediatorProtocol,
          appSettings: AppSettings,
          appHooks: AppHooks,
          userIndicatorController: UserIndicatorControllerProtocol) {
         self.authenticationService = authenticationService
+        self.isAddingAccount = isAddingAccount
+        homeserverHistoryManager = HomeserverHistoryManager(appSettings: appSettings)
+        self.navigationStackCoordinator = navigationStackCoordinator
         self.bugReportService = bugReportService
-        self.navigationRootCoordinator = navigationRootCoordinator
-        self.appMediator = appMediator
         self.appSettings = appSettings
+        // Retained in the signature for callers. QR login and Classic app deep links, which used it, are not part of Arcana.
+        _ = appMediator
         self.appHooks = appHooks
         self.userIndicatorController = userIndicatorController
-        
-        navigationStackCoordinator = NavigationStackCoordinator()
         
         stateMachine = .init(state: .initial)
         configureStateMachine()
@@ -108,6 +116,8 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     }
     
     func handleAppRoute(_ appRoute: AppRoute, animated: Bool) {
+        MXLog.info("Handling app route: \(appRoute)")
+        
         switch appRoute {
         case .accountProvisioningLink(let provisioningParameters):
             guard appSettings.allowOtherAccountProviders else {
@@ -120,6 +130,9 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             }
             
             stateMachine.tryEvent(.applyProvisioningParameters, userInfo: provisioningParameters)
+        case .invite:
+            // Invite links are applied after sign-in. There is no session to open them against here.
+            MXLog.info("Ignoring invite route during authentication.")
         default:
             fatalError()
         }
@@ -142,6 +155,11 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         }
     }
     
+    func handleOAuthCallbackURL(_ url: URL) {
+        // Arcana signs in with email and a verification code, so there is no OAuth session to complete.
+        MXLog.error("Ignoring OAuth callback during authentication: \(url)")
+    }
+    
     // MARK: - Setup
     
     private func configureStateMachine() {
@@ -161,6 +179,8 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             let loginHint = context.userInfo as? String
             self?.showLoginScreen(loginHint: loginHint, fromState: .startScreen)
         }
+        // Pop can dismiss synchronously and then the explicit event runs, or the other way around.
+        // Both routes keep the state machine aligned without a double transition.
         stateMachine.addRoutes(event: .cancelledPasswordLogin(previousState: .startScreen), transitions: [.startScreen => .startScreen])
         stateMachine.addRoutes(event: .cancelledPasswordLogin(previousState: .startScreen), transitions: [.loginScreen => .startScreen])
         stateMachine.addRoutes(event: .continueWithNativeRegistration, transitions: [.startScreen => .nativeRegistrationScreen]) { [weak self] _ in
@@ -168,7 +188,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         }
         stateMachine.addRoutes(event: .cancelledNativeRegistration(previousState: .startScreen), transitions: [.startScreen => .startScreen])
         stateMachine.addRoutes(event: .cancelledNativeRegistration(previousState: .startScreen), transitions: [.nativeRegistrationScreen => .startScreen])
-
+        
         // Bug Report
         
         stateMachine.addRoutes(event: .reportProblem, transitions: [.startScreen => .bugReportFlow]) { [weak self] _ in
@@ -185,13 +205,14 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         
         // Completion
         
-        stateMachine.addRoutes(event: .signedIn, transitions: [.loginScreen => .complete]) { [weak self] context in
+        stateMachine.addRoutes(event: .signedIn, transitions: [.loginScreen => .complete,
+                                                               .nativeRegistrationScreen => .complete]) { [weak self] context in
             guard let userSession = context.userInfo as? UserSessionProtocol else { fatalError("The user session wasn't included in the context") }
             self?.userHasSignedIn(userSession: userSession)
         }
-        stateMachine.addRoutes(event: .signedIn, transitions: [.nativeRegistrationScreen => .complete]) { [weak self] context in
-            guard let userSession = context.userInfo as? UserSessionProtocol else { fatalError("The user session wasn't included in the context") }
-            self?.userHasSignedIn(userSession: userSession)
+        
+        stateMachine.addRoutes(event: .cancelledAddingAccount, transitions: [.startScreen => .complete]) { [weak self] _ in
+            self?.actionsSubject.send(.cancelAddingAccount)
         }
         
         // Logging
@@ -213,9 +234,11 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     }
     
     private func showStartScreen(fromState: State, applying provisioningParameters: AccountProvisioningParameters? = nil) {
+        _ = fromState
         let parameters = AuthenticationStartScreenParameters(authenticationService: authenticationService,
                                                              provisioningParameters: provisioningParameters,
-                                                             isBugReportServiceEnabled: bugReportService.isEnabled,
+                                                             isAddingAccount: isAddingAccount,
+                                                             isBugReportServiceEnabled: appSettings.bundledBugReportRageshakeConfiguration.isEnabled,
                                                              appSettings: appSettings,
                                                              mediaProvider: nil,
                                                              userIndicatorController: userIndicatorController)
@@ -232,7 +255,10 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                     stateMachine.tryEvent(.continueWithNativeRegistration)
                 case .loginDirectlyWithPassword(let loginHint):
                     stateMachine.tryEvent(.continueWithPassword, userInfo: loginHint)
-                
+                    
+                case .cancelAddingAccount:
+                    stateMachine.tryEvent(.cancelledAddingAccount)
+                    
                 case .reportProblem:
                     stateMachine.tryEvent(.reportProblem)
                 case .developerOptions:
@@ -242,14 +268,10 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             .store(in: &cancellables)
         
         navigationStackCoordinator.setRootCoordinator(coordinator)
-        
-        if fromState == .initial {
-            navigationRootCoordinator.setRootCoordinator(navigationStackCoordinator)
-        }
     }
     
     // MARK: - Manual Authentication
-
+    
     private func showLoginScreen(loginHint: String?, fromState: State) {
         let parameters = LoginScreenCoordinatorParameters(authenticationService: authenticationService,
                                                           loginHint: loginHint,
@@ -259,7 +281,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
         coordinator.actions
             .sink { [weak self] action in
                 guard let self else { return }
-
+                
                 switch action {
                 case .signedIn(let userSession):
                     stateMachine.tryEvent(.signedIn, userInfo: userSession)
@@ -270,7 +292,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                     navigationStackCoordinator.pop()
                     stateMachine.tryEvent(.cancelledPasswordLogin(previousState: fromState))
                 case .forgotPassword(let initialEmail):
-                    self.showPasswordResetScreen(initialEmail: initialEmail)
+                    showPasswordResetScreen(initialEmail: initialEmail)
                 }
             }
             .store(in: &cancellables)
@@ -279,36 +301,36 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
             self?.handlePasswordLoginDismissal(previousState: fromState)
         }
     }
-
+    
     private func showPasswordResetScreen(initialEmail: String) {
         let parameters = PasswordResetScreenCoordinatorParameters(authenticationService: authenticationService,
                                                                   initialEmail: initialEmail,
                                                                   userIndicatorController: userIndicatorController)
         let coordinator = PasswordResetScreenCoordinator(parameters: parameters)
-
+        
         coordinator.actions
             .sink { [weak self] action in
                 guard let self else { return }
-
+                
                 switch action {
                 case .complete, .cancel:
                     navigationStackCoordinator.pop()
                 }
             }
             .store(in: &cancellables)
-
+        
         navigationStackCoordinator.push(coordinator)
     }
-
+    
     private func showNativeRegistrationScreen(fromState: State) {
         let parameters = NativeRegistrationScreenCoordinatorParameters(authenticationService: authenticationService,
                                                                        userIndicatorController: userIndicatorController)
         let coordinator = NativeRegistrationScreenCoordinator(parameters: parameters)
-
+        
         coordinator.actions
             .sink { [weak self] action in
                 guard let self else { return }
-
+                
                 switch action {
                 case .signedIn(let userSession):
                     stateMachine.tryEvent(.signedIn, userInfo: userSession)
@@ -318,7 +340,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
                 }
             }
             .store(in: &cancellables)
-
+        
         navigationStackCoordinator.push(coordinator) { [weak self] in
             self?.handleNativeRegistrationDismissal(previousState: fromState)
         }
@@ -327,10 +349,11 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     // MARK: - Bug Report
     
     private func startBugReportFlow() {
-        let coordinator = BugReportFlowCoordinator(parameters: .init(presentationMode: .sheet(navigationStackCoordinator),
-                                                                     userIndicatorController: userIndicatorController,
+        let coordinator = BugReportFlowCoordinator(parameters: .init(flow: .authentication(appSettings),
+                                                                     presentationMode: .sheet(navigationStackCoordinator),
                                                                      bugReportService: bugReportService,
-                                                                     userSession: nil))
+                                                                     bugReportHook: appHooks.bugReportHook,
+                                                                     userIndicatorController: userIndicatorController))
         coordinator.actionsPublisher.sink { [weak self] action in
             switch action {
             case .complete:
@@ -348,7 +371,7 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     private func showDeveloperOptionsScreen() {
         let stackCoordinator = NavigationStackCoordinator()
         let coordinator = DeveloperOptionsScreenCoordinator(appSettings: appSettings,
-                                                            appHooks: appHooks,
+                                                            screenHook: appHooks.developerOptionsScreenHook,
                                                             clientProxy: nil)
         coordinator.actions
             .sink { action in
@@ -366,18 +389,21 @@ class AuthenticationFlowCoordinator: FlowCoordinatorProtocol {
     }
     
     // MARK: - Completion
-        
+    
     private func userHasSignedIn(userSession: UserSessionProtocol) {
-        delegate?.authenticationFlowCoordinator(didLoginWithSession: userSession)
+        actionsSubject.send(.signInComplete(userSession: userSession))
+        
+        let newAccountProvider = authenticationService.homeserver.value.accountProvider
+        homeserverHistoryManager.addServerToList(newAccountProvider.serverNameOrBaseURL)
     }
-
+    
     // MARK: - Dismissal Handling
-
+    
     private func handlePasswordLoginDismissal(previousState: State) {
         guard stateMachine.state == .loginScreen else { return }
         stateMachine.tryEvent(.cancelledPasswordLogin(previousState: previousState))
     }
-
+    
     private func handleNativeRegistrationDismissal(previousState: State) {
         guard stateMachine.state == .nativeRegistrationScreen else { return }
         stateMachine.tryEvent(.cancelledNativeRegistration(previousState: previousState))

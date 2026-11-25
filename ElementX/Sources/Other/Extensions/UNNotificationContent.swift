@@ -9,11 +9,11 @@
 import Foundation
 import UserNotifications
 
-extension UNNotificationContent {
+nonisolated extension UNNotificationContent {
     @objc var receiverID: String? {
         userInfo[NotificationConstants.UserInfoKey.receiverIdentifier] as? String
     }
-
+    
     @objc var roomID: String? {
         userInfo[NotificationConstants.UserInfoKey.roomIdentifier] as? String
     }
@@ -21,7 +21,11 @@ extension UNNotificationContent {
     @objc var eventID: String? {
         userInfo[NotificationConstants.UserInfoKey.eventIdentifier] as? String
     }
-
+    
+    @objc var eventDate: Date? {
+        userInfo[NotificationConstants.UserInfoKey.eventDate] as? Date
+    }
+    
     @objc var pusherNotificationClientIdentifier: String? {
         userInfo[NotificationConstants.UserInfoKey.pusherNotificationClientIdentifier] as? String
     }
@@ -29,13 +33,9 @@ extension UNNotificationContent {
     @objc var threadRootEventID: String? {
         userInfo[NotificationConstants.UserInfoKey.threadRootEventIdentifier] as? String
     }
-    
-    var unreadCount: Int? {
-        userInfo[NotificationConstants.UserInfoKey.unreadCount] as? Int
-    }
 }
 
-extension UNMutableNotificationContent {
+nonisolated extension UNMutableNotificationContent {
     override var receiverID: String? {
         get {
             userInfo[NotificationConstants.UserInfoKey.receiverIdentifier] as? String
@@ -60,6 +60,15 @@ extension UNMutableNotificationContent {
         }
         set {
             userInfo[NotificationConstants.UserInfoKey.eventIdentifier] = newValue
+        }
+    }
+    
+    override var eventDate: Date? {
+        get {
+            userInfo[NotificationConstants.UserInfoKey.eventDate] as? Date
+        }
+        set {
+            userInfo[NotificationConstants.UserInfoKey.eventDate] = newValue
         }
     }
     

@@ -10,6 +10,6 @@ import Combine
 protocol PasswordResetScreenViewModelProtocol {
     var actionsPublisher: AnyPublisher<PasswordResetScreenViewModelAction, Never> { get }
     var context: PasswordResetScreenViewModelType.Context { get }
-
+    
     func stopLoading()
 }

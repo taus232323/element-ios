@@ -11,22 +11,48 @@ import SwiftUI
 enum AuthenticationStartScreenViewModelAction: Equatable {
     case login
     case register
-
+    
     case loginDirectlyWithPassword(loginHint: String?)
+    
+    case cancelAddingAccount
     
     case reportProblem
     case developerOptions
 }
 
 struct AuthenticationStartScreenViewState: BindableState {
-    let showCreateAccountButton: Bool
+    enum Mode: Equatable {
+        case welcome
+        case addAccount
+    }
     
+    var mode: Mode
+    
+    let showCreateAccountButton: Bool
     let hideBrandChrome: Bool
     
     /// Terms of Use + Privacy Policy notice shown before sign-in / registration (App Store 1.2).
     let legalNotice: AttributedString
     
     var bindings = AuthenticationStartScreenViewStateBindings()
+    
+    var navigationTitle: String {
+        switch mode {
+        case .welcome:
+            L10n.screenOnboardingWelcomeBack
+        case .addAccount:
+            L10n.commonAddAnotherAccount
+        }
+    }
+    
+    var navigationBarHidden: Bool {
+        switch mode {
+        case .welcome:
+            true
+        case .addAccount:
+            false
+        }
+    }
     
     var loginButtonTitle: String {
         ArcanaLocalization.signIn
@@ -47,4 +73,6 @@ enum AuthenticationStartScreenViewAction {
     
     case login
     case register
+    
+    case cancelAddingAccount
 }

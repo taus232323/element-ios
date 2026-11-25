@@ -10,7 +10,7 @@ import Foundation
 import MatrixRustSDK
 import MatrixRustSDKMocks
 
-extension LeaveSpaceHandleSDKMock {
+nonisolated extension LeaveSpaceHandleSDKMock {
     struct Configuration {
         var rooms: [LeaveSpaceRoom] = .mockRooms
     }
@@ -22,7 +22,7 @@ extension LeaveSpaceHandleSDKMock {
     }
 }
 
-extension [LeaveSpaceRoom] {
+nonisolated extension [LeaveSpaceRoom] {
     static func mockRoomsWithSpace(spaceServiceRoom: SpaceServiceRoom, isLastOwner: Bool, areCreatorsPrivileged: Bool) -> [LeaveSpaceRoom] {
         mockRooms + mockSingleSpace(spaceServiceRoom: spaceServiceRoom, isLastOwner: isLastOwner, areCreatorsPrivileged: areCreatorsPrivileged)
     }
@@ -138,7 +138,7 @@ extension [LeaveSpaceRoom] {
     }
 }
 
-private extension SpaceRoom {
+private nonisolated extension SpaceRoom {
     init(id: String,
          canonicalAlias: String? = nil,
          name: String,
@@ -151,7 +151,8 @@ private extension SpaceRoom {
          childrenCount: UInt64 = 0,
          membership: Membership? = .joined,
          heroes: [RoomHero]? = [],
-         via: [String] = []) {
+         via: [String] = [],
+         isDM: Bool? = false) {
         self.init(roomId: id,
                   canonicalAlias: canonicalAlias,
                   displayName: name,
@@ -167,6 +168,7 @@ private extension SpaceRoom {
                   childrenCount: childrenCount,
                   state: membership,
                   heroes: heroes,
-                  via: via)
+                  via: via,
+                  isDm: isDM)
     }
 }

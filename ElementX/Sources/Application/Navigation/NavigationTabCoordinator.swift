@@ -17,24 +17,29 @@ import SwiftUI
         var dismissalCallback: (() -> Void)?
     }
     
-    @MainActor
     @Observable class TabDetails {
         /// A unique tab that identifies the tab for selection.
         let tag: Tag
         let title: String
         let icon: KeyPath<CompoundIcons, Image>
         let selectedIcon: KeyPath<CompoundIcons, Image>
+        /// When `true` the tab is given the `.search` role, which on iOS 26 detaches it
+        /// into the trailing search button in the tab bar.
+        let isSearch: Bool
+        let accessibilityIdentifier: String?
         var badgeCount = 0
         
         /// Provide the tab's split coordinator in here to have the tab bar automatically hidden
         /// when pushing a child into the split view's details on iPhone/compact iPad.
         weak var navigationSplitCoordinator: NavigationSplitCoordinator?
         
-        init(tag: Tag, title: String, icon: KeyPath<CompoundIcons, Image>, selectedIcon: KeyPath<CompoundIcons, Image>) {
+        init(tag: Tag, title: String, icon: KeyPath<CompoundIcons, Image>, selectedIcon: KeyPath<CompoundIcons, Image>, isSearch: Bool = false, accessibilityIdentifier: String? = nil) {
             self.tag = tag
             self.title = title
             self.icon = icon
             self.selectedIcon = selectedIcon
+            self.isSearch = isSearch
+            self.accessibilityIdentifier = accessibilityIdentifier
         }
         
         func barVisibility(in horizontalSizeClass: UserInterfaceSizeClass?) -> Visibility {
@@ -57,8 +62,8 @@ import SwiftUI
         var id: ObjectIdentifier {
             module.id
         }
-
-        @MainActor var coordinator: CoordinatorProtocol? {
+        
+        var coordinator: CoordinatorProtocol? {
             module.coordinator
         }
     }
@@ -97,7 +102,16 @@ import SwiftUI
     }
     
     /// The currently selected tab's tag.
-    var selectedTab: Tag?
+    var selectedTab: Tag? {
+        didSet {
+            if oldValue != selectedTab {
+                previousTab = oldValue
+            }
+        }
+    }
+    
+    /// The tab that was selected before the current one, used to return to it (e.g. cancelling search).
+    private(set) var previousTab: Tag?
     
     // MARK: Sheets
     
@@ -137,10 +151,10 @@ import SwiftUI
         if sheetModule?.coordinator === coordinator {
             fatalError("Cannot use the same coordinator more than once")
         }
-
+        
         var transaction = Transaction()
         transaction.disablesAnimations = !animated
-
+        
         withTransaction(transaction) {
             sheetModule = NavigationModule(coordinator, dismissalCallback: dismissalCallback)
         }
@@ -183,85 +197,21 @@ import SwiftUI
         if fullScreenCoverModule?.coordinator === coordinator {
             fatalError("Cannot use the same coordinator more than once")
         }
-
+        
         var transaction = Transaction()
         transaction.disablesAnimations = !animated
-
+        
         withTransaction(transaction) {
             fullScreenCoverModule = NavigationModule(coordinator, dismissalCallback: dismissalCallback)
         }
     }
     
-    // MARK: - Overlay
-    
-    fileprivate var overlayModule: NavigationModule? {
-        didSet {
-            if let oldValue {
-                logPresentationChange("Remove overlay", oldValue)
-                oldValue.tearDown()
-            }
-            
-            if let overlayModule {
-                logPresentationChange("Set overlay", overlayModule)
-                overlayModule.coordinator?.start()
-            }
-        }
-    }
-    
-    /// The currently displayed overlay coordinator
-    var overlayCoordinator: (any CoordinatorProtocol)? {
-        overlayModule?.coordinator
-    }
-    
-    enum OverlayPresentationMode { case fullScreen, minimized }
-    fileprivate var overlayPresentationMode: OverlayPresentationMode = .minimized
-    
-    /// Present an overlay on top of the tab view
-    /// - Parameters:
-    ///   - coordinator: the coordinator to display
-    ///   - presentationMode: how the coordinator should be presented
-    ///   - animated: whether the transition should be animated
-    ///   - dismissalCallback: called when the overlay has been dismissed, programatically or otherwise
-    func setOverlayCoordinator(_ coordinator: (any CoordinatorProtocol)?,
-                               presentationMode: OverlayPresentationMode = .fullScreen,
-                               animated: Bool = true,
-                               dismissalCallback: (() -> Void)? = nil) {
-        guard let coordinator else {
-            overlayModule = nil
-            return
-        }
-        
-        if overlayModule?.coordinator === coordinator {
-            fatalError("Cannot use the same coordinator more than once")
-        }
-
-        var transaction = Transaction()
-        transaction.disablesAnimations = !animated
-
-        withTransaction(transaction) {
-            overlayPresentationMode = presentationMode
-            overlayModule = NavigationModule(coordinator, dismissalCallback: dismissalCallback)
-        }
-    }
-    
-    /// Updates the presentation of the overlay coordinator.
-    /// - Parameters:
-    ///   - mode: The type of presentation to use.
-    ///   - animated: whether the transition should be animated
-    func setOverlayPresentationMode(_ mode: OverlayPresentationMode, animated: Bool = true) {
-        var transaction = Transaction()
-        transaction.disablesAnimations = !animated
-        
-        withTransaction(transaction) {
-            overlayPresentationMode = mode
-        }
-    }
-    
     // MARK: - CoordinatorProtocol
     
-    /// No idea if this is particuarly needed for the TabView but we do this for the NavigationStackCoordinator and NavigationSplitCoordinator so it
-    /// doesn't seem to harm to also do it here.
     func stop() {
+        sheetModule?.tearDown()
+        fullScreenCoverModule?.tearDown()
+        
         tabModules.forEach { $0.module.tearDown() }
     }
     
@@ -285,52 +235,109 @@ import SwiftUI
     }
 }
 
+extension EnvironmentValues {
+    /// The horizontal size class of the ``NavigationTabCoordinatorView`` that contains this view.
+    /// This provides a stable value regardless of whether the ``TabRailView`` is in the layout hierarchy.
+    ///
+    /// The rail consumes width and can cause a layout loop with the ``NavigationSplitCoordinatorView``
+    /// when the split becomes compact, hides the rail but then has enough space to become regular and so
+    /// attempts to show the rail etc.
+    @Entry var tabViewHorizontalSizeClass: UserInterfaceSizeClass?
+}
+
 private struct NavigationTabCoordinatorView<Tag: Hashable>: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     @Bindable var navigationTabCoordinator: NavigationTabCoordinator<Tag>
     
     @State private var standardAppearance = UITabBarAppearance()
+    @State private var window: UIWindow?
+    @State private var isFullScreen = true
+    @State private var railBackgroundColor: Color = .compound.bgCanvasDefault
     
     var body: some View {
-        TabView(selection: $navigationTabCoordinator.selectedTab) {
-            ForEach(navigationTabCoordinator.tabModules) { module in
+        tabView
+            .environment(\.tabViewHorizontalSizeClass, horizontalSizeClass)
+            .sheet(item: $navigationTabCoordinator.sheetModule) { module in
                 module.coordinator?.toPresentable()
                     .id(module.id)
-                    .tabItem {
-                        Label {
-                            Text(module.details.title)
-                        } icon: {
-                            CompoundIcon(module.details.tag == navigationTabCoordinator.selectedTab ? module.details.selectedIcon : module.details.icon)
-                        }
+            }
+            .fullScreenCover(item: $navigationTabCoordinator.fullScreenCoverModule) { module in
+                module.coordinator?.toPresentable()
+                    .id(module.id)
+            }
+    }
+    
+    @ViewBuilder
+    var tabView: some View {
+        if horizontalSizeClass == .regular, #available(iOS 26, *) {
+            tabRailLayout
+        } else {
+            tabViewLayout
+        }
+    }
+    
+    var tabRailLayout: some View {
+        // The rail is always shown. Removing it hands its width back to the split view, which then has
+        // room for its sidebar again, which shows the rail, ad infinitum. Keeping it means the split's
+        // width never depends on it and the two can't drive each other.
+        HStack(spacing: 0) {
+            TabRailView(navigationTabCoordinator: navigationTabCoordinator, isFullScreen: isFullScreen)
+                .background(railBackgroundColor.ignoresSafeArea())
+                .animation(.easeInOut(duration: 0.4).disabledDuringTests(), value: railBackgroundColor)
+                .overlay(alignment: .trailing) { NavigationSidebarDivider() }
+                .zIndex(1)
+            
+            if let module = navigationTabCoordinator.tabModules.first(where: { $0.details.tag == navigationTabCoordinator.selectedTab }) {
+                module.coordinator?.toPresentable()
+                    .id(module.id)
+            }
+        }
+        // Match the rail's background to the colour of the split view's detail (or the root if there isn't a split).
+        .onPreferenceChange(CompoundBackgroundPreferenceKey.self) { background in
+            guard #unavailable(iOS 27) else { return } // The background is only necessary for iOS 26's inset sidebar.
+            railBackgroundColor = background?.colorValue ?? .compound.bgCanvasDefault
+        }
+        .introspect(.window, on: .supportedVersions) { window in
+            guard self.window !== window else { return }
+            
+            DispatchQueue.main.async {
+                self.window = window
+                isFullScreen = window.isFullScreen
+            }
+        }
+        .onGeometryChange(for: CGSize.self) { geometry in
+            geometry.size // We don't need the size, but it's a signal to re-compute.
+        } action: { _ in
+            guard let newValue = window?.isFullScreen else { return }
+            
+            if newValue != isFullScreen {
+                isFullScreen = newValue
+            }
+        }
+    }
+    
+    var tabViewLayout: some View {
+        TabView(selection: $navigationTabCoordinator.selectedTab) {
+            ForEach(navigationTabCoordinator.tabModules) { module in
+                Tab(value: module.details.tag, role: module.details.isSearch ? .search : nil) {
+                    module.coordinator?.toPresentable()
+                        .id(module.id)
+                        .toolbar(module.details.barVisibility(in: horizontalSizeClass), for: .tabBar)
+                } label: {
+                    Label {
+                        Text(module.details.title)
+                    } icon: {
+                        CompoundIcon(module.details.tag == navigationTabCoordinator.selectedTab ? module.details.selectedIcon : module.details.icon)
                     }
-                    .tag(module.details.tag)
-                    .badge(module.details.badgeCount)
-                    .toolbar(module.details.barVisibility(in: horizontalSizeClass), for: .tabBar)
+                }
+                .badge(module.details.badgeCount)
+                .accessibilityIdentifier(module.details.accessibilityIdentifier ?? "")
             }
         }
         .backportTabBarMinimizeBehaviorOnScrollDown()
+        .backportTabViewSearchActivationOnSearchTabSelection()
         .introspect(.tabView, on: .supportedVersions, customize: configureAppearance)
-        .sheet(item: $navigationTabCoordinator.sheetModule) { module in
-            module.coordinator?.toPresentable()
-                .id(module.id)
-        }
-        .fullScreenCover(item: $navigationTabCoordinator.fullScreenCoverModule) { module in
-            module.coordinator?.toPresentable()
-                .id(module.id)
-        }
-        .accessibilityHidden(navigationTabCoordinator.overlayModule?.coordinator != nil && navigationTabCoordinator.overlayPresentationMode == .fullScreen)
-        .overlay {
-            Group {
-                if let coordinator = navigationTabCoordinator.overlayModule?.coordinator {
-                    coordinator.toPresentable()
-                        .opacity(navigationTabCoordinator.overlayPresentationMode == .minimized ? 0 : 1)
-                        .transition(.opacity)
-                }
-            }
-            .animation(.elementDefault, value: navigationTabCoordinator.overlayPresentationMode)
-            .animation(.elementDefault, value: navigationTabCoordinator.overlayModule)
-        }
     }
     
     private func configureAppearance(_ tabBarController: UITabBarController) {
@@ -339,5 +346,80 @@ private struct NavigationTabCoordinatorView<Tag: Hashable>: View {
         standardAppearance.compactInlineLayoutAppearance.normal.badgeBackgroundColor = .compound.iconAccentPrimary // iPhone Landscape
         standardAppearance.inlineLayoutAppearance.normal.badgeBackgroundColor = .compound.iconAccentPrimary // iPadOS 17 (doesn't work for 18+)
         tabBarController.tabBar.standardAppearance = standardAppearance
+    }
+}
+
+struct TabRailView<Tag: Hashable>: View {
+    let navigationTabCoordinator: NavigationTabCoordinator<Tag>
+    let isFullScreen: Bool
+    
+    var topPadding: CGFloat {
+        // Add additional top padding on iPad when the traffic light buttons are shown.
+        isFullScreen || ProcessInfo.processInfo.isiOSAppOnMac ? 0 : 48
+    }
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                ForEach(navigationTabCoordinator.tabModules) { module in
+                    let isSelected = module.details.tag == navigationTabCoordinator.selectedTab
+                    Button {
+                        navigationTabCoordinator.selectedTab = module.details.tag
+                    } label: {
+                        Label {
+                            Text(module.details.title)
+                        } icon: {
+                            CompoundIcon(isSelected ? module.details.selectedIcon : module.details.icon)
+                        }
+                    }
+                    .buttonStyle(TabButtonStyle(isSelected: isSelected))
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    .accessibilityIdentifier(module.details.accessibilityIdentifier ?? "")
+                    .overlay(alignment: .topTrailing) {
+                        if module.details.badgeCount > 0 {
+                            NotificationCountBadge(count: module.details.badgeCount, size: .small)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, topPadding)
+            .padding(.bottom)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isTabBar)
+    }
+    
+    struct TabButtonStyle: ButtonStyle {
+        let isSelected: Bool
+        
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .labelStyle(.iconOnly)
+                .foregroundStyle(.compound.iconPrimary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(capsuleColor(isPressed: configuration.isPressed), in: .capsule)
+                .contentShape(.capsule)
+        }
+        
+        func capsuleColor(isPressed: Bool) -> Color {
+            if isSelected {
+                .compound.bgSubtleSecondary
+            } else if isPressed {
+                .compound.bgSubtleSecondary.opacity(0.5)
+            } else {
+                .clear
+            }
+        }
+    }
+}
+
+private extension UIWindow {
+    var isFullScreen: Bool {
+        frame.size == windowScene?.screen.bounds.size
     }
 }

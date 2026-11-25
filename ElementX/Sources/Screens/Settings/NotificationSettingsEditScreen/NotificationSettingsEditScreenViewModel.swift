@@ -18,9 +18,7 @@ class NotificationSettingsEditScreenViewModel: NotificationSettingsEditScreenVie
     private let userSession: UserSessionProtocol
     private let roomSummaryProvider: RoomSummaryProviderProtocol?
     
-    // periphery:ignore - cancellable tasks get cancelled when reassigned
     @CancellableTask private var fetchDefaultRoomNotificationModesTask: Task<Void, Error>?
-    // periphery:ignore - cancellable tasks get cancelled when reassigned
     @CancellableTask private var updateRoomsWithUserDefinedModeTask: Task<Void, Error>?
     
     var actions: AnyPublisher<NotificationSettingsEditScreenViewModelAction, Never> {
@@ -168,7 +166,7 @@ class NotificationSettingsEditScreenViewModel: NotificationSettingsEditScreenVie
             roomNotificationModeProxy = .mentionsAndKeywordsOnly
         }
         state.pendingMode = mode
-        Task {
+        Task { [self] in
             do {
                 // On modern clients, we don't have different settings for encrypted and non-encrypted rooms.
                 let isOneToOne = chatType == .oneToOneChat
@@ -180,7 +178,7 @@ class NotificationSettingsEditScreenViewModel: NotificationSettingsEditScreenVie
             state.pendingMode = nil
         }
     }
-
+    
     private func presentSetModeFailedAlert(mode: NotificationSettingsEditScreenDefaultMode) {
         state.bindings.alertInfo = AlertInfo(id: .setModeFailed,
                                              title: L10n.commonError,

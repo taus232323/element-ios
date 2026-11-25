@@ -7,68 +7,49 @@
 //
 
 import Foundation
+import Macros
+import Synchronization
 
-class AppHooks: AppHooksProtocol, @unchecked Sendable {
+final nonisolated class AppHooks: AppHooksProtocol {
     #if IS_MAIN_APP
-    func configure(with userSession: UserSessionProtocol?) async {
-        await roomScreenHook.configure(with: userSession)
-    }
-
-    func setUp() {
-        registerAppSettingsHook(ArcanaAppSettingsHook())
-    }
+    @AppHook(default: DefaultAppSettingsHook())
+    var appSettingsHook: AppSettingsHookProtocol
     
-    private(set) var appSettingsHook: AppSettingsHookProtocol = DefaultAppSettingsHook()
-    func registerAppSettingsHook(_ hook: AppSettingsHookProtocol) {
-        appSettingsHook = hook
-    }
+    @AppHook(default: DefaultAppCoordinatorHook())
+    var appCoordinatorHook: AppCoordinatorHookProtocol
     
-    private(set) var compoundHook: CompoundHookProtocol = DefaultCompoundHook()
-    func registerCompoundHook(_ hook: CompoundHookProtocol) {
-        compoundHook = hook
-    }
+    @AppHook(default: DefaultRootFlowHook())
+    var rootFlowHook: RootFlowHookProtocol
     
-    private(set) var bugReportHook: BugReportHookProtocol = DefaultBugReportHook()
-    func registerBugReportHook(_ hook: BugReportHookProtocol) {
-        bugReportHook = hook
-    }
+    @AppHook(default: DefaultAuthenticationServiceHook())
+    var authenticationServiceHook: AuthenticationServiceHookProtocol
     
-    private(set) var certificateValidatorHook: CertificateValidatorHookProtocol = DefaultCertificateValidator()
-    func registerCertificateValidatorHook(_ hook: CertificateValidatorHookProtocol) {
-        certificateValidatorHook = hook
-    }
+    @AppHook(default: DefaultBugReportHook())
+    var bugReportHook: BugReportHookProtocol
     
-    private(set) var roomScreenHook: RoomScreenHookProtocol = DefaultRoomScreenHook()
-    func registerRoomScreenHook(_ hook: RoomScreenHookProtocol) {
-        roomScreenHook = hook
-    }
+    @AppHook(default: DefaultOAuthAuthenticationPresenterHook())
+    var oAuthAuthenticationPresenterHook: OAuthAuthenticationPresenterHookProtocol
     
-    private(set) var developerOptionsScreenHook: DeveloperOptionsScreenHookProtocol = DefaultDeveloperOptionsScreenHook()
-    func registerDeveloperOptionsScreenHook(_ hook: DeveloperOptionsScreenHookProtocol) {
-        developerOptionsScreenHook = hook
-    }
+    @AppHook(default: DefaultDeveloperOptionsScreenHook())
+    var developerOptionsScreenHook: DeveloperOptionsScreenHookProtocol
     #endif
     
-    private(set) var tracingHook: TracingHookProtocol = DefaultTracingHook()
-    func registerTracingHook(_ hook: TracingHookProtocol) {
-        tracingHook = hook
-    }
+    @AppHook(default: DefaultTracingHook())
+    var tracingHook: TracingHookProtocol
     
-    private(set) var clientBuilderHook: ClientBuilderHookProtocol = DefaultClientBuilderHook()
-    func registerClientBuilderHook(_ hook: ClientBuilderHookProtocol) {
-        clientBuilderHook = hook
-    }
+    @AppHook(default: DefaultClientFactoryHook())
+    var clientFactoryHook: ClientFactoryHookProtocol
     
-    private(set) var remoteSettingsHook: RemoteSettingsHookProtocol = DefaultRemoteSettingsHook()
-    func registerRemoteSettingsHook(_ hook: RemoteSettingsHookProtocol) {
-        remoteSettingsHook = hook
-    }
+    @AppHook(default: DefaultUserSessionHook())
+    var userSessionHook: UserSessionHookProtocol
 }
 
-protocol AppHooksProtocol {
+nonisolated protocol AppHooksProtocol: Sendable {
+    // periphery:ignore - required for the architecture
     func setUp()
 }
 
-extension AppHooksProtocol {
+nonisolated extension AppHooksProtocol {
+    // periphery:ignore - required for the architecture
     func setUp() { }
 }

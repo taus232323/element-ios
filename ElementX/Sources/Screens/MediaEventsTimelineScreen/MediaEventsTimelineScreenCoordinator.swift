@@ -16,8 +16,7 @@ struct MediaEventsTimelineScreenCoordinatorParameters {
     let userSession: UserSessionProtocol
     let mediaPlayerProvider: MediaPlayerProviderProtocol
     let appMediator: AppMediatorProtocol
-    let appSettings: AppSettings
-    let analytics: AnalyticsService
+    let analytics: AnalyticsServiceProtocol
     let emojiProvider: EmojiProviderProtocol
     let linkMetadataProvider: LinkMetadataProviderProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
@@ -26,11 +25,10 @@ struct MediaEventsTimelineScreenCoordinatorParameters {
 
 enum MediaEventsTimelineScreenCoordinatorAction {
     case viewInRoomTimeline(TimelineItemIdentifier)
-    case displayMessageForwarding(MessageForwardingItem)
+    case displayMessageForwarding(MessageForwardingPayload)
 }
 
 final class MediaEventsTimelineScreenCoordinator: CoordinatorProtocol {
-    private let parameters: MediaEventsTimelineScreenCoordinatorParameters
     private let viewModel: MediaEventsTimelineScreenViewModelProtocol
     
     private var cancellables = Set<AnyCancellable>()
@@ -41,15 +39,12 @@ final class MediaEventsTimelineScreenCoordinator: CoordinatorProtocol {
     }
     
     init(parameters: MediaEventsTimelineScreenCoordinatorParameters) {
-        self.parameters = parameters
-        
         let mediaTimelineViewModel = TimelineViewModel(roomProxy: parameters.roomProxy,
                                                        timelineController: parameters.mediaTimelineController,
                                                        userSession: parameters.userSession,
                                                        mediaPlayerProvider: parameters.mediaPlayerProvider,
                                                        userIndicatorController: parameters.userIndicatorController,
                                                        appMediator: parameters.appMediator,
-                                                       appSettings: parameters.appSettings,
                                                        analyticsService: parameters.analytics,
                                                        emojiProvider: parameters.emojiProvider,
                                                        linkMetadataProvider: parameters.linkMetadataProvider,
@@ -61,7 +56,6 @@ final class MediaEventsTimelineScreenCoordinator: CoordinatorProtocol {
                                                        mediaPlayerProvider: parameters.mediaPlayerProvider,
                                                        userIndicatorController: parameters.userIndicatorController,
                                                        appMediator: parameters.appMediator,
-                                                       appSettings: parameters.appSettings,
                                                        analyticsService: parameters.analytics,
                                                        emojiProvider: parameters.emojiProvider,
                                                        linkMetadataProvider: parameters.linkMetadataProvider,
@@ -77,8 +71,8 @@ final class MediaEventsTimelineScreenCoordinator: CoordinatorProtocol {
             .sink { [weak self] action in
                 guard let self else { return }
                 switch action {
-                case .displayMessageForwarding(let forwardingItem):
-                    actionsSubject.send(.displayMessageForwarding(forwardingItem))
+                case .displayMessageForwarding(let forwardingPayload):
+                    actionsSubject.send(.displayMessageForwarding(forwardingPayload))
                 case .viewInRoomTimeline(let itemID):
                     actionsSubject.send(.viewInRoomTimeline(itemID))
                 }

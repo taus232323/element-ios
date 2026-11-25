@@ -6,8 +6,6 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-// periphery:ignore:all - this is just a space remove this comment once generating the final file
-
 import Combine
 import SwiftUI
 
@@ -33,19 +31,16 @@ enum SpaceScreenCoordinatorAction {
 }
 
 final class SpaceScreenCoordinator: CoordinatorProtocol {
-    private let parameters: SpaceScreenCoordinatorParameters
     private let viewModel: SpaceScreenViewModelProtocol
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
     private let actionsSubject: PassthroughSubject<SpaceScreenCoordinatorAction, Never> = .init()
     var actionsPublisher: AnyPublisher<SpaceScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
     
     init(parameters: SpaceScreenCoordinatorParameters) {
-        self.parameters = parameters
-        
         viewModel = SpaceScreenViewModel(spaceRoomListProxy: parameters.spaceRoomListProxy,
                                          spaceServiceProxy: parameters.spaceServiceProxy,
                                          selectedSpaceRoomPublisher: parameters.selectedSpaceRoomPublisher,
@@ -87,7 +82,7 @@ final class SpaceScreenCoordinator: CoordinatorProtocol {
     func stop() {
         viewModel.stop()
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(SpaceScreen(context: viewModel.context))
     }

@@ -14,6 +14,7 @@ typealias UserDetailsEditScreenViewModelType = StateStoreViewModelV2<UserDetails
 class UserDetailsEditScreenViewModel: UserDetailsEditScreenViewModelType, UserDetailsEditScreenViewModelProtocol {
     private let actionsSubject: PassthroughSubject<UserDetailsEditScreenViewModelAction, Never> = .init()
     private let clientProxy: ClientProxyProtocol
+    private let appMediator: AppMediatorProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
     private let mediaUploadingPreprocessor: MediaUploadingPreprocessor
     
@@ -23,41 +24,32 @@ class UserDetailsEditScreenViewModel: UserDetailsEditScreenViewModelType, UserDe
     
     init(userSession: UserSessionProtocol,
          mediaUploadingPreprocessor: MediaUploadingPreprocessor,
+         appMediator: AppMediatorProtocol,
          userIndicatorController: UserIndicatorControllerProtocol) {
         clientProxy = userSession.clientProxy
         self.mediaUploadingPreprocessor = mediaUploadingPreprocessor
         self.userIndicatorController = userIndicatorController
+        self.appMediator = appMediator
         
-        super.init(initialViewState: UserDetailsEditScreenViewState(userID: clientProxy.userID,
-                                                                    bindings: .init()), mediaProvider: userSession.mediaProvider)
+        let profile = clientProxy.userProfilePublisher.value
+        super.init(initialViewState: UserDetailsEditScreenViewState(currentUserProfile: profile,
+                                                                    selectedAvatarURL: profile.avatarURL,
+                                                                    bindings: .init(name: profile.displayName ?? "")),
+                   mediaProvider: userSession.mediaProvider)
         
-        clientProxy.userAvatarURLPublisher
+        clientProxy.userProfilePublisher
             .receive(on: DispatchQueue.main)
-            .weakAssign(to: \.state.currentAvatarURL, on: self)
-            .store(in: &cancellables)
-        
-        clientProxy.userAvatarURLPublisher
-            .receive(on: DispatchQueue.main)
-            .weakAssign(to: \.state.selectedAvatarURL, on: self)
-            .store(in: &cancellables)
-        
-        clientProxy.userDisplayNamePublisher
-            .receive(on: DispatchQueue.main)
-            .weakAssign(to: \.state.currentDisplayName, on: self)
-            .store(in: &cancellables)
-        
-        clientProxy.userDisplayNamePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] displayName in
+            .sink { [weak self] profile in
                 guard let self else { return }
                 
-                state.bindings.name = displayName ?? ""
+                state.currentUserProfile = profile
+                state.selectedAvatarURL = profile.avatarURL
+                state.bindings.name = profile.displayName ?? ""
             }
             .store(in: &cancellables)
         
         Task {
-            await self.clientProxy.loadUserAvatarURL()
-            await self.clientProxy.loadUserDisplayName()
+            await self.clientProxy.loadUserProfileIfNeeded()
             state.canEditAvatar = await clientProxy.capabilities.canChangeAvatar()
             state.canEditDisplayName = await clientProxy.capabilities.canChangeDisplayName()
         }
@@ -74,9 +66,16 @@ class UserDetailsEditScreenViewModel: UserDetailsEditScreenViewModelType, UserDe
         case .presentMediaSource:
             state.bindings.showMediaSheet = true
         case .displayCameraPicker:
+            guard appMediator.isCameraAvailable else {
+                MXLog.info("Camera unavailable, not presenting the picker.")
+                userIndicatorController.submitIndicator(UserIndicator(title: L10n.errorCameraUnavailable))
+                return
+            }
             actionsSubject.send(.displayCameraPicker)
         case .displayMediaPicker:
             actionsSubject.send(.displayMediaPicker)
+        case .displayFilePicker:
+            actionsSubject.send(.displayFilePicker)
         case .removeImage:
             state.localMedia = nil
             state.selectedAvatarURL = nil
@@ -132,17 +131,13 @@ class UserDetailsEditScreenViewModel: UserDetailsEditScreenViewModelType, UserDe
             try await withThrowingTaskGroup(of: Void.self) { group in
                 if state.avatarDidChange {
                     group.addTask {
-                        if let localMedia = await self.state.localMedia {
-                            try await self.clientProxy.setUserAvatar(media: localMedia).get()
-                        } else if await self.state.selectedAvatarURL == nil {
-                            try await self.clientProxy.removeUserAvatar().get()
-                        }
+                        try await self.saveAvatar()
                     }
                 }
                 
                 if state.nameDidChange {
                     group.addTask {
-                        try await self.clientProxy.setUserDisplayName(self.state.bindings.name).get()
+                        try await self.saveDisplayName()
                     }
                 }
                 
@@ -155,5 +150,17 @@ class UserDetailsEditScreenViewModel: UserDetailsEditScreenViewModelType, UserDe
                                              title: L10n.screenEditProfileErrorTitle,
                                              message: L10n.screenEditProfileError)
         }
+    }
+    
+    private func saveAvatar() async throws {
+        if let localMedia = state.localMedia {
+            try await clientProxy.setUserAvatar(media: localMedia).get()
+        } else if state.selectedAvatarURL == nil {
+            try await clientProxy.removeUserAvatar().get()
+        }
+    }
+    
+    private func saveDisplayName() async throws {
+        try await clientProxy.setUserDisplayName(state.bindings.name).get()
     }
 }

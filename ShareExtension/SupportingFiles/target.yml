@@ -36,6 +36,8 @@ targets:
       - package: Compound
       - package: Collections
       - package: KeychainAccess
+      - package: BuildExtensions
+        product: Macros
 
     info:
       path: Info.plist
@@ -47,15 +49,16 @@ targets:
         baseBundleIdentifier: $(BASE_BUNDLE_IDENTIFIER)
         keychainAccessGroupIdentifier: $(KEYCHAIN_ACCESS_GROUP_IDENTIFIER)
         productionAppName: $(PRODUCTION_APP_NAME)
+        isNightlyBuild: $(IS_NIGHTLY_BUILD)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareExtensionViewController
           NSExtensionAttributes:
             IntentsSupported: [INSendMessageIntent]
             NSExtensionActivationRule:
-              NSExtensionActivationSupportsFileWithMaxCount: 10
-              NSExtensionActivationSupportsImageWithMaxCount: 10
-              NSExtensionActivationSupportsMovieWithMaxCount: 10
+              NSExtensionActivationSupportsFileWithMaxCount: 60
+              NSExtensionActivationSupportsImageWithMaxCount: 60
+              NSExtensionActivationSupportsMovieWithMaxCount: 60
               NSExtensionActivationSupportsText: true
               NSExtensionActivationSupportsWebURLWithMaxCount: 10
 
@@ -75,32 +78,36 @@ targets:
         MARKETING_VERSION: $(MARKETING_VERSION)
         CURRENT_PROJECT_VERSION: $(CURRENT_PROJECT_VERSION)
         DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
+        SWIFT_VERSION: 6
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
         OTHER_SWIFT_FLAGS:
         - "-DAPP_EXTENSION"
 
     sources:
     - path: ../Sources
     - path: ../SupportingFiles
-    - path: ../../arcana/Sources/ShareExtension
-    - path: ../../arcana/Sources/AppHooks/AppHooks.swift
-    - path: ../../arcana/Sources/AppHooks/Hooks/TracingHook.swift
-    - path: ../../arcana/Sources/AppHooks/Hooks/ClientBuilderHook.swift
-    - path: ../../arcana/Sources/AppHooks/Hooks/RemoteSettingsHook.swift
-    - path: ../../Secrets/Secrets.swift
-    - path: ../../arcana/Sources/Application/Settings
-    - path: ../../arcana/Sources/Application/TargetConfiguration.swift
-    - path: ../../arcana/Sources/Services/Keychain/KeychainController.swift
-    - path: ../../arcana/Sources/Services/Keychain/KeychainControllerProtocol.swift
-    - path: ../../arcana/Sources/Services/UserSession/RestorationToken.swift
-    - path: ../../arcana/Sources/Services/UserSession/SessionDirectories.swift
-    - path: ../../arcana/Sources/Other/Extensions/Bundle.swift
-    - path: ../../arcana/Sources/Other/Extensions/Dictionary.swift
-    - path: ../../arcana/Sources/Other/Extensions/FileManager.swift
-    - path: ../../arcana/Sources/Other/Extensions/NSItemProvider.swift
-    - path: ../../arcana/Sources/Other/Extensions/ProcessInfo.swift
-    - path: ../../arcana/Sources/Other/Extensions/UIView.swift
-    - path: ../../arcana/Sources/Other/Extensions/URL.swift
-    - path: ../../arcana/Sources/Other/InfoPlistReader.swift
-    - path: ../../arcana/Sources/Other/CurrentValuePublisher.swift
-    - path: ../../arcana/Sources/Other/Logging
-    - path: ../../arcana/Sources/UITests/UITestsScreenIdentifier.swift
+    - path: ../../ElementX/Sources/ShareExtension
+    - path: ../../ElementX/Sources/AppHooks/AppHooks.swift
+    - path: ../../ElementX/Sources/AppHooks/Hooks/TracingHook.swift
+    - path: ../../ElementX/Sources/AppHooks/Hooks/ClientFactoryHook.swift
+    - path: ../../ElementX/Sources/AppHooks/Hooks/UserSessionHook.swift
+    - path: ../../Components/Secrets/Secrets.swift
+    - path: ../../ElementX/Sources/Application/Settings
+    - path: ../../ElementX/Sources/Application/Target.swift
+    - path: ../../ElementX/Sources/Generated/Strings.swift
+    - path: ../../ElementX/Sources/Services/AlertTones/NotificationTone.swift
+    - path: ../../ElementX/Sources/Services/Keychain/KeychainController.swift
+    - path: ../../ElementX/Sources/Services/Keychain/KeychainControllerProtocol.swift
+    - path: ../../ElementX/Sources/Services/UserSession/RestorationToken.swift
+    - path: ../../ElementX/Sources/Services/UserSession/SessionDirectories.swift
+    - path: ../../ElementX/Sources/Other/Extensions/Bundle.swift
+    - path: ../../ElementX/Sources/Other/Extensions/Dictionary.swift
+    - path: ../../ElementX/Sources/Other/Extensions/FileManager.swift
+    - path: ../../ElementX/Sources/Other/Extensions/NSItemProvider.swift
+    - path: ../../ElementX/Sources/Other/Extensions/ProcessInfo.swift
+    - path: ../../ElementX/Sources/Other/Extensions/UIView.swift
+    - path: ../../ElementX/Sources/Other/Extensions/URL.swift
+    - path: ../../ElementX/Sources/Other/InfoPlistReader.swift
+    - path: ../../ElementX/Sources/Other/CurrentValuePublisher.swift
+    - path: ../../ElementX/Sources/Other/Logging
+    - path: ../../ElementX/Sources/UITests/UITestsScreenIdentifier.swift

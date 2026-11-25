@@ -10,12 +10,32 @@ Before making your contribution, please consider the following:
 
 * One product can’t do everything well. Element is focusing on private end-to-end encrypted messaging and voice - this can either be for consumers (e.g. friends and family) or for professional teams and organizations. Public forums and other types of chats without E2EE remain supported but are not the primary use case in case UX compromises need to be made.
 * There are 3 platforms - iOS, [Android](https://github.com/element-hq/element-x-android) and [Web/Desktop](https://github.com/element-hq/element-web). These platforms need to have feature parity and design consistency. For some features, supporting all platforms is a must have, in some cases exceptions can be made to have it on one platform only.
-* To make sure your idea fits both from a design/solution and use case perspective, please open a new issue (or find an existing issue) in [element-meta](https://github.com/element-hq/element-meta/issues) repository describing the use case and how you plan to tackle it. Do not just describe what feature is missing, explain why the users need it with a couple of real life examples from the field.
-  * In case of an existing issue, please comment that you're planning to contribute. If you create a new issue, please specify that in the issue. In such a case we will try to review the issue ASAP and provide you with initial feedback so you can be confident if and at which conditions your contributions will be accepted.
+* Feature requests for all the Element apps are filed in [element-meta](https://github.com/element-hq/element-meta/issues/new?template=enhancement.yml), not in this repository. Wait for the issue to get the `X-Accepting-PRs` or `X-Accepting-PoC-PRs` label before opening a PR, and link it with `Part of element-hq/element-meta#N`.
 
-Once we know that you want to contribute and have confirmed that the new feature is overall aligned with the product direction, the designers of the core team will help you with the designs and any other type of guidance when it comes to the user experience. We will try to unblock you as quickly as we can, but it may not be instant. Having a clear understanding of the use case and the impact of the feature will help us with the prioritization and faster responses.
+See [Feature requests](https://github.com/element-hq/element-meta/blob/develop/docs/process/feature-requests.md) for the whole process.
 
-Only once all of the above is met should you open a PR with your proposed changes.
+## Etiquette
+
+* As stated above all significant changes should be communicated through an issue before opening a PR
+* We are happy to receive contributions but features always require maintenance, so depending on the change we might not be willing to accept it
+* We are also fine with AI led contributions within reasonable bounds
+	*  You are completely responsible for the quality of the PR
+	*  If the PR doesn't show minimal effort (code does not compile, code does not work as expected, etc.) on your part it will be closed
+	*  Please write the description yourself, we don't have the bandwidth to read LLM essays. The code needs to speak for itself.
+* We use git for version control and GitHub for reviews, so in order to make everybody's life easier please:
+	* Keep the existing pull request template
+	* Don't submit large PRs, especially if not previously talked about. Anything above 200 lines is large (excluding generated code e.g. tests, translations, mocks)
+	* Please don't open unfinished PRs and expect us to fill in the details
+	* If you would like our opinion/direction on unfinished code please link your branch or idea in the ticket
+	* Please limit the number of commits in a single PR. We are perfectly happy with splitting work across multiple sessions as long as they're logically independent and show promise of progress (ideally expressed through a ticket)
+	* Each and every commit should stand on its own, clearly explaining what it does and why
+* External contributors can only have a limited number of PRs open at once.
+	* Please focus on getting your open PRs merged before starting new ones, it's up to you to follow up on them to unblock yourself.
+* Once a PR goes into review please don't rewrite the history unless agreed so with the reviewer.
+	* Tweaks and fixes following review can be directly committed (to be interactively rebased later) or as fixups
+
+*The reviewer's response time will generally match yours. Switching contexts is very hard so please act accordingly. You are responsible for making the reviewers job enjoyable!*
+
 
 ## Setting up a development environment
 
@@ -34,7 +54,7 @@ This will:
 
 ### Xcode
 
-We suggest using an Xcode version later than 15.0.1.
+We suggest always using the Xcode version specified by `xcode_select_for_github_actions` in [ci_common.sh](https://github.com/element-hq/element-x-ios/blob/develop/ci_scripts/ci_common.sh).
 
 The Xcode project can be directly compiled through the shared Element X scheme which includes the main application as well as the unit and UI tests.
 
@@ -73,6 +93,14 @@ git lfs install
 ### Snapshot Tests
 
 If you make changes to the UI you may cause existing UI and Preview test snapshots to fail. The UITests run user flows and record snapshots while doing so using the settings defined under [checkEnvironments](https://github.com/element-hq/element-x-ios/blob/c29175d1f924e58b9646a200dbab0301fce3c258/UITests/Sources/Application.swift#L35-L37) while the PreviewTests use the settings defined in [PreviewTests.swift](https://github.com/element-hq/element-x-ios/blob/c29175d1f924e58b9646a200dbab0301fce3c258/PreviewTests/Sources/PreviewTests.swift#L18-L20). The snapshots are stored under `Sources/__Snapshots__` in their respective target's folder. 
+
+To run the preview tests:
+
+1. Use an iPhone SE (3rd generation) simulator running iOS 27.2.
+2. On that simulator, go to Settings -> General -> Language & Region and select United States as the region, with English (US) as the only preferred language. This is a one time setup, as long as you keep using the same simulator.
+3. Select the `PreviewTests` scheme and run the tests.
+
+Newly created screens will automatically have their screenshots added based off their `TestablePreview` Swift previews. If you are modifying an existing screen, you will first need to delete the old snapshots for that screen before running the tests. Alternatively, if you enable `RECORD_FAILURES` in the preview test plans's environment variables (`PreviewTests/SupportingFiles/Previewtests.xctestplan`), it will overwrite snapshot failures with the updated screenshot.
 
 ### Githooks
 
@@ -121,7 +149,7 @@ Our [changelog](CHANGES.md) is automatically generated by GitHub, based on the P
 For Swift coding style we use [SwiftLint](https://github.com/realm/SwiftLint) to check some conventions at compile time (rules are located in the `.swiftlint.yml` file). 
 Otherwise please have a look to [Apple Swift conventions](https://swift.org/documentation/api-design-guidelines.html#conventions). We are also using some of the conventions of [raywenderlich.com Swift style guide](https://github.com/raywenderlich/swift-style-guide).
 
-We enforce the coding style by running checks on the CI for every PR through [Danger](Dangerfile.swift), [SwiftLint](.swiftlint.yml), [SwiftFormat](.swiftformat) and [SonarCloud](https://sonarcloud.io/project/overview?id=element-x-ios)
+We enforce the coding style by running checks on the CI for every PR through [PR Checks](.github/workflows/pr-checks.yml), [SwiftLint](.swiftlint.yml), [SwiftFormat](.swiftformat) and [SonarCloud](https://sonarcloud.io/project/overview?id=element-x-ios)
 
 We also gather coverage reports on every PR through [Codecov](https://app.codecov.io/gh/element-hq/element-x-ios) and will eventually start enforcing minimums.
 

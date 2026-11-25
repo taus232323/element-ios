@@ -5,6 +5,7 @@ settings:
   BASE_BUNDLE_IDENTIFIER: io.arcana.arcana
   ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: "colors/accent-color"
   DEVELOPMENT_TEAM: 746KXDCLCY
+  IS_NIGHTLY_BUILD: false
 
   # Classic Element migration intentionally omitted.
   ARCANA_ACCOUNT_PROVIDER: arcana.celesteai.ru

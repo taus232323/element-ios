@@ -13,25 +13,33 @@ typealias QRCodeLoginScreenViewModelType = StateStoreViewModel<QRCodeLoginScreen
 
 class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScreenViewModelProtocol {
     private let appMediator: AppMediatorProtocol
+    /// The time allowed between verifying the device's owner (on the previous screen), to having
+    /// scanned a QR code and established a secure channel for the `linkDesktopComputer` flow.
+    ///
+    /// The generated QR code handles this automatically when linking a mobile device and QR login doesn't need it.
+    private let linkDesktopTimeout: Duration
     
     private let actionsSubject: PassthroughSubject<QRCodeLoginScreenViewModelAction, Never> = .init()
     var actionsPublisher: AnyPublisher<QRCodeLoginScreenViewModelAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
     
-    private var currentTask: AnyCancellable?
-    private var oidcResultTask: AnyCancellable?
+    private var currentOperation: CurrentOperation?
+    private var oAuthResultTask: AnyCancellable?
+    private var expirationTask: AnyCancellable?
     
     init(mode: QRCodeLoginScreenMode,
          canSignInManually: Bool,
-         appMediator: AppMediatorProtocol) {
+         appMediator: AppMediatorProtocol,
+         linkDesktopTimeout: Duration = .seconds(120)) {
         self.appMediator = appMediator
+        self.linkDesktopTimeout = linkDesktopTimeout
         
         let initialViewState: QRCodeLoginState = switch mode {
         case .login: .loginInstructions
         case .linkDesktop: .linkDesktopInstructions
-        case .linkMobile(let progressPublisher):
-            switch progressPublisher.value {
+        case .linkMobile(let operation):
+            switch operation.progressPublisher.value {
             case .qrReady(let image): .displayQR(image)
             default: .error(.unknown)
             }
@@ -40,8 +48,13 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
         super.init(initialViewState: .init(state: initialViewState, mode: mode, canSignInManually: canSignInManually))
         setupSubscriptions()
         
-        if case .linkMobile(let progressPublisher) = mode {
-            listenToDisplayQRProgress(progressPublisher: progressPublisher)
+        switch mode {
+        case .linkDesktop:
+            scheduleLinkDesktopExpiration()
+        case .linkMobile(let operation):
+            listenToDisplayQRProgress(operation: operation)
+        case .login:
+            break
         }
     }
     
@@ -49,7 +62,10 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
     
     override func process(viewAction: QRCodeLoginScreenViewAction) {
         switch viewAction {
-        case .cancel, .errorAction(.cancel):
+        case .cancel:
+            currentOperation?.closeRendezvousChannel()
+            actionsSubject.send(.cancel)
+        case .errorAction(.cancel):
             actionsSubject.send(.cancel)
         case .startScan:
             Task { await startScanIfPossible() }
@@ -103,19 +119,19 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
     }
     
     private func handleScan(qrData: Data, loginService: QRCodeLoginServiceProtocol) {
-        guard currentTask == nil else { return }
+        guard currentOperation == nil else { return }
         
         state.state = .scan(.connecting)
         
         MXLog.info("Login scanning QR code")
-        let progressPublisher = loginService.loginWithQRCode(data: qrData)
+        let operation = loginService.loginWithQRCode(data: qrData)
         
-        currentTask = progressPublisher
+        let progressCancellable = operation.progressPublisher
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
                 guard let self else { return }
-                currentTask = nil
+                currentOperation = nil
                 
                 switch completion {
                 case .finished: break
@@ -147,22 +163,24 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
                     actionsSubject.send(.signedIn(userSession: session))
                 }
             }
+        
+        currentOperation = .init(progressCancellable: progressCancellable, closeRendezvousChannelAction: operation.closeRendezvousChannel)
     }
     
     private func handleScan(qrData: Data, linkService: LinkNewDeviceServiceProtocol) {
-        guard currentTask == nil else { return }
+        guard currentOperation == nil else { return }
         
         state.state = .scan(.connecting)
         
         MXLog.info("Link scanning QR code")
-        let progressPublisher = linkService.linkDesktopDevice(with: qrData)
+        let operation = linkService.linkDesktopDevice(with: qrData)
         
-        currentTask = progressPublisher
+        let progressCancellable = operation.progressPublisher
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
                 guard let self else { return }
-                currentTask = nil
+                currentOperation = nil
                 
                 if case .failure(let error) = completion {
                     handleError(error)
@@ -180,9 +198,10 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
                 case .starting:
                     break // Nothing to do, the state was set above.
                 case .establishingSecureChannel(let checkCodeString):
+                    expirationTask?.cancel()
                     state.state = .displayCode(.deviceCode(checkCodeString))
-                case .waitingForAuthorisation(let url):
-                    requestOIDCAuthorization(url: url)
+                case .waitingForAuthorisation(let verificationURL, let continuationSender):
+                    requestOAuthAuthorization(url: verificationURL, continuationSender: continuationSender)
                 case .syncingSecrets:
                     break // Nothing to do.
                 case .done:
@@ -190,19 +209,21 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
                     actionsSubject.send(.linkedDevice)
                 }
             }
+        
+        currentOperation = .init(progressCancellable: progressCancellable, closeRendezvousChannelAction: operation.closeRendezvousChannel)
     }
     
-    private func listenToDisplayQRProgress(progressPublisher: LinkNewDeviceService.LinkMobileProgressPublisher) {
+    private func listenToDisplayQRProgress(operation: LinkNewDeviceService.LinkMobileOperation) {
         state.bindings.qrResult = nil
-            
+        
         MXLog.info("Link showing QR code.")
         
-        currentTask = progressPublisher
+        let progressCancellable = operation.progressPublisher
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] completion in
                 guard let self else { return }
-                currentTask = nil
+                currentOperation = nil
                 
                 if case .failure(let error) = completion {
                     handleError(error)
@@ -221,8 +242,8 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
                     break // Nothing to do, we are already showing the code by the time this method is called.
                 case .qrScanned(let checkCodeSender):
                     state.state = .confirmCode(.inputCode(checkCodeSender))
-                case .waitingForAuthorisation(let url):
-                    requestOIDCAuthorization(url: url)
+                case .waitingForAuthorisation(let url, let continuationSender):
+                    requestOAuthAuthorization(url: url, continuationSender: continuationSender)
                 case .syncingSecrets:
                     break // Nothing to do.
                 case .done:
@@ -230,6 +251,34 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
                     actionsSubject.send(.linkedDevice)
                 }
             }
+        
+        currentOperation = .init(progressCancellable: progressCancellable, closeRendezvousChannelAction: operation.closeRendezvousChannel)
+    }
+    
+    /// Starts the timeout for scanning a desktop's QR code. The flow will expire (closing the rendezvous channel)
+    /// if the secure channel isn't established within the timeout period.
+    private func scheduleLinkDesktopExpiration() {
+        guard case .linkDesktop = state.mode else { fatalError("Expiration requested on an unexpected flow") }
+        
+        expirationTask = Task { [weak self, linkDesktopTimeout] in
+            try? await Task.sleep(for: linkDesktopTimeout, tolerance: .zero)
+            guard !Task.isCancelled else { return }
+            self?.handleExpiration()
+        }
+        .asCancellable()
+    }
+    
+    private func handleExpiration() {
+        // Don't override an error that's already being shown.
+        if case .error = state.state {
+            currentOperation = nil // Stop listening for updates (just in case).
+            return
+        }
+        
+        MXLog.info("Timed out establishing a secure channel, expiring.")
+        currentOperation?.closeRendezvousChannel()
+        currentOperation = nil // Stop listening for updates.
+        handleError(.expired)
     }
     
     private func sendCheckCode() async {
@@ -237,16 +286,10 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
             fatalError("Attempting to check code from the wrong state.")
         }
         
+        state.state = .confirmCode(.sendingCode)
+        
         let stringValue = state.bindings.checkCodeInput
         let code = UInt8(stringValue) ?? 0
-        
-        if !checkCodeSender.validate(checkCode: code) {
-            MXLog.error("Invalid code entered.")
-            state.state = .confirmCode(.invalidCode)
-            return
-        }
-        
-        state.state = .confirmCode(.sendingCode)
         
         do {
             MXLog.info("Valid code entered, sending.")
@@ -257,11 +300,15 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
         }
     }
     
-    private func requestOIDCAuthorization(url: URL) {
-        let (stream, continuation) = AsyncStream<Result<Void, OIDCError>>.makeStream()
-        actionsSubject.send(.requestOIDCAuthorisation(url, continuation))
+    private func requestOAuthAuthorization(url: URL, continuationSender: ContinuationMessageSenderProxy) {
+        // There's no OAuth redirect, so the WAS always returns a cancellation failure (both for a declined system prompt and
+        // when closing after successful authorisation). We can't use the continuation as intended, so confirm it and continue.
+        Task { await continuationSender.confirm() }
         
-        oidcResultTask = Task { [weak self] in
+        let (stream, continuation) = AsyncStream<Result<Void, OAuthError>>.makeStream()
+        actionsSubject.send(.requestOAuthAuthorisation(url, continuation))
+        
+        oAuthResultTask = Task { [weak self] in
             for await result in stream {
                 guard let self else { return }
                 switch result {
@@ -291,6 +338,8 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
             state.state = .error(.cancelled)
         case .connectionInsecure:
             state.state = .error(.connectionNotSecure)
+        case .invalidCheckCode:
+            state.state = .confirmCode(.invalidCode)
         case .declined:
             state.state = .error(.declined)
         case .linkingNotSupported:
@@ -305,14 +354,30 @@ class QRCodeLoginScreenViewModel: QRCodeLoginScreenViewModelType, QRCodeLoginScr
             state.state = .error(.unknown)
         }
     }
-        
+    
     /// Only for mocking initial states
     fileprivate init(state: QRCodeLoginState, mode: QRCodeLoginScreenMode, canSignInManually: Bool, checkCodeInput: String) {
-        appMediator = AppMediatorMock.default
+        appMediator = AppMediatorMock(.init())
+        linkDesktopTimeout = .seconds(3600)
         super.init(initialViewState: .init(state: state,
                                            mode: mode,
                                            canSignInManually: canSignInManually,
                                            bindings: .init(checkCodeInput: checkCodeInput)))
+    }
+}
+
+/// The screen's currently running operation. This includes a subscription to its progress and a way to close
+/// its rendezvous channel early. Releasing it only stops listening to the progress. The rendezvous channel
+/// can be closed mid-operation by calling ``closeRendezvousChannel()``.
+private struct CurrentOperation {
+    let progressCancellable: AnyCancellable
+    let closeRendezvousChannelAction: () -> Void
+    
+    /// Closes the operation's rendezvous channel and stops listening to its progress.
+    func closeRendezvousChannel() {
+        // Must come first so the resulting `.cancelled` failure isn't handled.
+        progressCancellable.cancel()
+        closeRendezvousChannelAction()
     }
 }
 

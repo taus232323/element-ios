@@ -18,11 +18,11 @@ enum RoomDetailsScreenViewModelAction: Equatable {
     case requestMemberDetailsPresentation
     case requestRecipientDetailsPresentation(userID: String)
     case requestInvitePeoplePresentation
+    case requestInviteToNewRoomPresentation(selectedInvitee: UserProfile)
     case leftRoom
     case requestEditDetailsPresentation
     case requestPollsHistoryPresentation
     case requestRolesAndPermissionsPresentation
-    case startCall(isVoiceCall: Bool)
     case displayPinnedEventsTimeline
     case displayMediaEventsTimeline
     case displayKnockingRequests
@@ -44,7 +44,7 @@ struct RoomDetailsScreenViewState: BindableState {
     var isEncrypted: Bool
     var isDirect: Bool
     var permalink: URL?
-
+    
     var topic: AttributedString?
     var topicSummary: AttributedString?
     
@@ -61,17 +61,18 @@ struct RoomDetailsScreenViewState: BindableState {
     var canKickUsers = false
     var canBanUsers = false
     var notificationSettingsState: RoomDetailsNotificationSettingsState = .loading
+    var isCallingEnabled = true
+    var isNativeCallingEnabled = false
     var canJoinCall = false
     var pinnedEventsActionState = RoomDetailsScreenPinnedEventsActionState.loading
     
-    var knockingEnabled = false
     var isKnockableRoom = false
     var knockRequestsCount = 0
     
     var reportRoomEnabled = false
     
     var canSeeKnockingRequests: Bool {
-        knockingEnabled && dmRecipientInfo == nil && isKnockableRoom && (canInviteUsers || canKickUsers || canBanUsers)
+        dmRecipientInfo == nil && isKnockableRoom && (canInviteUsers || canKickUsers || canBanUsers)
     }
     
     var canSeeSecurityAndPrivacy: Bool {
@@ -85,20 +86,21 @@ struct RoomDetailsScreenViewState: BindableState {
     var hasTopicSection: Bool {
         topic != nil || canEditRoomTopic
     }
-
+    
     var bindings: RoomDetailsScreenViewStateBindings
-
+    
     var dmRecipientInfo: DMRecipientInfo?
     var accountOwner: RoomMemberDetails?
     
     var shortcuts: [RoomDetailsScreenViewShortcut] {
         var shortcuts: [RoomDetailsScreenViewShortcut] = [.mute]
-        if !ProcessInfo.processInfo.isiOSAppOnMac, canJoinCall {
+        if !ProcessInfo.processInfo.isiOSAppOnMac || isNativeCallingEnabled, isCallingEnabled, canJoinCall {
             if isDirect {
                 shortcuts.append(.voiceCall)
             }
             shortcuts.append(.videoCall)
         }
+        // The invite flow is different for DMs
         if dmRecipientInfo == nil, canInviteUsers {
             shortcuts.append(.invite)
         }
@@ -134,31 +136,31 @@ struct RoomDetailsScreenViewStateBindings {
             case ignore
             case unignore
         }
-
+        
         let action: Action
         let cancelTitle = L10n.actionCancel
-
+        
         var title: String {
             switch action {
             case .ignore: return L10n.screenDmDetailsBlockUser
             case .unignore: return L10n.screenDmDetailsUnblockUser
             }
         }
-
+        
         var confirmationTitle: String {
             switch action {
             case .ignore: return L10n.screenDmDetailsBlockAlertAction
             case .unignore: return L10n.screenDmDetailsUnblockAlertAction
             }
         }
-
+        
         var description: String {
             switch action {
             case .ignore: return L10n.screenDmDetailsBlockAlertDescription
             case .unignore: return L10n.screenDmDetailsUnblockAlertDescription
             }
         }
-
+        
         var viewAction: RoomDetailsScreenViewAction {
             switch action {
             case .ignore: return .ignoreConfirmed
@@ -168,7 +170,7 @@ struct RoomDetailsScreenViewStateBindings {
     }
     
     var isFavourite = false
-
+    
     /// Information describing the currently displayed alert.
     var alertInfo: AlertInfo<RoomDetailsScreenErrorType>?
     var leaveRoomAlertItem: LeaveRoomAlertItem?
@@ -187,7 +189,7 @@ struct LeaveRoomAlertItem: AlertProtocol {
         case `public`
         case `private`
     }
-
+    
     let roomID: String
     let isDM: Bool
     let state: RoomState
@@ -197,7 +199,7 @@ struct LeaveRoomAlertItem: AlertProtocol {
     var title: String {
         isDM ? L10n.actionLeaveConversation : L10n.actionLeaveRoom
     }
-
+    
     var subtitle: String {
         switch state {
         case .empty: return L10n.leaveRoomAlertEmptySubtitle

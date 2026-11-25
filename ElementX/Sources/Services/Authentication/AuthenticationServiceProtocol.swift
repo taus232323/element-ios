@@ -19,8 +19,8 @@ enum AuthenticationFlow {
 }
 
 enum AuthenticationServiceError: Error, Equatable {
-    /// An error occurred during OIDC authentication.
-    case oidcError(OIDCError)
+    /// An error occurred during OAuth authentication.
+    case oAuthError(OAuthError)
     /// An error occurred during login with QR Code.
     case qrCodeError(QRCodeLoginError)
     
@@ -28,7 +28,7 @@ enum AuthenticationServiceError: Error, Equatable {
     case invalidCredentials
     case invalidVerificationCode
     case rateLimited(retryAfterMs: Int?)
-    case invalidHomeserverAddress
+    case invalidServerNameOrBaseURL
     case invalidWellKnown(String)
     case slidingSyncNotAvailable
     case loginNotSupported
@@ -46,6 +46,8 @@ enum AuthenticationServiceError: Error, Equatable {
     case invalidRegistrationToken
     /// Cross-signing / device identity bootstrap failed after native email auth.
     case deviceIdentityBootstrapFailed
+    /// The user logged in to an account that is already logged in on this device.
+    case accountAlreadyLoggedIn(userID: String)
 }
 
 struct PendingNativeLogin: Equatable {
@@ -76,54 +78,56 @@ struct PendingNativePasswordReset: Equatable {
 
 protocol AuthenticationServiceProtocol: QRCodeLoginServiceProtocol {
     /// The currently configured homeserver.
+    ///
+    /// **Note:** The value's `accountProvider` will always be `.generic` after calling `configure(for:flow:)`.
     var homeserver: CurrentValuePublisher<LoginHomeserver, Never> { get }
     /// The type of flow the service is currently configured with.
     var flow: AuthenticationFlow { get }
-        
-    /// Sets up the service for login on the specified homeserver address.
-    func configure(for homeserverAddress: String, flow: AuthenticationFlow) async -> Result<Void, AuthenticationServiceError>
-    /// Performs login using OIDC for the current homeserver.
-    func urlForOIDCLogin(loginHint: String?) async -> Result<OIDCAuthorizationDataProxy, AuthenticationServiceError>
-    /// Asks the SDK to abort an ongoing OIDC login if we didn't get a callback to complete the request with.
-    func abortOIDCLogin(data: OIDCAuthorizationDataProxy) async
-    /// Completes an OIDC login that was started using ``urlForOIDCLogin``.
-    func loginWithOIDCCallback(_ callbackURL: URL) async -> Result<UserSessionProtocol, AuthenticationServiceError>
+    
+    /// Sets up the service for login or registration using the supplied server name or base URL.
+    func configure(for serverNameOrBaseURL: String, flow: AuthenticationFlow) async -> Result<Void, AuthenticationServiceError>
+    /// Performs login using OAuth for the current homeserver.
+    func urlForOAuthLogin(loginHint: String?) async -> Result<OAuthAuthorizationDataProxy, AuthenticationServiceError>
+    /// Asks the SDK to abort an ongoing OAuth login if we didn't get a callback to complete the request with.
+    func abortOAuthLogin(data: OAuthAuthorizationDataProxy) async
+    /// Completes an OAuth login that was started using ``urlForOAuthLogin``.
+    func loginWithOAuthCallback(_ callbackURL: URL) async -> Result<UserSessionProtocol, AuthenticationServiceError>
     /// Performs a password login using the current homeserver.
     func login(username: String, password: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError>
-
+    
     /// Starts the native email-first login flow.
     func startNativeLogin(login: String, password: String) async -> Result<PendingNativeLogin, AuthenticationServiceError>
-
+    
     /// Completes the native email-first login flow after the verification code has been entered.
     func continueNativeLogin(_ pendingLogin: PendingNativeLogin, verificationCode: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError>
-
+    
     /// Resends the native login verification code.
     func resendNativeLoginCode(_ pendingLogin: PendingNativeLogin) async -> Result<PendingNativeLogin, AuthenticationServiceError>
-
+    
     /// Starts the native email-first registration flow.
     func startNativeRegistration(email: String) async -> Result<PendingNativeRegistration, AuthenticationServiceError>
-
+    
     /// Confirms the registration email verification code.
     func continueNativeRegistrationEmailCode(_ pendingRegistration: PendingNativeRegistration, verificationCode: String) async -> Result<PendingNativeRegistration, AuthenticationServiceError>
-
+    
     /// Completes the native registration flow once the username and password have been entered.
     func finishNativeRegistration(_ pendingRegistration: PendingNativeRegistration, username: String?, password: String, initialDeviceName: String?, deviceID: String?) async -> Result<UserSessionProtocol, AuthenticationServiceError>
-
+    
     /// Resends the native registration verification code.
     func resendNativeRegistrationEmail(_ pendingRegistration: PendingNativeRegistration) async -> Result<PendingNativeRegistration, AuthenticationServiceError>
-
+    
     /// After native login/registration, bootstrap cross-signing so this device is verified.
     func bootstrapNativeDeviceIdentity(password: String) async -> Result<Void, AuthenticationServiceError>
-
+    
     /// Starts the native password reset flow.
     func startNativePasswordReset(email: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError>
-
+    
     /// Confirms the password reset email verification code.
     func continueNativePasswordResetEmailCode(_ pendingPasswordReset: PendingNativePasswordReset, verificationCode: String) async -> Result<PendingNativePasswordReset, AuthenticationServiceError>
-
+    
     /// Completes the native password reset flow once the new password has been entered.
     func finishNativePasswordReset(_ pendingPasswordReset: PendingNativePasswordReset, password: String) async -> Result<Void, AuthenticationServiceError>
-
+    
     /// Resends the native password reset verification code.
     func resendNativePasswordResetEmail(_ pendingPasswordReset: PendingNativePasswordReset) async -> Result<PendingNativePasswordReset, AuthenticationServiceError>
     
@@ -131,25 +135,28 @@ protocol AuthenticationServiceProtocol: QRCodeLoginServiceProtocol {
     func reset()
 }
 
-// MARK: - OIDC
+// MARK: - OAuth
 
-enum OIDCError: Error {
+enum OAuthError: Error {
     /// Failed to get the URL that should be presented for login.
     case urlFailure
     /// The user cancelled the login.
     case userCancellation
-    /// OIDC isn't supported on the currently configured server.
+    /// OAuth isn't supported on the currently configured server.
     case notSupported
     /// An unknown error occurred.
     case unknown
 }
 
-struct OIDCAuthorizationDataProxy: Hashable {
+struct OAuthAuthorizationDataProxy: Hashable {
+    /// The authorisation data supplied by the SDK.
     let underlyingData: OAuthAuthorizationData
+    /// The homeserver that the authorisation is for.
+    let homeserver: String
     
     var url: URL {
         guard let url = URL(string: underlyingData.loginUrl()) else {
-            fatalError("OIDC login URL hasn't been validated.")
+            fatalError("OAuth login URL hasn't been validated.")
         }
         return url
     }
@@ -172,6 +179,7 @@ enum QRCodeLoginError: Error, Equatable {
     case providerNotAllowed(scannedProvider: String, allowedProviders: [String])
     case cancelled
     case connectionInsecure
+    case invalidCheckCode
     case declined
     case linkingNotSupported
     case expired
@@ -183,8 +191,25 @@ enum QRCodeLoginError: Error, Equatable {
 
 // sourcery: AutoMockable
 protocol QRCodeLoginServiceProtocol {
-    typealias QRLoginProgressPublisher = CurrentValuePublisher<QRLoginProgress, AuthenticationServiceError>
-    func loginWithQRCode(data: Data) -> QRLoginProgressPublisher
+    /// A ``QRCodeOperation`` for logging in by scanning a QR code generated by another device.
+    typealias QRLoginOperation = QRCodeOperation<QRLoginProgress, AuthenticationServiceError>
+    func loginWithQRCode(data: Data) -> QRLoginOperation
+}
+
+/// An ongoing QR code login or link operation that publishes its progress with to ability to close the rendezvous channel early.
+final class QRCodeOperation<Progress, Failure: Error> {
+    let progressPublisher: CurrentValuePublisher<Progress, Failure>
+    private let task: Task<Void, Never>?
+    
+    init(progressPublisher: CurrentValuePublisher<Progress, Failure>, task: Task<Void, Never>? = nil) {
+        self.progressPublisher = progressPublisher
+        self.task = task
+    }
+    
+    /// Closes the operation's rendezvous channel. The publisher will then fail with its cancelled error.
+    func closeRendezvousChannel() {
+        task?.cancel()
+    }
 }
 
 enum QRLoginProgress {

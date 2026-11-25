@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import Subprocess
+import XcresultparserLib
 import Yams
 
 struct CI: ParsableCommand {
@@ -19,12 +20,13 @@ struct CI: ParsableCommand {
                                                         ReleaseToGitHub.self
                                                     ])
     
+    static let defaultOSVersion = "27.2"
     static let testOutputDirectory = "test_output"
     
     /// Reads the `MARKETING_VERSION` from `project.yml`.
     static func readMarketingVersion() throws -> String {
         let projectURL = URL.projectDirectory.appending(component: "project.yml")
-        let projectString = try String(contentsOf: projectURL)
+        let projectString = try String(contentsOf: projectURL, encoding: .utf8)
         
         guard let projectConfig = try Yams.compose(yaml: projectString),
               let version = projectConfig["settings"]?["MARKETING_VERSION"]?.string else {
@@ -44,9 +46,19 @@ struct CI: ParsableCommand {
             try await run(.name("swiftformat"), ["--lint", "."])
         } catch {
             logger.error("\n❌ SwiftFormat failed.\n")
+            annotateError(title: "SwiftFormat lint failed", "Run `swiftformat .` from the project root and commit the changes.")
             throw error
         }
         logger.info("\n✅ SwiftFormat passed.\n")
+    }
+    
+    // MARK: - GitHub Actions
+    
+    /// Logs an error annotation, surfacing the failure on the workflow run's summary page.
+    ///
+    /// This is printed directly as the workflow command must be at the very start of the line.
+    static func annotateError(title: String, _ message: String) {
+        print("::error title=\(title)::\(message)")
     }
     
     // MARK: - Test Results
@@ -64,7 +76,11 @@ struct CI: ParsableCommand {
         }
         
         do {
-            try await run(.path("/bin/zsh"), ["-cu", "xcresultparser -q -o cobertura -t \(target) -p \(projectPath) \(resultBundlePath) > \(outputPath)"])
+            let converter = try CoberturaCoverageConverter(with: URL(filePath: resultBundlePath),
+                                                           projectRoot: projectPath,
+                                                           coverageTargets: [target],
+                                                           strictPathnames: false)
+            try converter.xmlString(quiet: true).write(toFile: outputPath, atomically: true, encoding: .utf8)
             logger.info("\n📊 Coverage report: \(outputPath)\n")
         } catch {
             logger.error("\n❌ Failed to collect coverage for \(resultBundle): \(error.localizedDescription)\n")
@@ -84,7 +100,8 @@ struct CI: ParsableCommand {
         }
         
         do {
-            try await run(.path("/bin/zsh"), ["-cu", "xcresultparser -q -o junit -p \(projectPath) \(resultBundlePath) > \(outputPath)"])
+            let junitXML = try JunitXML(with: URL(filePath: resultBundlePath), projectRoot: projectPath)
+            try junitXML.xmlString.write(toFile: outputPath, atomically: true, encoding: .utf8)
             logger.info("📋 Test results: \(outputPath)")
         } catch {
             logger.error("\n❌ Failed to collect test results for \(resultBundle): \(error.localizedDescription)\n")
@@ -152,7 +169,7 @@ struct CI: ParsableCommand {
         else {
             throw ValidationError("GITHUB_TOKEN environment variable is not set.")
         }
-
+        
         let repoURL = try await CI.gitRepositoryURL()
         
         if let tagName {

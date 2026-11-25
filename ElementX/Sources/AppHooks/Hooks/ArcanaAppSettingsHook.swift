@@ -13,11 +13,13 @@ struct ArcanaAppSettingsHook: AppSettingsHookProtocol {
         let baseURL = URL(string: "https://arcana.celesteai.ru")!
         let privacyURL = URL(string: "https://arcana.celesteai.ru/privacy")!
         let termsURL = URL(string: "https://arcana.celesteai.ru/terms")!
-        appSettings.override(accountProviders: [InfoPlistReader.main.arcanaAccountProvider],
+        appSettings.override(accountProviders: [.managed(serverName: InfoPlistReader.main.arcanaAccountProvider,
+                                                         baseURL: baseURL)],
                              allowOtherAccountProviders: false,
                              hideBrandChrome: false,
                              pushGatewayBaseURL: baseURL,
-                             oidcRedirectURL: URL(string: "https://arcana.celesteai.ru/oidc/login")!,
+                             oAuthRedirectURL: URL(string: "https://arcana.celesteai.ru/oidc/login")!,
+                             oAuthClientURIPath: nil,
                              websiteURL: baseURL,
                              logoURL: URL(string: "https://arcana.celesteai.ru/mobile-icon.png")!,
                              copyrightURL: URL(string: "https://arcana.celesteai.ru/terms#copyright")!,
@@ -32,7 +34,7 @@ struct ArcanaAppSettingsHook: AppSettingsHookProtocol {
                              accountProvisioningHost: "",
                              bugReportApplicationID: "arcana-ios",
                              analyticsTermsURL: privacyURL,
-                             mapTilerConfiguration: appSettings.mapTilerConfiguration)
+                             bundledMapTilerConfiguration: appSettings.bundledMapTilerConfiguration)
         return appSettings
     }
 }

@@ -14,9 +14,9 @@ struct CreateRoomScreenCoordinatorParameters {
     let spaceSelectionMode: CreateRoomScreenSpaceSelectionMode
     let shouldShowCancelButton: Bool
     let userSession: UserSessionProtocol
+    let appMediator: AppMediatorProtocol
+    let analytics: AnalyticsServiceProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
-    let appSettings: AppSettings
-    let analytics: AnalyticsService
 }
 
 enum CreateRoomScreenCoordinatorAction {
@@ -39,9 +39,9 @@ final class CreateRoomScreenCoordinator: CoordinatorProtocol {
                                               spaceSelectionMode: parameters.spaceSelectionMode,
                                               shouldShowCancelButton: parameters.shouldShowCancelButton,
                                               userSession: parameters.userSession,
+                                              appMediator: parameters.appMediator,
                                               analytics: parameters.analytics,
-                                              userIndicatorController: parameters.userIndicatorController,
-                                              appSettings: parameters.appSettings)
+                                              userIndicatorController: parameters.userIndicatorController)
     }
     
     func start() {
@@ -54,13 +54,15 @@ final class CreateRoomScreenCoordinator: CoordinatorProtocol {
                 actionsSubject.send(.displayMediaPickerWithMode(.init(source: .camera, selectionType: .single)))
             case .displayMediaPicker:
                 actionsSubject.send(.displayMediaPickerWithMode(.init(source: .photoLibrary, selectionType: .single)))
+            case .displayFilePicker:
+                actionsSubject.send(.displayMediaPickerWithMode(.init(source: .documents(types: [.image]), selectionType: .single)))
             case .dismiss:
                 actionsSubject.send(.dismiss)
             }
         }
         .store(in: &cancellables)
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(CreateRoomScreen(context: viewModel.context))
     }

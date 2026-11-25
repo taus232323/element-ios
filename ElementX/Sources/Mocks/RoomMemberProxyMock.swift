@@ -9,10 +9,11 @@
 import Foundation
 import MatrixRustSDK
 
-struct RoomMemberProxyMockConfiguration {
+nonisolated struct RoomMemberProxyMockConfiguration {
     var userID: String
     var displayName: String?
     var avatarURL: URL?
+    var status = UserStatus()
     
     var membership: MembershipState
     var isIgnored = false
@@ -23,21 +24,19 @@ struct RoomMemberProxyMockConfiguration {
 extension RoomMemberProxyMock {
     convenience init(with configuration: RoomMemberProxyMockConfiguration) {
         self.init()
+        
         userID = configuration.userID
         displayName = configuration.displayName
-        
-        if let displayName = configuration.displayName {
-            disambiguatedDisplayName = "\(displayName) (\(userID.matrixDisplayNameWithAt))"
-        }
-        
+        disambiguatedDisplayName = configuration.displayName.map { "\($0) (\(userID.matrixDisplayNameWithAt))" }
         avatarURL = configuration.avatarURL
+        status = configuration.status
         
         membership = configuration.membership
         isIgnored = configuration.isIgnored
         
         powerLevel = configuration.powerLevel
     }
-
+    
     /// Mocks
     static var mockMe: RoomMemberProxyMock {
         RoomMemberProxyMock(with: .init(userID: "@me:matrix.org",
@@ -73,23 +72,37 @@ extension RoomMemberProxyMock {
                                         displayName: "Alice",
                                         membership: .invite))
     }
-
+    
     static var mockBob: RoomMemberProxyMock {
         RoomMemberProxyMock(with: .init(userID: "@bob:matrix.org",
                                         displayName: "Bob",
                                         membership: .join))
     }
-
+    
     static var mockCharlie: RoomMemberProxyMock {
         RoomMemberProxyMock(with: .init(userID: "@charlie:matrix.org",
                                         displayName: "Charlie",
                                         membership: .join))
     }
-
+    
     static var mockDan: RoomMemberProxyMock {
         RoomMemberProxyMock(with: .init(userID: "@dan:matrix.org",
                                         displayName: "Dan",
                                         avatarURL: .mockMXCUserAvatar,
+                                        membership: .join))
+    }
+    
+    static var mockErin: RoomMemberProxyMock {
+        RoomMemberProxyMock(with: .init(userID: "@erin:matrix.org",
+                                        displayName: "Erin",
+                                        status: .mockFocussing,
+                                        membership: .join))
+    }
+    
+    static var mockFrank: RoomMemberProxyMock {
+        RoomMemberProxyMock(with: .init(userID: "@frank:matrix.org",
+                                        displayName: "Frank",
+                                        status: .mockCall,
                                         membership: .join))
     }
     
@@ -110,7 +123,7 @@ extension RoomMemberProxyMock {
                                         membership: .invite,
                                         isIgnored: true))
     }
-
+    
     static var mockIgnored: RoomMemberProxyMock {
         RoomMemberProxyMock(with: .init(userID: "@ignored:matrix.org",
                                         displayName: "Ignored",

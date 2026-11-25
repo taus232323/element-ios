@@ -11,7 +11,7 @@ import UIKit
 
 // MARK: - Custom URLs
 
-extension URL {
+nonisolated extension URL {
     /// The URL of the primary app group container.
     static var appGroupContainerDirectory: URL {
         guard let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: InfoPlistReader.main.appGroupIdentifier) else {
@@ -32,13 +32,13 @@ extension URL {
             .appending(component: "Logs", directoryHint: .isDirectory)
             .appending(component: InfoPlistReader.main.baseBundleIdentifier, directoryHint: .isDirectory)
     }
-
+    
     /// The base directory where all session data is stored.
     static var sessionsBaseDirectory: URL {
         let applicationSupportSessionsURL = applicationSupportBaseDirectory.appending(component: "Sessions", directoryHint: .isDirectory)
         
         try? FileManager.default.createDirectoryIfNeeded(at: applicationSupportSessionsURL)
-
+        
         return applicationSupportSessionsURL
     }
     
@@ -48,7 +48,7 @@ extension URL {
             .appending(component: "Library", directoryHint: .isDirectory)
             .appending(component: "Application Support", directoryHint: .isDirectory)
             .appending(component: InfoPlistReader.main.baseBundleIdentifier, directoryHint: .isDirectory)
-
+        
         try? FileManager.default.createDirectoryIfNeeded(at: url)
         
         do {
@@ -58,7 +58,7 @@ extension URL {
         } catch {
             MXLog.error("Failed excluding Application Support from backups")
         }
-
+        
         return url
     }
     
@@ -69,12 +69,12 @@ extension URL {
             .appending(component: "Caches", directoryHint: .isDirectory)
             .appending(component: InfoPlistReader.main.baseBundleIdentifier, directoryHint: .isDirectory)
             .appending(component: "Sessions", directoryHint: .isDirectory)
-
+        
         try? FileManager.default.createDirectoryIfNeeded(at: url)
         
         // Caches are excluded from backups automatically.
         // https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html
-
+        
         return url
     }
     
@@ -85,22 +85,36 @@ extension URL {
     static var appGroupTemporaryDirectory: URL {
         let url = appGroupContainerDirectory
             .appending(component: "tmp", directoryHint: .isDirectory)
-
+        
         try? FileManager.default.createDirectoryIfNeeded(at: url)
         
         // Temporary files are excluded from backups automatically.
         // https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html
-
+        
         return url
     }
     
-    var globalProxy: String? {
-        let span = MXLog.createSpan("Global proxy")
-        span.enter()
-        defer {
-            span.exit()
+    /// The directory holding the sounds that iOS uses for its own interface.
+    static let systemSoundsDirectory: URL = {
+        let systemRoot = if let simulatorRoot = ProcessInfo.processInfo.environment["SIMULATOR_ROOT"] {
+            URL(filePath: simulatorRoot)
+        } else {
+            URL(filePath: "/")
         }
-        
+        return systemRoot.appending(components: "System", "Library", "Audio", "UISounds", directoryHint: .isDirectory)
+    }()
+    
+    /// The directory holding notification tones imported by the user, inside the Library/Sounds directory searched by the system.
+    static var customTonesDirectory: URL {
+        libraryDirectory.appending(components: "Sounds", "Custom", directoryHint: .isDirectory)
+    }
+    
+    /// The directory holding copies of selected system tones, inside the Library/Sounds directory searched by the system.
+    static var systemTonesDirectory: URL {
+        libraryDirectory.appending(components: "Sounds", "System", directoryHint: .isDirectory)
+    }
+    
+    var globalProxy: String? {
         guard let proxySettings = CFNetworkCopySystemProxySettings()?.takeRetainedValue() else {
             MXLog.error("Failed retrieving proxy settings")
             return nil
@@ -117,7 +131,7 @@ extension URL {
         
         MXLog.info("Found \(String(describing: proxies?.count)) proxies, using the first one.")
         MXLog.info("Proxy type is \(proxyType)")
-            
+        
         guard let host = firstProxy[kCFProxyHostNameKey] as? String else {
             MXLog.error("Found proxy with invalid host name")
             return nil
@@ -136,34 +150,42 @@ extension URL {
     
     // MARK: Mocks
     
-    static var mockMXCAudio: URL {
+    nonisolated static var mockMXCAudio: URL {
         "mxc://matrix.org/1234567890AuDiO"
     }
-
-    static var mockMXCFile: URL {
+    
+    nonisolated static var mockMXCFile: URL {
         "mxc://matrix.org/1234567890FiLe"
     }
-
-    static var mockMXCImage: URL {
+    
+    nonisolated static var mockMXCImage: URL {
         "mxc://matrix.org/1234567890ImAgE"
     }
-
-    static var mockMXCVideo: URL {
+    
+    nonisolated static var mockMXCVideo: URL {
         "mxc://matrix.org/1234567890ViDeO"
     }
-
-    static var mockMXCAvatar: URL {
+    
+    nonisolated static var mockMXCAvatar: URL {
         "mxc://matrix.org/1234567890AvAtAr"
     }
-
-    static var mockMXCUserAvatar: URL {
+    
+    nonisolated static var mockMXCUserAvatar: URL {
         "mxc://matrix.org/1234567890AvAtArUsEr"
+    }
+    
+    nonisolated static var mockMXCScanning: URL {
+        "mxc://matrix.org/1234567890ScAnNiNg"
+    }
+    
+    nonisolated static var mockMXCUnsafe: URL {
+        "mxc://matrix.org/1234567890UnSaFe"
     }
 }
 
 // MARK: - Helpers
 
-extension URL: @retroactive ExpressibleByStringLiteral {
+nonisolated extension URL: @retroactive ExpressibleByStringLiteral {
     public init(stringLiteral value: StaticString) {
         guard let url = URL(string: "\(value)") else {
             fatalError("The static string used to create this URL is invalid")
@@ -178,7 +200,7 @@ extension URL: @retroactive ExpressibleByStringLiteral {
     }
 }
 
-extension String {
+nonisolated extension String {
     /// Assumes that the string is a URL and sanitises it for use as the name of a directory.
     func asURLDirectoryName() -> String {
         replacingOccurrences(of: "https://", with: "")
@@ -189,7 +211,7 @@ extension String {
 
 // MARK: - Phishing Confirmation URL
 
-extension URL {
+nonisolated extension URL {
     static let confirmationScheme = "confirm"
     
     var requiresConfirmation: Bool {
@@ -203,32 +225,32 @@ extension URL {
         }
         return ConfirmURLParameters(queryItems: queryItems)
     }
-
+    
     // Opens the URL in the system browser, adding the app's universal-link bypass flag when possible.
     #if !APP_EXTENSION
     func openInSystemBrowser() {
         UIApplication.shared.open(browserSafeURL)
     }
     #endif
-
+    
     /// A browser-safe URL that avoids universal-link loops across app variants when possible.
     var browserSafeURL: URL {
         guard var urlComponents = URLComponents(url: self, resolvingAgainstBaseURL: true) else {
             return self
         }
-
+        
         var queryItems = urlComponents.queryItems ?? []
         if queryItems.contains(where: { $0.name == "no_universal_links" && $0.value == "true" }) == false {
             queryItems.append(.init(name: "no_universal_links", value: "true"))
         }
-
+        
         urlComponents.queryItems = queryItems
-
+        
         return urlComponents.url ?? self
     }
 }
 
-struct ConfirmURLParameters {
+nonisolated struct ConfirmURLParameters {
     static let internalURLKey = "internalURL"
     static let displayStringKey = "displayString"
     
@@ -241,7 +263,7 @@ struct ConfirmURLParameters {
     }
 }
 
-extension ConfirmURLParameters {
+nonisolated extension ConfirmURLParameters {
     init?(queryItems: [URLQueryItem]) {
         guard let internalURLString = queryItems.first(where: { $0.name == Self.internalURLKey })?.value,
               let internalURL = URL(string: internalURLString),

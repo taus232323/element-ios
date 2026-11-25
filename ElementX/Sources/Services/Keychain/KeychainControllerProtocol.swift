@@ -15,13 +15,18 @@ struct KeychainCredentials {
 }
 
 // sourcery: AutoMockable
-protocol KeychainControllerProtocol: ClientSessionDelegate {
+nonisolated protocol KeychainControllerProtocol: ClientSessionDelegate {
     // MARK: Restoration Tokens
     
     func setRestorationToken(_ restorationToken: RestorationToken, forUsername: String)
     func restorationTokens() -> [KeychainCredentials]
     func removeRestorationTokenForUsername(_ username: String)
     func removeAllRestorationTokens()
+    
+    /// Collects the homeservers of the sessions stored in the restoration tokens, skipping any tokens that can't be read.
+    ///
+    /// Unlike ``restorationTokens()`` this is non-destructive and doesn't log, so is safe to call before logging is configured.
+    func collectSessionHomeservers() -> Set<String>
     
     // MARK: App Secrets
     

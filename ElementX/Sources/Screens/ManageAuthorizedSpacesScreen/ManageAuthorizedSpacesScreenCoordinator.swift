@@ -5,8 +5,6 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-// periphery:ignore:all - this is just a manageAuthorizedSpaces remove this comment once generating the final file
-
 import Combine
 import SwiftUI
 
@@ -23,7 +21,7 @@ final class ManageAuthorizedSpacesScreenCoordinator: CoordinatorProtocol {
     private let viewModel: ManageAuthorizedSpacesScreenViewModelProtocol
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
     private let actionsSubject: PassthroughSubject<ManageAuthorizedSpacesScreenCoordinatorAction, Never> = .init()
     var actionsPublisher: AnyPublisher<ManageAuthorizedSpacesScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
@@ -46,7 +44,7 @@ final class ManageAuthorizedSpacesScreenCoordinator: CoordinatorProtocol {
         }
         .store(in: &cancellables)
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(ManageAuthorizedSpacesScreen(context: viewModel.context))
     }

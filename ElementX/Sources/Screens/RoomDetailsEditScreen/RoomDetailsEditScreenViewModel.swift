@@ -15,6 +15,7 @@ class RoomDetailsEditScreenViewModel: RoomDetailsEditScreenViewModelType, RoomDe
     private let actionsSubject: PassthroughSubject<RoomDetailsEditScreenViewModelAction, Never> = .init()
     private let roomProxy: JoinedRoomProxyProtocol
     private let clientProxy: ClientProxyProtocol
+    private let appMediator: AppMediatorProtocol
     private let userIndicatorController: UserIndicatorControllerProtocol
     private let mediaUploadingPreprocessor: MediaUploadingPreprocessor
     
@@ -25,11 +26,13 @@ class RoomDetailsEditScreenViewModel: RoomDetailsEditScreenViewModelType, RoomDe
     init(roomProxy: JoinedRoomProxyProtocol,
          userSession: UserSessionProtocol,
          mediaUploadingPreprocessor: MediaUploadingPreprocessor,
+         appMediator: AppMediatorProtocol,
          userIndicatorController: UserIndicatorControllerProtocol) {
         self.roomProxy = roomProxy
         clientProxy = userSession.clientProxy
         self.mediaUploadingPreprocessor = mediaUploadingPreprocessor
         self.userIndicatorController = userIndicatorController
+        self.appMediator = appMediator
         
         let roomAvatar = roomProxy.infoPublisher.value.avatarURL
         let roomName = roomProxy.infoPublisher.value.displayName
@@ -66,9 +69,16 @@ class RoomDetailsEditScreenViewModel: RoomDetailsEditScreenViewModelType, RoomDe
         case .presentMediaSource:
             state.bindings.showMediaSheet = true
         case .displayCameraPicker:
+            guard appMediator.isCameraAvailable else {
+                MXLog.info("Camera unavailable, not presenting the picker.")
+                userIndicatorController.submitIndicator(UserIndicator(title: L10n.errorCameraUnavailable))
+                return
+            }
             actionsSubject.send(.displayCameraPicker)
         case .displayMediaPicker:
             actionsSubject.send(.displayMediaPicker)
+        case .displayFilePicker:
+            actionsSubject.send(.displayFilePicker)
         case .removeImage:
             state.avatarURL = nil
             state.localMedia = nil
@@ -136,23 +146,19 @@ class RoomDetailsEditScreenViewModel: RoomDetailsEditScreenViewModelType, RoomDe
             try await withThrowingTaskGroup(of: Void.self) { group in
                 if state.avatarDidChange {
                     group.addTask {
-                        if let localMedia = await self.state.localMedia {
-                            try await self.roomProxy.uploadAvatar(media: localMedia).get()
-                        } else if await self.state.avatarURL == nil {
-                            try await self.roomProxy.removeAvatar().get()
-                        }
+                        try await self.saveAvatar()
                     }
                 }
                 
                 if state.nameDidChange {
                     group.addTask {
-                        try await self.roomProxy.setName(self.state.bindings.name).get()
+                        try await self.saveName()
                     }
                 }
                 
                 if state.topicDidChange {
                     group.addTask {
-                        try await self.roomProxy.setTopic(self.state.bindings.topic).get()
+                        try await self.saveTopic()
                     }
                 }
                 
@@ -165,5 +171,21 @@ class RoomDetailsEditScreenViewModel: RoomDetailsEditScreenViewModelType, RoomDe
                                              title: L10n.screenRoomDetailsEditionErrorTitle,
                                              message: L10n.screenRoomDetailsEditionError)
         }
+    }
+    
+    private func saveAvatar() async throws {
+        if let localMedia = state.localMedia {
+            try await roomProxy.uploadAvatar(media: localMedia).get()
+        } else if state.avatarURL == nil {
+            try await roomProxy.removeAvatar().get()
+        }
+    }
+    
+    private func saveName() async throws {
+        try await roomProxy.setName(state.bindings.name).get()
+    }
+    
+    private func saveTopic() async throws {
+        try await roomProxy.setTopic(state.bindings.topic).get()
     }
 }

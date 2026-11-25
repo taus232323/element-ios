@@ -15,15 +15,19 @@ struct VoiceMessageRoomPlaybackView: View {
     @ScaledMetric private var waveformLineWidth = 2.0
     @ScaledMetric private var waveformLinePadding = 2.0
     @GestureState var isDragging = false
-
+    
+    /// Whether the voice message is being scanned by the content scanner, in which case
+    /// the play button shows a spinner and playback isn't available (which prevents the audio file from being downloaded).
+    var isScanning = false
+    
     let onPlayPause: () -> Void
     let onSeek: (Double) -> Void
     let onScrubbing: (Bool) -> Void
     let onPlaybackSpeedChange: () -> Void
-
+    
     var body: some View {
         HStack(spacing: 8) {
-            VoiceMessageButton(state: .init(playerState.playerButtonPlaybackState),
+            VoiceMessageButton(state: isScanning ? .loading : .init(playerState.playerButtonPlaybackState),
                                size: .medium,
                                action: onPlayPause)
             VStack(spacing: 2) {
@@ -36,7 +40,7 @@ struct VoiceMessageRoomPlaybackView: View {
                     .monospacedDigit()
                     .fixedSize(horizontal: true, vertical: true)
             }
-
+            
             waveformView
                 .waveformInteraction(isDragging: $isDragging,
                                      progress: playerState.progress,
@@ -62,7 +66,7 @@ struct VoiceMessageRoomPlaybackView: View {
             DateFormatter.elapsedTimeFormatter.string(from: duration)
         }
     }
-
+    
     private var timeLabelContent: String {
         // Display the duration if progress is 0.0
         let percent = playerState.progress > 0.0 ? playerState.progress : 1.0
@@ -82,7 +86,7 @@ struct VoiceMessageRoomPlaybackView: View {
             L10n.a11yVoiceMessage(durationString)
         }
     }
-
+    
     @ViewBuilder
     private var waveformView: some View {
         if let url = playerState.fileURL {
@@ -96,7 +100,7 @@ struct VoiceMessageRoomPlaybackView: View {
             estimatedWaveformView
         }
     }
-
+    
     private var estimatedWaveformView: some View {
         EstimatedWaveformView(lineWidth: waveformLineWidth,
                               linePadding: waveformLinePadding,
@@ -111,7 +115,7 @@ private extension DateFormatter {
         dateFormatter.dateFormat = "m:ss"
         return dateFormatter
     }()
-
+    
     static let longElapsedTimeFormatter: DateFormatter = {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "mm:ss"

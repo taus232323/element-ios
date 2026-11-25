@@ -8,39 +8,31 @@
 import Combine
 import CoreLocation
 
-class LiveLocationManager: NSObject, LiveLocationManagerProtocol, CLLocationManagerDelegate {
-    private let clientProxy: ClientProxyProtocol
+/// Owns the app's only `CLLocationManager`. Runs location updates while any account's `LiveLocationService`
+/// is sharing, hands each location to those services and keeps their authorization status up to date.
+final class LiveLocationManager: NSObject, LiveLocationManagerProtocol, CLLocationManagerDelegate {
     private let locationManager: CLLocationManagerProtocol
     private let appSettings: AppSettings
     
-    private let authorizationStatusSubject: CurrentValueSubject<CLAuthorizationStatus, Never>
-    var authorizationStatus: CurrentValuePublisher<CLAuthorizationStatus, Never> {
-        authorizationStatusSubject.asCurrentValuePublisher()
-    }
-    
-    /// Cached joined room proxies keyed by room ID, kept in sync with the active sessions dictionary.
-    private var activeRoomProxies = [String: JoinedRoomProxyProtocol]()
-    
-    /// Subject used to pipe location updates through Combine's throttle operator.
-    private let locationUpdateSubject = PassthroughSubject<CLLocationCoordinate2D, Never>()
-    
+    private var services: [String: LiveLocationServiceProtocol] = [:]
+    private var serviceCancellables: [String: Set<AnyCancellable>] = [:]
     private var cancellables = Set<AnyCancellable>()
     
     private var isUpdatingLocation = false
-    
+    /// The latest location while updates run, handed to an account as soon as it starts sharing.
     private var lastLocation: CLLocationCoordinate2D?
     
-    @MainActor
-    init(clientProxy: ClientProxyProtocol,
-         appSettings: AppSettings,
+    private var isAnyAccountSharing: Bool {
+        services.values.contains { $0.isSharingPublisher.value }
+    }
+    
+    init(appSettings: AppSettings,
          locationManager: @autoclosure @MainActor () -> CLLocationManagerProtocol = CLLocationManager()) {
-        self.clientProxy = clientProxy
         self.appSettings = appSettings
         // Very important, the CLLocationManager needs to be initialised on the main thread
         // or the delegate functions won't be handled!
         // https://developer.apple.com/documentation/corelocation/cllocationmanagerdelegate
         self.locationManager = locationManager()
-        authorizationStatusSubject = CurrentValueSubject(self.locationManager.authorizationStatus)
         
         super.init()
         
@@ -59,159 +51,86 @@ class LiveLocationManager: NSObject, LiveLocationManagerProtocol, CLLocationMana
             appSettings.liveLocationSharingTimeoutDatesByRoomID.removeAll()
         }
     }
-
+    
     // MARK: - LiveLocationManagerProtocol
     
-    var hasDisplayedLiveLocationDisclaimer: Bool {
-        get {
-            appSettings.liveLocationDisclaimerDisplayed
-        }
-        set {
-            appSettings.liveLocationDisclaimerDisplayed = newValue
+    func add(_ service: LiveLocationServiceProtocol) {
+        let userID = service.userID
+        services[userID] = service
+        service.authorizationStatusChanged(to: locationManager.authorizationStatus)
+        
+        serviceCancellables[userID] = [
+            service.actionsPublisher.sink { [weak self] action in
+                self?.process(action)
+            },
+            service.isSharingPublisher
+                .removeDuplicates()
+                .sink { [weak self] isSharing in
+                    self?.isSharingChanged(isSharing, for: userID)
+                }
+        ]
+        
+        // Shares restored without the authorization they need can't carry on.
+        if locationManager.authorizationStatus != .authorizedAlways {
+            Task { await service.stopAllLiveLocations() }
         }
     }
     
-    @discardableResult
-    func requestAlwaysAuthorizationIfPossible() -> Bool {
-        // Always authorization / background location is not shipped.
-        false
-    }
-    
-    func startLiveLocation(roomID: String, duration: Duration) async -> Result<Void, LiveLocationManagerError> {
-        guard appSettings.liveLocationSharingEnabled else {
-            MXLog.error("Live location sharing is disabled")
-            return .failure(.startFailed)
-        }
-        
-        // Stop any existing session for this room first
-        var didAlreadyStopLocalSession = false
-        if appSettings.liveLocationSharingTimeoutDatesByRoomID[roomID] != nil {
-            await stopLiveLocation(roomID: roomID)
-            didAlreadyStopLocalSession = true
-        }
-        
-        guard case .joined(let roomProxy) = await clientProxy.roomForIdentifier(roomID) else {
-            MXLog.error("Failed to resolve joined room for identifier: \(roomID)")
-            return .failure(.roomNotJoined)
-        }
-        
-        if !didAlreadyStopLocalSession {
-            // In case an existing session has been started from another device, let's try to stop it.
-            // It's a best effort thing, so we don't care if no session is present or if it fails.
-            _ = await roomProxy.stopLiveLocationShare()
-        }
-        let result = await roomProxy.startLiveLocationShare(duration: duration)
-        
-        guard case .success = result else {
-            MXLog.error("Failed to start live location share in room: \(roomID)")
-            return .failure(.startFailed)
-        }
-        
-        let timeoutDate = Date().addingTimeInterval(TimeInterval(duration.seconds))
-        appSettings.liveLocationSharingTimeoutDatesByRoomID[roomID] = timeoutDate
-        
-        if isUpdatingLocation, let lastLocation {
-            // To make sure the newly started session is in sync with the existing ones,
-            // we re-send the last location received by the manager.
-            // Otherwise we would need to wait a distance filtered update.
-            locationUpdateSubject.send(lastLocation)
-        }
-        
-        return .success(())
-    }
-    
-    func stopLiveLocation(roomID: String) async {
-        var roomProxy: JoinedRoomProxyProtocol?
-        let cachedRoomProxy = activeRoomProxies[roomID]
-        appSettings.liveLocationSharingTimeoutDatesByRoomID.removeValue(forKey: roomID)
-        
-        if let cachedRoomProxy {
-            roomProxy = cachedRoomProxy
-            // Best effort: send the stop event to the room regardless of tracking state.
-        } else if case let .joined(fetchedRoomProxy) = await clientProxy.roomForIdentifier(roomID) {
-            roomProxy = fetchedRoomProxy
-        }
-        
-        if let roomProxy {
-            let result = await roomProxy.stopLiveLocationShare()
-            if case .failure(let error) = result {
-                MXLog.error("Failed to stop live location share in room \(roomID): \(error)")
-            }
-        }
+    func remove(userID: String) {
+        serviceCancellables[userID] = nil
+        guard services.removeValue(forKey: userID) != nil else { return }
+        syncLocationUpdates()
     }
     
     // MARK: - CLLocationManagerDelegate
     
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let authorizationStatus = locationManager.authorizationStatus
+        
         // If the system resets authorization to notDetermined (e.g. after app reinstall or
         // settings reset), clear the flag so we can request again.
-        if manager.authorizationStatus == .notDetermined {
+        if authorizationStatus == .notDetermined {
             appSettings.hasRequestedLocationAlwaysLocationAuthorization = false
         }
         
         // If authorization was revoked, stop all active sessions.
-        if manager.authorizationStatus != .authorizedAlways {
-            stopAllSessions()
+        if authorizationStatus != .authorizedAlways {
+            stopAllLiveLocations()
         }
         
         // Accuracy authorization may have changed, reapply new accuracy settings.
         setupMinimumDistanceUpdatesAndAccuracy(minimumDistance: appSettings.liveLocationMinimumDistanceUpdate)
         
-        authorizationStatusSubject.send(manager.authorizationStatus)
+        for service in services.values {
+            service.authorizationStatusChanged(to: authorizationStatus)
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
+        guard let coordinate = locations.last?.coordinate else { return }
         
         MXLog.verbose("Received location update via delegate, sending to rooms")
-        locationUpdateSubject.send(location.coordinate)
-        lastLocation = location.coordinate
+        lastLocation = coordinate
+        for service in services.values where service.isSharingPublisher.value {
+            service.locationUpdated(coordinate)
+        }
     }
     
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        // Core Location keeps trying after this one, so the shares can carry on.
+        if (error as? CLError)?.code == .locationUnknown {
+            MXLog.info("Location manager couldn't find the location yet")
+            return
+        }
+        
         MXLog.error("Location manager failed with error: \(error)")
-        stopAllSessions()
+        stopAllLiveLocations()
     }
     
     // MARK: - Private
     
     private func setupSubscriptions() {
-        locationUpdateSubject
-            .throttle(for: .seconds(3), scheduler: DispatchQueue.main, latest: true)
-            .sink { [weak self] update in
-                guard let self else { return }
-                guard !appSettings.liveLocationSharingTimeoutDatesByRoomID.isEmpty else { return }
-                Task { [weak self] in
-                    await self?.sendLocationToActiveRooms(update)
-                }
-            }
-            .store(in: &cancellables)
-        
-        appSettings.$liveLocationSharingTimeoutDatesByRoomID
-            .removeDuplicates()
-            .sink { [weak self] sessions in
-                guard let self else { return }
-                syncActiveRoomProxies(with: sessions)
-                
-                if sessions.isEmpty {
-                    self.stopUpdatingLocation()
-                } else {
-                    self.startUpdatingLocation()
-                }
-            }
-            .store(in: &cancellables)
-        
-        appSettings.$liveLocationSharingEnabled
-            .filter { !$0 }
-            .sink { [weak self] _ in
-                guard let self else { return }
-                appSettings.liveLocationSharingTimeoutDatesByRoomID.removeAll()
-                activeRoomProxies.removeAll()
-                self.stopUpdatingLocation()
-            }
-            .store(in: &cancellables)
-        
-        appSettings.$liveLocationMinimumDistanceUpdate
+        appSettings.liveLocationMinimumDistanceUpdatePublisher
             .removeDuplicates()
             .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
             .sink { [weak self] newValue in
@@ -220,11 +139,36 @@ class LiveLocationManager: NSObject, LiveLocationManagerProtocol, CLLocationMana
             .store(in: &cancellables)
     }
     
-    private func syncActiveRoomProxies(with sessions: [String: Date]) {
-        // Remove proxies for rooms no longer in the dictionary.
-        let activeRoomIDs = Set(sessions.keys)
-        for roomID in activeRoomProxies.keys where !activeRoomIDs.contains(roomID) {
-            activeRoomProxies.removeValue(forKey: roomID)
+    private func process(_ action: LiveLocationServiceAction) {
+        switch action {
+        case .requestAlwaysAuthorization:
+            // Always authorization / background location is not shipped.
+            break
+        }
+    }
+    
+    private func isSharingChanged(_ isSharing: Bool, for userID: String) {
+        // A share that starts while updates already run gets the latest location straight away.
+        if isSharing, let lastLocation {
+            services[userID]?.locationUpdated(lastLocation)
+        }
+        syncLocationUpdates()
+    }
+    
+    private func syncLocationUpdates() {
+        if isAnyAccountSharing {
+            startUpdatingLocation()
+        } else {
+            stopUpdatingLocation()
+        }
+    }
+    
+    private func stopAllLiveLocations() {
+        let services = Array(services.values)
+        Task {
+            for service in services {
+                await service.stopAllLiveLocations()
+            }
         }
     }
     
@@ -260,60 +204,5 @@ class LiveLocationManager: NSObject, LiveLocationManagerProtocol, CLLocationMana
         locationManager.stopUpdatingLocation()
         isUpdatingLocation = false
         lastLocation = nil
-    }
-    
-    private func sendLocationToActiveRooms(_ coordinate: CLLocationCoordinate2D) async {
-        let sessions = appSettings.liveLocationSharingTimeoutDatesByRoomID
-        let geoURI = GeoURI(coordinate: coordinate, uncertainty: nil)
-        
-        for (roomID, timeoutDate) in sessions {
-            if Date() >= timeoutDate {
-                MXLog.info("Live location session expired for room: \(roomID)")
-                await stopLiveLocation(roomID: roomID)
-                continue
-            }
-            
-            let roomProxy = await resolveRoomProxy(for: roomID)
-            guard let roomProxy else {
-                MXLog.error("Failed to resolve room proxy for live location update in room: \(roomID)")
-                continue
-            }
-            
-            switch await roomProxy.sendLiveLocation(geoURI: geoURI) {
-            case .success:
-                MXLog.debug("Sent live location to room: \(roomID)")
-            case .failure(let error):
-                switch error {
-                case .liveLocationSessionIsNotActive:
-                    MXLog.error("Failed to send live locatio update to room \(roomID): session not active")
-                    await stopLiveLocation(roomID: roomID)
-                default:
-                    MXLog.error("Failed to send live location update to room \(roomID): \(error)")
-                }
-            }
-        }
-    }
-    
-    private func resolveRoomProxy(for roomID: String) async -> JoinedRoomProxyProtocol? {
-        if let cached = activeRoomProxies[roomID] {
-            return cached
-        }
-        
-        guard case .joined(let roomProxy) = await clientProxy.roomForIdentifier(roomID) else {
-            return nil
-        }
-        
-        activeRoomProxies[roomID] = roomProxy
-        return roomProxy
-    }
-    
-    private func stopAllSessions() {
-        let roomIDs = Array(appSettings.liveLocationSharingTimeoutDatesByRoomID.keys)
-        Task { [weak self] in
-            guard let self else { return }
-            for roomID in roomIDs {
-                await stopLiveLocation(roomID: roomID)
-            }
-        }
     }
 }

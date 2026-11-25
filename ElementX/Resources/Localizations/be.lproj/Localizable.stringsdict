@@ -20,6 +20,24 @@
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
 	</dict>
+	<key>a11y_gallery_more_media</key>
+	<dict>
+		<key>COUNT</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Галерэя, яшчэ %1$d медыяфайлы</string>
+			<key>many</key>
+			<string>Галерэя, яшчэ %1$d медыяфайлаў</string>
+			<key>one</key>
+			<string>Галерэя, яшчэ %1$d медыяфайл</string>
+		</dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@COUNT@</string>
+	</dict>
 	<key>a11y_polls_percent_of_total</key>
 	<dict>
 		<key>COUNT</key>
@@ -28,10 +46,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>%1$d працэнты ад усіх галасоў</string>
+			<key>many</key>
+			<string>%1$d працэнтаў ад усіх галасоў</string>
 			<key>one</key>
-			<string>%1$d percent of total votes</string>
-			<key>other</key>
-			<string>%1$d percents of total votes</string>
+			<string>%1$d працэнт ад усіх галасоў</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -47,9 +67,63 @@
 			<key>few</key>
 			<string>Прачытана %1$@ і %2$d іншымі</string>
 			<key>many</key>
-			<string>Прачытана %1$@ і %2$d іншымі</string>
+			<string>Папярэдняе паведамленне прачыталі %1$@ і яшчэ %2$d карыстальнікаў</string>
 			<key>one</key>
 			<string>Прачытана %1$@ і %2$d іншым</string>
+		</dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@COUNT@</string>
+	</dict>
+	<key>action_forward_messages</key>
+	<dict>
+		<key>COUNT</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Пераслаць %1$d паведамленні</string>
+			<key>many</key>
+			<string>Пераслаць %1$d паведамленняў</string>
+			<key>one</key>
+			<string>Пераслаць %1$d паведамленне</string>
+		</dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@COUNT@</string>
+	</dict>
+	<key>common_gallery_reply_attachments</key>
+	<dict>
+		<key>COUNT</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>%1$d далучэнні…</string>
+			<key>many</key>
+			<string>%1$d далучэнняў…</string>
+			<key>one</key>
+			<string>%1$d далучэнне…</string>
+		</dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@COUNT@</string>
+	</dict>
+	<key>common_gallery_reply_media_items</key>
+	<dict>
+		<key>COUNT</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>%1$d медыяфайлы…</string>
+			<key>many</key>
+			<string>%1$d медыяфайлаў…</string>
+			<key>one</key>
+			<string>%1$d медыяфайл…</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -116,10 +190,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>%1$d адказы</string>
+			<key>many</key>
+			<string>%1$d адказаў</string>
 			<key>one</key>
-			<string>%1$d reply</string>
-			<key>other</key>
-			<string>%1$d replies</string>
+			<string>%1$d адказ</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -132,10 +208,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>%1$d пакоі</string>
+			<key>many</key>
+			<string>%1$d пакояў</string>
 			<key>one</key>
-			<string>%1$d Room</string>
-			<key>other</key>
-			<string>%1$d Rooms</string>
+			<string>%1$d пакой</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -148,10 +226,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>Выбраны %1$d</string>
+			<key>many</key>
+			<string>Выбрана %1$d</string>
 			<key>one</key>
-			<string>%1$d selected</string>
-			<key>other</key>
-			<string>%1$d selected</string>
+			<string>Выбраны %1$d</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -164,28 +244,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
-			<key>one</key>
-			<string>%1$d Space</string>
-			<key>other</key>
-			<string>%1$d Spaces</string>
-		</dict>
-		<key>NSStringLocalizedFormatKey</key>
-		<string>%#@COUNT@</string>
-	</dict>
-	<key>notification_compat_summary_line_for_room</key>
-	<dict>
-		<key>COUNT</key>
-		<dict>
-			<key>NSStringFormatSpecTypeKey</key>
-			<string>NSStringPluralRuleType</string>
-			<key>NSStringFormatValueTypeKey</key>
-			<string>d</string>
 			<key>few</key>
-			<string>%1$@: %2$d паведамленні</string>
+			<string>%1$d прасторы</string>
 			<key>many</key>
-			<string>%1$@: %2$d паведамленняў</string>
+			<string>%1$d прастор</string>
 			<key>one</key>
-			<string>%1$@: %2$d паведамленне</string>
+			<string>%1$d прастора</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -216,15 +280,17 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>У вас %d новыя паведамленні.</string>
+			<key>many</key>
+			<string>У вас %d новых паведамленняў.</string>
 			<key>one</key>
-			<string>You have %d new message.</string>
-			<key>other</key>
-			<string>You have %d new messages.</string>
+			<string>У вас %d новае паведамленне.</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
 	</dict>
-	<key>notification_invitations</key>
+	<key>notification_gallery_body</key>
 	<dict>
 		<key>COUNT</key>
 		<dict>
@@ -233,29 +299,11 @@
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
 			<key>few</key>
-			<string>%d запрашэнні</string>
+			<string>Падзяліўся(-лася) %1$d далучэннямі</string>
 			<key>many</key>
-			<string>%d запрашэнняў</string>
+			<string>Падзяліўся(-лася) %1$d далучэннямі</string>
 			<key>one</key>
-			<string>%d запрашэнне</string>
-		</dict>
-		<key>NSStringLocalizedFormatKey</key>
-		<string>%#@COUNT@</string>
-	</dict>
-	<key>notification_new_messages_for_room</key>
-	<dict>
-		<key>COUNT</key>
-		<dict>
-			<key>NSStringFormatSpecTypeKey</key>
-			<string>NSStringPluralRuleType</string>
-			<key>NSStringFormatValueTypeKey</key>
-			<string>d</string>
-			<key>few</key>
-			<string>%d новыя паведамленні</string>
-			<key>many</key>
-			<string>%d новых паведамленняў</string>
-			<key>one</key>
-			<string>%d новае паведамленне</string>
+			<string>Падзяліўся(-лася) %1$d далучэннем</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -296,6 +344,24 @@
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
 	</dict>
+	<key>screen.room.timeline_redacted_messages</key>
+	<dict>
+		<key>COUNT</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>%1$d выдаленыя паведамленні</string>
+			<key>many</key>
+			<string>%1$d выдаленых паведамленняў</string>
+			<key>one</key>
+			<string>%1$d выдаленае паведамленне</string>
+		</dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@COUNT@</string>
+	</dict>
 	<key>screen_advanced_settings_live_location_update_distance</key>
 	<dict>
 		<key>COUNT</key>
@@ -304,10 +370,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>Кожныя %1$d метры</string>
+			<key>many</key>
+			<string>Кожныя %1$d метраў</string>
 			<key>one</key>
-			<string>Every %1$d meter</string>
-			<key>other</key>
-			<string>Every %1$d meters</string>
+			<string>Кожны %1$d метр</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -348,6 +416,42 @@
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
 	</dict>
+	<key>screen_custom_recovery_key_input_notice</key>
+	<dict>
+		<key>COUNT</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Мінімум %1$d сімвалы. Не выкарыстоўвайце пароль ад уліковага запісу</string>
+			<key>many</key>
+			<string>Мінімум %1$d сімвалаў. Не выкарыстоўвайце пароль ад уліковага запісу</string>
+			<key>one</key>
+			<string>Мінімум %1$d сімвал. Не выкарыстоўвайце пароль ад уліковага запісу</string>
+		</dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@COUNT@</string>
+	</dict>
+	<key>screen_image_edition_a11y_rotation_state</key>
+	<dict>
+		<key>COUNT</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>%1$d градусы</string>
+			<key>many</key>
+			<string>%1$d градусаў</string>
+			<key>one</key>
+			<string>%1$d градус</string>
+		</dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@COUNT@</string>
+	</dict>
 	<key>screen_leave_space_submit</key>
 	<dict>
 		<key>COUNT</key>
@@ -356,10 +460,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>Пакінуць %1$d пакоі і прастору</string>
+			<key>many</key>
+			<string>Пакінуць %1$d пакояў і прастору</string>
 			<key>one</key>
-			<string>Leave %1$d room and space</string>
-			<key>other</key>
-			<string>Leave %1$d rooms and space</string>
+			<string>Пакінуць %1$d пакой і прастору</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -372,10 +478,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>%1$d чалавекі</string>
+			<key>many</key>
+			<string>%1$d чалавек</string>
 			<key>one</key>
-			<string>%1$d person</string>
-			<key>other</key>
-			<string>%1$d people</string>
+			<string>%1$d чалавек</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -406,10 +514,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>%1$d заблакаваныя</string>
+			<key>many</key>
+			<string>%1$d заблакаваных</string>
 			<key>one</key>
-			<string>%1$d Banned</string>
-			<key>other</key>
-			<string>%1$d Banned</string>
+			<string>%1$d заблакаваны</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -425,7 +535,7 @@
 			<key>few</key>
 			<string>%1$d удзельнікі</string>
 			<key>many</key>
-			<string>%1$d удзельнікаў</string>
+			<string>%1$d чалавек</string>
 			<key>one</key>
 			<string>%1$d удзельнік</string>
 		</dict>
@@ -440,10 +550,30 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>%1$d запрошаныя</string>
+			<key>many</key>
+			<string>%1$d запрошаных</string>
 			<key>one</key>
-			<string>%1$d Invited</string>
-			<key>other</key>
-			<string>%1$d Invited</string>
+			<string>%1$d запрошаны</string>
+		</dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@COUNT@</string>
+	</dict>
+	<key>screen_room_messages_forwarded</key>
+	<dict>
+		<key>COUNT</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>%1$d паведамленні пераслана</string>
+			<key>many</key>
+			<string>%1$d паведамленняў пераслана</string>
+			<key>one</key>
+			<string>%1$d паведамленне пераслана</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -456,10 +586,30 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>%1$@ +%2$d хочуць далучыцца да гэтага пакоя</string>
+			<key>many</key>
+			<string>%1$@ +%2$d хочуць далучыцца да гэтага пакоя</string>
 			<key>one</key>
-			<string>%1$@ +%2$d other want to join this room</string>
-			<key>other</key>
-			<string>%1$@ +%2$d others want to join this room</string>
+			<string>%1$@ +%2$d хочуць далучыцца да гэтага пакоя</string>
+		</dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@COUNT@</string>
+	</dict>
+	<key>screen_room_selection_count</key>
+	<dict>
+		<key>COUNT</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Выбрана %1$d паведамленні</string>
+			<key>many</key>
+			<string>Выбрана %1$d паведамленняў</string>
+			<key>one</key>
+			<string>Выбрана %1$d паведамленне</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -472,10 +622,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>%1$d удзельнікі адрэагавалі %2$@</string>
+			<key>many</key>
+			<string>%1$d удзельнікаў адрэагавалі %2$@</string>
 			<key>one</key>
-			<string>%1$d member reacted with %2$@</string>
-			<key>other</key>
-			<string>%1$d members reacted with %2$@</string>
+			<string>%1$d удзельнік адрэагаваў %2$@</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -488,10 +640,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>Вы і яшчэ %1$d удзельнікі адрэагавалі %2$@</string>
+			<key>many</key>
+			<string>Вы і яшчэ %1$d удзельнікаў адрэагавалі %2$@</string>
 			<key>one</key>
-			<string>You and %1$d member reacted with %2$@</string>
-			<key>other</key>
-			<string>You and %1$d members reacted with %2$@</string>
+			<string>Вы і яшчэ %1$d удзельнік адрэагавалі %2$@</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -558,10 +712,30 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
+			<key>few</key>
+			<string>Выдаліць %1$d пакоі з %2$@</string>
+			<key>many</key>
+			<string>Выдаліць %1$d пакояў з %2$@</string>
 			<key>one</key>
-			<string>Remove %1$d room from %2$@</string>
-			<key>other</key>
-			<string>Remove %1$d rooms from %2$@</string>
+			<string>Выдаліць %1$d пакой з %2$@</string>
+		</dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@COUNT@</string>
+	</dict>
+	<key>screen_timeline_active_call_joined_count</key>
+	<dict>
+		<key>COUNT</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>%1$d далучыліся</string>
+			<key>many</key>
+			<string>%1$d далучыліся</string>
+			<key>one</key>
+			<string>%1$d далучыўся</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>
@@ -574,28 +748,12 @@
 			<string>NSStringPluralRuleType</string>
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
-			<key>one</key>
-			<string>You blocked %1$d user. You will not receive notifications for this user.</string>
-			<key>other</key>
-			<string>You blocked %1$d users. You will not receive notifications for these users.</string>
-		</dict>
-		<key>NSStringLocalizedFormatKey</key>
-		<string>%#@COUNT@</string>
-	</dict>
-	<key>troubleshoot_notifications_test_detect_push_provider_success</key>
-	<dict>
-		<key>COUNT</key>
-		<dict>
-			<key>NSStringFormatSpecTypeKey</key>
-			<string>NSStringPluralRuleType</string>
-			<key>NSStringFormatValueTypeKey</key>
-			<string>d</string>
 			<key>few</key>
-			<string>Знайшлі %1$d пастаўшчыкоў push-апавяшчэнняў: %2$@</string>
+			<string>Вы заблакавалі %1$d карыстальнікаў. Вы не будзеце атрымліваць апавяшчэнні ад гэтых карыстальнікаў.</string>
 			<key>many</key>
-			<string>Знайшлі %1$d пастаўшчыкоў push-апавяшчэнняў: %2$@</string>
+			<string>Вы заблакавалі %1$d карыстальнікаў. Вы не будзеце атрымліваць апавяшчэнні ад гэтых карыстальнікаў.</string>
 			<key>one</key>
-			<string>Знайшлі %1$d пастаўшчыка push-апавяшчэнняў: %2$@</string>
+			<string>Вы заблакавалі %1$d карыстальніка. Вы не будзеце атрымліваць апавяшчэнні ад гэтых карыстальнікаў.</string>
 		</dict>
 		<key>NSStringLocalizedFormatKey</key>
 		<string>%#@COUNT@</string>

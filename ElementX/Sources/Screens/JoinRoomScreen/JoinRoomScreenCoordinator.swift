@@ -13,7 +13,6 @@ struct JoinRoomScreenCoordinatorParameters {
     let source: JoinRoomScreenSource
     let userSession: UserSessionProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
-    let appSettings: AppSettings
 }
 
 enum JoinRoomScreenSource {
@@ -45,7 +44,7 @@ final class JoinRoomScreenCoordinator: CoordinatorProtocol {
     private let viewModel: JoinRoomScreenViewModelProtocol
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
     private let actionsSubject: PassthroughSubject<JoinRoomScreenCoordinatorAction, Never> = .init()
     var actionsPublisher: AnyPublisher<JoinRoomScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
@@ -53,7 +52,6 @@ final class JoinRoomScreenCoordinator: CoordinatorProtocol {
     
     init(parameters: JoinRoomScreenCoordinatorParameters) {
         viewModel = JoinRoomScreenViewModel(source: parameters.source,
-                                            appSettings: parameters.appSettings,
                                             userSession: parameters.userSession,
                                             userIndicatorController: parameters.userIndicatorController)
     }
@@ -78,7 +76,7 @@ final class JoinRoomScreenCoordinator: CoordinatorProtocol {
     func stop() {
         viewModel.stop()
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(JoinRoomScreen(context: viewModel.context))
     }

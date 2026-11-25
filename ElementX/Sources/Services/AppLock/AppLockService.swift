@@ -16,7 +16,13 @@ class AppLockService: AppLockServiceProtocol {
     private let context: LAContext
     
     private let timer: AppLockTimer
+    /// Only use Biometrics to unlock the app, we want to fall back to the App Lock PIN, not the device's passcode.
     private let unlockPolicy: LAPolicy = .deviceOwnerAuthenticationWithBiometrics
+    /// Use biometrics *or* the device's passcode to verify the device owner. Available regardless of whether biometrics are enrolled.
+    ///
+    /// **Note:** Verifying the device owner is used to gate sensitive actions, it isn't related to unlocking the app.
+    /// Maybe we should rename this service in the future.
+    private let deviceOwnerPolicy: LAPolicy = .deviceOwnerAuthentication
     
     var isMandatory: Bool {
         appSettings.appLockIsMandatory
@@ -38,8 +44,7 @@ class AppLockService: AppLockServiceProtocol {
     }
     
     var biometryType: LABiometryType {
-        updateBiometrics()
-        guard biometryStateHash != nil else { return .none }
+        guard context.biometricStateHash != nil else { return .none }
         return context.biometryType
     }
     
@@ -49,12 +54,11 @@ class AppLockService: AppLockServiceProtocol {
     
     var biometricUnlockTrusted: Bool {
         guard let state = keychainController.pinCodeBiometricState() else { return false }
-        updateBiometrics()
-        return state == biometryStateHash
+        return state == context.biometricStateHash
     }
     
     var numberOfPINAttempts: AnyPublisher<Int, Never> {
-        appSettings.$appLockNumberOfPINAttempts
+        appSettings.appLockNumberOfPINAttemptsPublisher
     }
     
     init(keychainController: KeychainControllerProtocol, appSettings: AppSettings, context: LAContext = .init()) {
@@ -62,8 +66,6 @@ class AppLockService: AppLockServiceProtocol {
         self.appSettings = appSettings
         self.context = context
         timer = AppLockTimer(gracePeriod: appSettings.appLockGracePeriod)
-        
-        updateBiometrics()
     }
     
     func setupPINCode(_ pinCode: String) -> Result<Void, AppLockServiceError> {
@@ -88,7 +90,7 @@ class AppLockService: AppLockServiceProtocol {
     
     func enableBiometricUnlock() -> Result<Void, AppLockServiceError> {
         guard isEnabled else { return .failure(.pinNotSet) }
-        guard let state = biometryStateHash else { return .failure(.biometricUnlockNotSupported) }
+        guard let state = context.biometricStateHash else { return .failure(.biometricUnlockNotSupported) }
         
         do {
             try keychainController.setPINCodeBiometricState(state)
@@ -127,7 +129,6 @@ class AppLockService: AppLockServiceProtocol {
         
         if biometricUnlockEnabled, !biometricUnlockTrusted {
             MXLog.info("Fixing trust for biometric unlock.")
-            updateBiometrics()
             _ = enableBiometricUnlock()
         }
         
@@ -163,27 +164,31 @@ class AppLockService: AppLockServiceProtocol {
         }
     }
     
-    // MARK: - Private
-    
-    /// Biometry enrollment state used to detect Face ID / Touch ID changes.
-    ///
-    /// Uses the iOS 18+ API. `LAContextMock` supplies the hash directly for tests.
-    private var biometryStateHash: Data? {
-        if let mock = context as? LAContextMock {
-            return mock.biometryStateHash
-        }
-        return context.domainState.biometry.stateHash
-    }
-    
-    /// Queries the context for supported biometrics and enrolment state.
-    private func updateBiometrics() {
-        var error: NSError?
-        context.canEvaluatePolicy(unlockPolicy, error: &error)
+    func verifyDeviceOwner(reason: String) async -> AppLockDeviceOwnerResult {
+        let context = verificationContext()
         
-        if let error {
-            MXLog.error("Biometrics error: \(error)")
+        var error: NSError?
+        guard context.canEvaluatePolicy(deviceOwnerPolicy, error: &error) else {
+            MXLog.warning("Device owner verification unavailable: \(String(describing: error))")
+            return isEnabled ? .appLockPINRequired : .unavailable
+        }
+        
+        do {
+            guard try await context.evaluatePolicy(deviceOwnerPolicy, localizedReason: reason) else {
+                MXLog.warning("Device owner verification completed without success.")
+                return .unverified
+            }
+            return .verified
+        } catch LAError.userCancel, LAError.systemCancel {
+            MXLog.info("Device owner verification was cancelled.")
+            return .cancelled
+        } catch {
+            MXLog.warning("Device owner verification failed: \(error)")
+            return .error
         }
     }
+    
+    // MARK: - Private
     
     /// Creates a context specifically for unlocking the app. The titles are customised,
     /// and the fresh context ensures that the user is promoted to unlock based on
@@ -197,9 +202,23 @@ class AppLockService: AppLockServiceProtocol {
         return context
     }
     
+    /// Creates a fresh context for device owner verification so the user is always prompted.
+    private func verificationContext() -> LAContext {
+        // Keep using the injected context for tests etc.
+        type(of: context) == LAContext.self ? LAContext() : context
+    }
+    
     /// Shared logic for completing an unlock via a PIN or biometrics.
     private func completeUnlock() {
         timer.registerUnlock()
         appSettings.appLockNumberOfPINAttempts = 0
+    }
+}
+
+nonisolated extension LAContext {
+    /// A hash of the enrolled biometric data that changes whenever biometrics are added or removed.
+    /// Unlike the deprecated `evaluatedPolicyDomainState`, this doesn't need `canEvaluatePolicy` to be called first.
+    @objc var biometricStateHash: Data? {
+        domainState.biometry.stateHash
     }
 }

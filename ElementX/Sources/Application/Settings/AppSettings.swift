@@ -10,133 +10,56 @@
 import EmbeddedElementCall
 #endif
 
+import Combine
 import Foundation
+import Macros
 import SwiftUI
 
-/// Common settings between app and NSE
-protocol CommonSettingsProtocol: AnyObject {
-    var lastNotificationBootTime: TimeInterval? { get set }
-    var notificationSoundName: RemotePreference<UNNotificationSoundName> { get }
-    
-    var logLevel: LogLevel { get }
-    var traceLogPacks: Set<TraceLogPack> { get }
-    var bugReportRageshakeURL: RemotePreference<RageshakeConfiguration> { get }
-    
-    var enableOnlySignedDeviceIsolationMode: Bool { get }
-    var enableKeyShareOnInvite: Bool { get }
-    var threadsEnabled: Bool { get }
-    var hideQuietNotificationAlerts: Bool { get }
-}
-
-enum AppBuildType {
+nonisolated enum AppBuildType {
     case debug
     case nightly
     case release
-}
-
-/// Store Arcana app settings.
-final class AppSettings: @unchecked Sendable {
-    private enum UserDefaultsKeys: String {
-        case lastVersionLaunched
-        case seenInvites
-        case hasSeenNewSoundBanner
-        case appLockNumberOfPINAttempts
-        case appLockNumberOfBiometricAttempts
-        case timelineStyle
-        
-        case analyticsConsentState
-        case hasRunNotificationPermissionsOnboarding
-        case hasRequestedLocationAlwaysLocationAuthorization
-        
-        case frequentlyUsedSystemEmojis
-        
-        case enableNotifications
-        case enableInAppNotifications
-        case pusherProfileTag
-        case lastNotificationBootTime
-        case logLevel
-        case traceLogPacks
-        case viewSourceEnabled
-        case optimizeMediaUploads
-        case appAppearance
-        case sharePresence
-        
-        case elementCallBaseURLOverride
-        
-        case voiceMessagePlaybackSpeed
-        
-        // Live Location
-        case liveLocationSharingTimeoutDatesByRoomID
-        case liveLocationMinimumDistanceUpdate
-        case liveLocationDisclaimerDisplayed
-        
-        // Feature flags
-        case publicSearchEnabled
-        case fuzzyRoomListSearchEnabled
-        case lowPriorityFilterEnabled
-        case enableOnlySignedDeviceIsolationMode
-        case enableKeyShareOnInvite
-        case knockingEnabled
-        case threadsEnabled
-        case roomThreadListEnabled
-        case linkPreviewsEnabled
-        case focusEventOnNotificationTap
-        case linkNewDeviceEnabled
-        case liveLocationSharingEnabled
-        case automaticBackPaginationEnabled
-        
-        // Doug's tweaks 🔧
-        case roomListActivityVisibility
-        case hideQuietNotificationAlerts
-        
-        case developerOptionsEnabled
-    }
     
-    private static var suiteName: String = InfoPlistReader.main.appGroupIdentifier
-
-    /// UserDefaults to be used on reads and writes.
-    private static var store: UserDefaults! = UserDefaults(suiteName: suiteName)
-    
-    static var appBuildType: AppBuildType {
+    static var current: AppBuildType {
         #if DEBUG
         return .debug
         #else
-        switch InfoPlistReader.main.baseBundleIdentifier {
-        case "io.element.elementx.nightly":
-            return .nightly
-        default:
-            return .release
+        if InfoPlistReader.main.isNightlyBuild {
+            .nightly
+        } else {
+            .release
         }
         #endif
     }
+}
+
+/// Store Arcana app settings.
+///
+/// State is persisted in `UserDefaults`, which is thread-safe per Apple's documentation, hence `@unchecked`.
+final nonisolated class AppSettings: @unchecked Sendable {
+    static let suiteName: String = InfoPlistReader.main.appGroupIdentifier
     
-    static func resetAllSettings() {
+    /// UserDefaults to be used on reads and writes.
+    private let store: UserDefaultsProtocol
+    
+    static var appBuildType: AppBuildType {
+        AppBuildType.current
+    }
+    
+    func resetAllSettings() {
         MXLog.warning("Resetting the AppSettings.")
-        store.removePersistentDomain(forName: suiteName)
-    }
-    
-    static func resetSessionSpecificSettings() {
-        MXLog.warning("Resetting the user session specific AppSettings.")
-    }
-    
-    static func configureWithSuiteName(_ name: String) {
-        suiteName = name
-        
-        guard let userDefaults = UserDefaults(suiteName: name) else {
-            fatalError("Fail to load shared UserDefaults")
-        }
-        
-        store = userDefaults
+        store.reset()
     }
     
     // MARK: - Hooks
     
     // swiftlint:disable:next function_parameter_count
-    func override(accountProviders: [String],
+    func override(accountProviders: [AccountProvider],
                   allowOtherAccountProviders: Bool,
                   hideBrandChrome: Bool,
                   pushGatewayBaseURL: URL,
-                  oidcRedirectURL: URL,
+                  oAuthRedirectURL: URL,
+                  oAuthClientURIPath: String?,
                   websiteURL: URL,
                   logoURL: URL,
                   copyrightURL: URL,
@@ -151,12 +74,13 @@ final class AppSettings: @unchecked Sendable {
                   accountProvisioningHost: String,
                   bugReportApplicationID: String,
                   analyticsTermsURL: URL?,
-                  mapTilerConfiguration: MapTilerConfiguration) {
+                  bundledMapTilerConfiguration: MapTilerConfiguration) {
         self.accountProviders = accountProviders
         self.allowOtherAccountProviders = allowOtherAccountProviders
         self.hideBrandChrome = hideBrandChrome
         self.pushGatewayBaseURL = pushGatewayBaseURL
-        self.oidcRedirectURL = oidcRedirectURL
+        self.oAuthRedirectURL = oAuthRedirectURL
+        self.oAuthClientURIPath = oAuthClientURIPath
         self.websiteURL = websiteURL
         self.logoURL = logoURL
         self.copyrightURL = copyrightURL
@@ -171,12 +95,7 @@ final class AppSettings: @unchecked Sendable {
         self.accountProvisioningHost = accountProvisioningHost
         self.bugReportApplicationID = bugReportApplicationID
         self.analyticsTermsURL = analyticsTermsURL
-        self.mapTilerConfiguration = mapTilerConfiguration
-        
-        // Live location requires UIBackgroundModes location / Always authorization.
-        // Disabled for App Store compliance (Guideline 2.5.4); static pin sharing remains.
-        liveLocationSharingEnabled = false
-        liveLocationSharingTimeoutDatesByRoomID.removeAll()
+        self.bundledMapTilerConfiguration = bundledMapTilerConfiguration
     }
     
     // MARK: - Application
@@ -184,23 +103,32 @@ final class AppSettings: @unchecked Sendable {
     /// The last known version of the app that was launched on this device, which is
     /// used to detect when migrations should be run. When `nil` the app may have been
     /// deleted between runs so should clear data in the shared container and keychain.
-    @UserPreference(key: UserDefaultsKeys.lastVersionLaunched, storageType: .userDefaults(store))
+    @UserPreference
     var lastVersionLaunched: String?
-        
-    /// The Set of room identifiers of invites that the user already saw in the invites list.
-    /// This Set is being used to implement badges for unread invites.
-    @UserPreference(key: UserDefaultsKeys.seenInvites, defaultValue: [], storageType: .userDefaults(store))
-    var seenInvites: Set<String>
+    
+    /// Whether a user session has ever been set up on this device. Deliberately not cleared on
+    /// logout: it stops the Classic app migration prompt from reappearing when an Element X
+    /// user is signed out unexpectedly (invalidated token, corrupted storage, etc).
+    @UserPreference(defaultValue: false)
+    var hasSignedInBefore: Bool
     
     /// Defaults to `true` for new users, and we use a migration to set it to `false` for existing users.
-    @UserPreference(key: UserDefaultsKeys.hasSeenNewSoundBanner, defaultValue: true, storageType: .userDefaults(store))
-    var hasSeenNewSoundBanner
+    @UserPreference(defaultValue: true)
+    var hasSeenNewSoundBanner: Bool
+    
+    /// Defaults to `true` so new users never see it. Developer options arms it for now, an upgrade migration will at launch.
+    @UserPreference(defaultValue: true)
+    var hasSeenMultiAccountAnnouncement: Bool
+    
+    /// Whether Settings lists the other accounts, rather than only showing their avatars.
+    @UserPreference(defaultValue: true)
+    var hasExpandedAccountPicker: Bool
     
     /// The initial set of account providers shown to the user in the authentication flow.
     ///
     /// Account provider is the friendly term for the server name. It should not contain an `https` prefix and should
     /// match the last part of the user ID. For example `example.com` and not `https://matrix.example.com`.
-    private(set) var accountProviders = ["arcana.celesteai.ru"]
+    private(set) var accountProviders: [AccountProvider] = [.managed(serverName: "arcana.celesteai.ru", baseURL: "https://arcana.celesteai.ru")]
     /// Whether or not the user is allowed to manually enter their own account provider or must select from one of `defaultAccountProviders`.
     private(set) var allowOtherAccountProviders = false
     /// Whether the components surrounding the app brand/logo should be hidden or not
@@ -208,7 +136,9 @@ final class AppSettings: @unchecked Sendable {
     
     /// The task identifier used for background app refresh. Also used in main target's the Info.plist
     let backgroundAppRefreshTaskIdentifier = "io.arcana.arcana.background.refresh"
-
+    /// The task identifier used for the search index backfill. Also used in the main target's Info.plist.
+    let searchBackfillTaskIdentifier = "io.arcana.arcana.background.search-backfill"
+    
     /// A URL where users can go read more about the app.
     private(set) var websiteURL: URL = "https://arcana.celesteai.ru"
     /// A URL that contains the app's logo that may be used when showing content in a web view.
@@ -229,7 +159,7 @@ final class AppSettings: @unchecked Sendable {
     private(set) var identityPinningViolationDetailsURL: URL = "https://arcana.celesteai.ru/privacy"
     /// A URL describing how history sharing works
     private(set) var historySharingDetailsURL: URL = "https://arcana.celesteai.ru/privacy"
-
+    
     /// Domains that Arcana web may be hosted on - used for handling permalink-style links.
     private(set) var elementWebHosts = ["arcana.celesteai.ru"]
     /// Unused for Arcana invite flows (kept for upstream API compatibility).
@@ -237,8 +167,20 @@ final class AppSettings: @unchecked Sendable {
     /// Shown only if a homeserver demands a “Pro” client — unused for Arcana.
     let elementProAppStoreURL: URL = "https://arcana.celesteai.ru"
     
-    @UserPreference(key: UserDefaultsKeys.appAppearance, defaultValue: .system, storageType: .userDefaults(store))
+    @UserPreference(defaultValue: AppAppearance.system)
     var appAppearance: AppAppearance
+    
+    /// Tracks previous servers the user connected to for autocompletion purposes. Entries are made lowercase on write.
+    @UserPreference(key: "previousServers", defaultValue: [])
+    var previousServers: [String]
+    
+    var defaultAccountProvider: AccountProvider {
+        if allowOtherAccountProviders {
+            previousServers.first.map { .generic($0) } ?? accountProviders[0]
+        } else {
+            accountProviders[0]
+        }
+    }
     
     // MARK: - Security
     
@@ -249,23 +191,29 @@ final class AppSettings: @unchecked Sendable {
     /// Any codes that the user isn't allowed to use for their PIN.
     let appLockPINCodeBlockList = ["0000", "1234"]
     /// The number of attempts the user has made to unlock the app with a PIN code (resets when unlocked).
-    @UserPreference(key: UserDefaultsKeys.appLockNumberOfPINAttempts, defaultValue: 0, storageType: .userDefaults(store))
+    @UserPreference(defaultValue: 0)
     var appLockNumberOfPINAttempts: Int
     
     // MARK: - Authentication
     
-    /// Any pre-defined static client registrations for OIDC issuers.
-    let oidcStaticRegistrations: [URL: String] = [:]
-    /// The redirect URL used for OIDC (HTTPS callback host must match associated webcredentials).
-    private(set) var oidcRedirectURL: URL = "https://arcana.celesteai.ru/oidc/login"
+    /// Any pre-defined static client registrations for OAuth issuers.
+    let oAuthStaticRegistrations: [URL: String] = [:]
+    /// The redirect URL used for OAuth. Arcana's callback host must match the associated webcredentials.
+    private(set) nonisolated(unsafe) var oAuthRedirectURL: URL! = URL(string: "https://arcana.celesteai.ru/oidc/login")
+    /// A path that is appended to `websiteURL` to form the OAuth `clientURI`. MAS uses `clientURI` as the identifier for a specific app, allowing us to
+    /// distinguish the various clients we have for Android, iOS and Web from each other.
+    /// Intentionally a distinct property so it can be easily overridden without having to manipulate the website URL.
+    private(set) var oAuthClientURIPath: String? = "apps/ios"
     
-    private(set) lazy var oidcConfiguration = OIDCConfiguration(clientName: InfoPlistReader.main.bundleDisplayName,
-                                                                redirectURI: oidcRedirectURL,
-                                                                clientURI: websiteURL,
-                                                                logoURI: logoURL,
-                                                                tosURI: acceptableUseURL,
-                                                                policyURI: privacyURL,
-                                                                staticRegistrations: oidcStaticRegistrations.mapKeys { $0.absoluteString })
+    var oAuthConfiguration: OAuthConfiguration {
+        OAuthConfiguration(clientName: InfoPlistReader.main.bundleDisplayName,
+                           redirectURI: oAuthRedirectURL,
+                           clientURI: oAuthClientURIPath.map { websiteURL.appending(path: $0) } ?? websiteURL,
+                           logoURI: logoURL,
+                           tosURI: acceptableUseURL,
+                           policyURI: privacyURL,
+                           staticRegistrations: oAuthStaticRegistrations.mapKeys { $0.absoluteString })
+    }
     
     /// Whether or not the Create Account button is shown on the start screen.
     ///
@@ -287,37 +235,28 @@ final class AppSettings: @unchecked Sendable {
         pushGatewayBaseURL.appending(path: "_matrix/push/v1/notify")
     }
     
-    @UserPreference(key: UserDefaultsKeys.enableNotifications, defaultValue: true, storageType: .userDefaults(store))
-    var enableNotifications
-
-    @UserPreference(key: UserDefaultsKeys.enableInAppNotifications, defaultValue: true, storageType: .userDefaults(store))
-    var enableInAppNotifications
-    
-    @UserPreference(key: UserDefaultsKeys.hideQuietNotificationAlerts, defaultValue: false, storageType: .userDefaults(store))
-    var hideQuietNotificationAlerts
-
-    /// Tag describing which set of device specific rules a pusher executes.
-    @UserPreference(key: UserDefaultsKeys.pusherProfileTag, storageType: .userDefaults(store))
-    var pusherProfileTag: String?
+    @UserPreference(defaultValue: false)
+    var hasRunNotificationPermissionsOnboarding: Bool
     
     /// The device's last boot time as recorded by the NSE.
-    @UserPreference(key: UserDefaultsKeys.lastNotificationBootTime, storageType: .userDefaults(store))
+    @UserPreference
     var lastNotificationBootTime: TimeInterval?
     
-    /// The name of sound played when delivering noisy notifications.
-    var notificationSoundName: RemotePreference<UNNotificationSoundName> = .init(.init("message.caf"))
+    /// The app icon badge value the app last computed from the SDK's unread notification counts.
+    @UserPreference(defaultValue: 0)
+    var lastKnownBadgeCount: Int
     
     // MARK: - Logging
-        
-    @UserPreference(key: UserDefaultsKeys.logLevel, defaultValue: LogLevel.info, storageType: .userDefaults(store))
-    var logLevel
     
-    @UserPreference(key: UserDefaultsKeys.traceLogPacks, defaultValue: [], storageType: .userDefaults(store))
+    @UserPreference(defaultValue: LogLevel.info)
+    var logLevel: LogLevel
+    
+    @UserPreference(defaultValue: Set<TraceLogPack>())
     var traceLogPacks: Set<TraceLogPack>
     
     // MARK: - Bug report
     
-    let bugReportRageshakeURL: RemotePreference<RageshakeConfiguration> = .init(Secrets.rageshakeURL.map { .url(URL(string: $0)!) } ?? .disabled) // swiftlint:disable:this force_unwrapping
+    let bundledBugReportRageshakeConfiguration: RageshakeConfiguration = Secrets.rageshakeURL.map { .url(URL(string: $0)!) } ?? .disabled // swiftlint:disable:this force_unwrapping
     let bugReportSentryURL: URL? = Secrets.sentryDSN.map { URL(string: $0)! } // swiftlint:disable:this force_unwrapping
     let bugReportSentryRustURL: URL? = Secrets.sentryRustDSN.map { URL(string: $0)! } // swiftlint:disable:this force_unwrapping
     /// The name allocated by the bug report server
@@ -340,50 +279,46 @@ final class AppSettings: @unchecked Sendable {
     }
     
     /// Whether the user has opted in to send analytics.
-    @UserPreference(key: UserDefaultsKeys.analyticsConsentState, defaultValue: AnalyticsConsentState.unknown, storageType: .userDefaults(store))
-    var analyticsConsentState
-    
-    @UserPreference(key: UserDefaultsKeys.hasRunNotificationPermissionsOnboarding, defaultValue: false, storageType: .userDefaults(store))
-    var hasRunNotificationPermissionsOnboarding
-    
-    @UserPreference(key: UserDefaultsKeys.hasRequestedLocationAlwaysLocationAuthorization, defaultValue: false, storageType: .userDefaults(store))
-    var hasRequestedLocationAlwaysLocationAuthorization
-    
-    @UserPreference(key: UserDefaultsKeys.frequentlyUsedSystemEmojis, defaultValue: [FrequentlyUsedEmoji](), storageType: .userDefaults(store))
-    var frequentlyUsedSystemEmojis
+    ///
+    /// **Note:** Opt-in is app-wide, not per-session.
+    @UserPreference(defaultValue: AnalyticsConsentState.unknown)
+    var analyticsConsentState: AnalyticsConsentState
     
     // MARK: - Live Location
     
-    @UserPreference(key: UserDefaultsKeys.liveLocationSharingTimeoutDatesByRoomID, defaultValue: [String: Date](), storageType: .userDefaults(store))
-    var liveLocationSharingTimeoutDatesByRoomID
+    /// Live location requires Always location authorization.
+    /// Forced off on every launch for App Store compliance (Guideline 2.5.4); static pin sharing remains.
+    @UserPreference(defaultValue: false)
+    var liveLocationSharingEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.liveLocationMinimumDistanceUpdate, defaultValue: 10, storageType: .userDefaults(store))
-    var liveLocationMinimumDistanceUpdate
+    @UserPreference(defaultValue: 10)
+    var liveLocationMinimumDistanceUpdate: Int
     
-    @UserPreference(key: UserDefaultsKeys.liveLocationDisclaimerDisplayed, defaultValue: false, storageType: .userDefaults(store))
-    var liveLocationDisclaimerDisplayed
+    @UserPreference(defaultValue: false)
+    var liveLocationDisclaimerDisplayed: Bool
     
-    // MARK: - Home Screen
-    
-    @UserPreference(key: UserDefaultsKeys.roomListActivityVisibility, defaultValue: .current, storageType: .userDefaults(store))
-    var roomListActivityVisibility: RoomListActivityVisibility
+    @UserPreference(defaultValue: false)
+    var hasRequestedLocationAlwaysLocationAuthorization: Bool
     
     // MARK: - Room Screen
     
-    @UserPreference(key: UserDefaultsKeys.viewSourceEnabled, defaultValue: appBuildType == .debug, storageType: .userDefaults(store))
-    var viewSourceEnabled
+    @UserPreference(defaultValue: AppBuildType.current == .debug)
+    var viewSourceEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.optimizeMediaUploads, defaultValue: true, storageType: .userDefaults(store))
-    var optimizeMediaUploads
-
-    @UserPreference(key: UserDefaultsKeys.voiceMessagePlaybackSpeed, defaultValue: AudioPlaybackSpeed.default, storageType: .userDefaults(store))
+    @UserPreference(defaultValue: true)
+    var optimizeMediaUploads: Bool
+    
+    @UserPreference(defaultValue: AudioPlaybackSpeed.default)
     var voiceMessagePlaybackSpeed: AudioPlaybackSpeed
-
+    
+    @UserPreference(defaultValue: [FrequentlyUsedEmoji]())
+    var frequentlyUsedSystemEmojis: [FrequentlyUsedEmoji]
+    
     /// Whether or not to show a warning on the media caption composer so the user knows
     /// that captions might not be visible to users who are using other Matrix clients.
     let shouldShowMediaCaptionWarning = true
-
-    // MARK: - Calls (Element Call widget, hosted for Arcana)
+    
+    // MARK: - Calls
     
     #if IS_MAIN_APP
     // swiftlint:disable:next force_unwrapping
@@ -395,7 +330,7 @@ final class AppSettings: @unchecked Sendable {
     let elementCallPosthogAPIKey = ""
     let elementCallPosthogSentryDSN = ""
     
-    @UserPreference(key: UserDefaultsKeys.elementCallBaseURLOverride, defaultValue: nil, storageType: .userDefaults(store))
+    @UserPreference
     var elementCallBaseURLOverride: URL?
     
     // MARK: - Users
@@ -405,63 +340,95 @@ final class AppSettings: @unchecked Sendable {
     
     // MARK: - Maps
     
-    /// maptiler base url
-    private(set) var mapTilerConfiguration = MapTilerConfiguration(baseURL: "https://api.maptiler.com/maps",
-                                                                   apiKey: Secrets.mapLibreAPIKey,
-                                                                   lightStyleID: "9bc819c8-e627-474a-a348-ec144fe3d810",
-                                                                   darkStyleID: "dea61faf-292b-4774-9660-58fcef89a7f3")
-    
-    // MARK: - Presence
-    
-    @UserPreference(key: UserDefaultsKeys.sharePresence, defaultValue: true, storageType: .userDefaults(store))
-    var sharePresence
+    /// The locally-bundled MapTiler configuration.
+    private(set) var bundledMapTilerConfiguration = MapTilerConfiguration(baseURL: "https://api.maptiler.com/maps",
+                                                                          apiKey: Secrets.mapLibreAPIKey,
+                                                                          lightStyleID: "9bc819c8-e627-474a-a348-ec144fe3d810",
+                                                                          darkStyleID: "dea61faf-292b-4774-9660-58fcef89a7f3")
     
     // MARK: - Feature Flags
     
-    /// Others
-    @UserPreference(key: UserDefaultsKeys.publicSearchEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var publicSearchEnabled
+    @UserPreference(defaultValue: AppBuildType.current != .release)
+    var developerOptionsEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.fuzzyRoomListSearchEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var fuzzyRoomListSearchEnabled
+    @UserPreference(defaultValue: false)
+    var fuzzyRoomListSearchEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.lowPriorityFilterEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var lowPriorityFilterEnabled
+    @UserPreference(defaultValue: false)
+    var lowPriorityFilterEnabled: Bool
+    
+    @UserPreference(defaultValue: false)
+    var mentionsFilterEnabled: Bool
+    
+    /// Puts the invites filter first while there are invites and hides it when there are none.
+    @UserPreference(defaultValue: false)
+    var prominentInvitesFilterEnabled: Bool
     
     /// Configuration to enable only signed device isolation mode for  crypto. In this mode only devices signed by their owner will be considered in e2ee rooms.
-    @UserPreference(key: UserDefaultsKeys.enableOnlySignedDeviceIsolationMode, defaultValue: false, storageType: .userDefaults(store))
-    var enableOnlySignedDeviceIsolationMode
+    @UserPreference(defaultValue: false)
+    var enableOnlySignedDeviceIsolationMode: Bool
     
-    /// Configuration to enable encrypted history sharing on invite, and accepting keys from inviters.
-    @UserPreference(key: UserDefaultsKeys.enableKeyShareOnInvite, defaultValue: false, storageType: .userDefaults(store))
-    var enableKeyShareOnInvite
+    @UserPreference(defaultValue: false)
+    var knockingEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.knockingEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var knockingEnabled
+    @UserPreference(defaultValue: false)
+    var threadsEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.threadsEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var threadsEnabled
+    @UserPreference(key: "globalSearchEnabledV2", defaultValue: true)
+    var globalSearchEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.roomThreadListEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var roomThreadListEnabled
+    @UserPreference(defaultValue: false)
+    var focusEventOnNotificationTap: Bool
     
-    @UserPreference(key: UserDefaultsKeys.focusEventOnNotificationTap, defaultValue: false, storageType: .userDefaults(store))
-    var focusEventOnNotificationTap
-        
-    @UserPreference(key: UserDefaultsKeys.linkPreviewsEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var linkPreviewsEnabled
+    @UserPreference(defaultValue: false)
+    var linkPreviewsEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.linkNewDeviceEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var linkNewDeviceEnabled
+    /// Enables *sending* gallery messages (multiple media in a single message).
+    /// Received galleries are always rendered regardless of this flag.
+    @UserPreference(defaultValue: false)
+    var galleryEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.liveLocationSharingEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var liveLocationSharingEnabled
+    /// Adds a pencil next to crop in the media upload preview, to draw on pictures before sending them.
+    @UserPreference(defaultValue: false)
+    var imageDrawingEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.automaticBackPaginationEnabled, defaultValue: false, storageType: .userDefaults(store))
-    var automaticBackPaginationEnabled
+    @UserPreference(defaultValue: false)
+    var jumpToReadMarkerEnabled: Bool
     
-    @UserPreference(key: UserDefaultsKeys.developerOptionsEnabled, defaultValue: appBuildType != .release, storageType: .userDefaults(store))
-    var developerOptionsEnabled
+    @UserPreference(defaultValue: false)
+    var linkNewDeviceEnabled: Bool
+    
+    @UserPreference(key: "clientPausingAndResumingEnabledV2", defaultValue: false, volatile: true)
+    var clientPausingAndResumingEnabled: Bool
+    
+    @UserPreference(defaultValue: false)
+    var hideQuietNotificationAlerts: Bool
+    
+    /// Runs calls through the native matrix-rust-rtc stack instead of the Element Call web view.
+    @UserPreference(defaultValue: false)
+    var nativeCallEnabled: Bool
+    
+    @UserPreference(defaultValue: false)
+    var multiAccountEnabled: Bool
+    
+    /// Lets it snow on top of the whole app.
+    @UserPreference(defaultValue: false)
+    var snowEnabled: Bool
+    
+    init(store: UserDefaultsProtocol) {
+        self.store = store
+        // App Store builds do not include UIBackgroundModes location.
+        liveLocationSharingEnabled = false
+    }
+    
+    func userSettings(for userID: String) -> UserSettings {
+        UserSettings(appSettings: self, accountSettings: .init(userID: userID,
+                                                               store: store,
+                                                               bundledMapTilerConfiguration: bundledMapTilerConfiguration,
+                                                               bundledBugReportRageshakeConfiguration: bundledBugReportRageshakeConfiguration))
+    }
+    
+    static func volatile() -> AppSettings {
+        AppSettings(store: VolatileUserDefaults())
+    }
 }
-
-extension AppSettings: CommonSettingsProtocol { }

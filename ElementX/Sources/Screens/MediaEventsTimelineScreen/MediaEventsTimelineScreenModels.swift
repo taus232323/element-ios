@@ -9,7 +9,7 @@
 import SwiftUI
 
 enum MediaEventsTimelineScreenViewModelAction {
-    case displayMessageForwarding(MessageForwardingItem)
+    case displayMessageForwarding(MessageForwardingPayload)
     case viewInRoomTimeline(TimelineItemIdentifier)
 }
 
@@ -25,9 +25,10 @@ struct MediaEventsTimelineGroup: Identifiable {
 }
 
 struct MediaEventsTimelineScreenViewState: BindableState {
-    var isBackPaginating = false
+    var canBackPaginate = false
     var shouldShowEmptyState = false
     
+    var screenMode: MediaEventsTimelineScreenMode
     var groups = [MediaEventsTimelineGroup]()
     
     var activeTimelineContext: TimelineViewModel.Context
@@ -36,13 +37,12 @@ struct MediaEventsTimelineScreenViewState: BindableState {
 }
 
 struct MediaEventsTimelineScreenViewStateBindings {
-    var screenMode: MediaEventsTimelineScreenMode
     var mediaPreviewViewModel: TimelineMediaPreviewViewModel?
     var mediaPreviewSheetViewModel: TimelineMediaPreviewViewModel?
 }
 
 enum MediaEventsTimelineScreenViewAction {
-    case changedScreenMode
+    case changeScreenMode(MediaEventsTimelineScreenMode)
     case oldestItemDidAppear
     case oldestItemDidDisappear
     case tappedItem(item: RoomTimelineItemViewState)

@@ -26,11 +26,10 @@ struct AudioPlayerStateTests {
     
     private func buildAudioPlayerMock() -> AudioPlayerMock {
         let audioPlayerMock = AudioPlayerMock()
-        audioPlayerMock.underlyingActions = audioPlayerActions
+        audioPlayerMock.actions = audioPlayerActions
         audioPlayerMock.state = .stopped
         audioPlayerMock.currentTime = 0.0
         audioPlayerMock.duration = 0.0
-        audioPlayerMock.playbackSpeed = 1.0
         audioPlayerMock.seekToClosure = { [audioPlayerSeekCallsSubject] progress in
             audioPlayerSeekCallsSubject?.send(progress)
         }
@@ -275,24 +274,41 @@ struct AudioPlayerStateTests {
     }
     
     @Test
+    mutating func audioPlayerActionsDidFinishPlayingWhenDetachedStraightAway() async throws {
+        await audioPlayerState.updateState(progress: 0.4)
+        audioPlayerState.attachAudioPlayer(audioPlayerMock)
+        
+        let deferred = deferFulfillment(audioPlayerState.$progress) { $0 == 0.0 }
+        
+        // Detaching before the action has been handled is what happens when the following
+        // voice message takes the player over as soon as this one reaches its end.
+        audioPlayerActionsSubject.send(.didFinishPlaying)
+        audioPlayerState.detachAudioPlayer()
+        
+        try await deferred.fulfill()
+        #expect(audioPlayerState.progress == 0.0)
+        #expect(!audioPlayerState.showProgressIndicator)
+    }
+    
+    @Test
     func setPlaybackSpeed() {
         audioPlayerState.attachAudioPlayer(audioPlayerMock)
-
+        
         #expect(audioPlayerState.playbackSpeed == .default)
-
+        
         audioPlayerState.setPlaybackSpeed(.fast)
         #expect(audioPlayerState.playbackSpeed == .fast)
         #expect(audioPlayerMock.setPlaybackSpeedReceivedSpeed == 1.5)
-
+        
         audioPlayerState.setPlaybackSpeed(.fastest)
         #expect(audioPlayerState.playbackSpeed == .fastest)
         #expect(audioPlayerMock.setPlaybackSpeedReceivedSpeed == 2.0)
-
+        
         audioPlayerState.setPlaybackSpeed(.slow)
         #expect(audioPlayerState.playbackSpeed == .slow)
         #expect(audioPlayerMock.setPlaybackSpeedReceivedSpeed == 0.5)
     }
-
+    
     @Test
     func audioPlayerActionsDidFailed() async throws {
         audioPlayerState.attachAudioPlayer(audioPlayerMock)

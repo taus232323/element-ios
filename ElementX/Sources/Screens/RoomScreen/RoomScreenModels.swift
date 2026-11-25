@@ -15,11 +15,10 @@ enum RoomScreenViewModelAction: Equatable {
     case displayThread(threadRootEventID: String, focussedEventID: String)
     case displayPinnedEventsTimeline
     case displayRoomDetails
-    case displayCall(isVoiceCall: Bool)
     case removeComposerFocus
     case displayKnockRequests
     case displayRoom(roomID: String, via: [String])
-    case displayMessageForwarding(MessageForwardingItem)
+    case displayMessageForwarding(MessageForwardingPayload)
     case stopLiveLocationSharing
     case displayLiveLocation
 }
@@ -42,7 +41,7 @@ enum RoomScreenViewAction {
 struct RoomScreenViewState: BindableState {
     var roomTitle = ""
     var roomAvatar: RoomAvatar
-    var dmRecipientVerificationState: UserIdentityVerificationState?
+    var dmRecipientDetails = RoomHeaderView.DMRecipientDetails()
     
     var lastScrollDirection: ScrollDirection?
     // This is used to control the banner
@@ -57,6 +56,8 @@ struct RoomScreenViewState: BindableState {
     
     /// Whether or not starting a call is supported.
     var isCallingEnabled = true
+    /// Whether or not calls are using the experimental native implementation.
+    var isNativeCallingEnabled = false
     /// Whether or not the user is allowed to join calls in this room.
     var canJoinCall = false
     /// Whether or not this room currently has a call in progress.
@@ -70,10 +71,9 @@ struct RoomScreenViewState: BindableState {
     }
     
     /// Whether the current room is a DM
-    var isDirectOneToOneRoom: Bool
+    var isDM: Bool
     
     var roomThreadListEnabled = false
-    var isKnockingEnabled = false
     var isKnockableRoom = false
     var canAcceptKnocks = false
     var canDeclineKnocks = false
@@ -88,13 +88,12 @@ struct RoomScreenViewState: BindableState {
     }
     
     var shouldSeeKnockRequests: Bool {
-        isKnockingEnabled &&
-            isKnockableRoom &&
+        isKnockableRoom &&
             !displayedKnockRequests.isEmpty &&
             (canAcceptKnocks || canDeclineKnocks || canBan)
     }
     
-    /// If `enableKeyShareOnInvite` is set, determines the current history sharing state.
+    /// The current history sharing state.
     var roomHistorySharingState: RoomHistorySharingState?
     
     var footerDetails: RoomScreenFooterViewDetails?
@@ -122,7 +121,6 @@ enum RoomScreenFooterViewDetails {
     case verificationViolation(member: RoomMemberProxyProtocol, learnMoreURL: URL)
 }
 
-@MainActor
 enum PinnedEventsBannerState: Equatable {
     case loading(numbersOfEvents: Int)
     case loaded(state: PinnedEventsState)
@@ -227,7 +225,6 @@ enum PinnedEventsBannerState: Equatable {
     }
 }
 
-@MainActor
 struct PinnedEventsState: Equatable {
     var pinnedEventContents: OrderedDictionary<String, AttributedString> = [:] {
         didSet {

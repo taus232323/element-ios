@@ -11,9 +11,8 @@ import SwiftUI
 
 struct SecurityAndPrivacyScreenCoordinatorParameters {
     let roomProxy: JoinedRoomProxyProtocol
-    let clientProxy: ClientProxyProtocol
+    let userSession: UserSessionProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
-    let appSetting: AppSettings
 }
 
 enum SecurityAndPrivacyScreenCoordinatorAction {
@@ -26,7 +25,7 @@ final class SecurityAndPrivacyScreenCoordinator: CoordinatorProtocol {
     private let viewModel: SecurityAndPrivacyScreenViewModelProtocol
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
     private let actionsSubject: PassthroughSubject<SecurityAndPrivacyScreenCoordinatorAction, Never> = .init()
     var actionsPublisher: AnyPublisher<SecurityAndPrivacyScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
@@ -34,9 +33,8 @@ final class SecurityAndPrivacyScreenCoordinator: CoordinatorProtocol {
     
     init(parameters: SecurityAndPrivacyScreenCoordinatorParameters) {
         viewModel = SecurityAndPrivacyScreenViewModel(roomProxy: parameters.roomProxy,
-                                                      clientProxy: parameters.clientProxy,
-                                                      userIndicatorController: parameters.userIndicatorController,
-                                                      appSettings: parameters.appSetting)
+                                                      userSession: parameters.userSession,
+                                                      userIndicatorController: parameters.userIndicatorController)
     }
     
     func start() {
@@ -55,7 +53,7 @@ final class SecurityAndPrivacyScreenCoordinator: CoordinatorProtocol {
         }
         .store(in: &cancellables)
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(SecurityAndPrivacyScreen(context: viewModel.context))
     }

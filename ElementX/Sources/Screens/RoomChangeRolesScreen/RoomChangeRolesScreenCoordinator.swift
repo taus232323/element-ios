@@ -14,7 +14,7 @@ struct RoomChangeRolesScreenCoordinatorParameters {
     let roomProxy: JoinedRoomProxyProtocol
     let mediaProvider: MediaProviderProtocol
     let userIndicatorController: UserIndicatorControllerProtocol
-    let analytics: AnalyticsService
+    let analytics: AnalyticsServiceProtocol
 }
 
 enum RoomChangeRolesScreenCoordinatorAction {
@@ -22,19 +22,16 @@ enum RoomChangeRolesScreenCoordinatorAction {
 }
 
 final class RoomChangeRolesScreenCoordinator: CoordinatorProtocol {
-    private let parameters: RoomChangeRolesScreenCoordinatorParameters
     private let viewModel: RoomChangeRolesScreenViewModelProtocol
     
     private var cancellables = Set<AnyCancellable>()
- 
+    
     private let actionsSubject: PassthroughSubject<RoomChangeRolesScreenCoordinatorAction, Never> = .init()
     var actionsPublisher: AnyPublisher<RoomChangeRolesScreenCoordinatorAction, Never> {
         actionsSubject.eraseToAnyPublisher()
     }
     
     init(parameters: RoomChangeRolesScreenCoordinatorParameters) {
-        self.parameters = parameters
-        
         viewModel = RoomChangeRolesScreenViewModel(mode: parameters.mode,
                                                    roomProxy: parameters.roomProxy,
                                                    mediaProvider: parameters.mediaProvider,
@@ -54,7 +51,7 @@ final class RoomChangeRolesScreenCoordinator: CoordinatorProtocol {
         }
         .store(in: &cancellables)
     }
-        
+    
     func toPresentable() -> AnyView {
         AnyView(RoomChangeRolesScreen(context: viewModel.context))
     }

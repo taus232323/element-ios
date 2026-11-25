@@ -52,7 +52,7 @@ struct RoomDetailsEditScreen: View {
             .disabled(!context.viewState.canSave)
         }
     }
-
+    
     private var avatar: some View {
         Button {
             context.send(viewAction: .presentMediaSource)
@@ -74,7 +74,7 @@ struct RoomDetailsEditScreen: View {
         .frame(maxWidth: .infinity, alignment: .center)
         .listRowBackground(Color.clear)
     }
-
+    
     private var nameSection: some View {
         Section {
             if context.viewState.canEditName {
@@ -119,11 +119,19 @@ struct RoomDetailsEditScreen: View {
         } label: {
             Text(L10n.actionTakePhoto)
         }
+        
         Button {
             context.send(viewAction: .displayMediaPicker)
         } label: {
             Text(L10n.actionChoosePhoto)
         }
+        
+        Button {
+            context.send(viewAction: .displayFilePicker)
+        } label: {
+            Text(L10n.actionChooseFile)
+        }
+        
         if context.viewState.showDeleteImageAction {
             Button(role: .destructive) {
                 context.send(viewAction: .removeImage)
@@ -169,7 +177,8 @@ struct RoomDetailsEditScreen_Previews: PreviewProvider, TestablePreview {
         
         return RoomDetailsEditScreenViewModel(roomProxy: roomProxy,
                                               userSession: UserSessionMock(.init()),
-                                              mediaUploadingPreprocessor: MediaUploadingPreprocessor(appSettings: ServiceLocator.shared.settings),
-                                              userIndicatorController: UserIndicatorControllerMock.default)
+                                              mediaUploadingPreprocessor: MediaUploadingPreprocessor(userSettings: .mock()),
+                                              appMediator: AppMediatorMock(.init()),
+                                              userIndicatorController: UserIndicatorControllerMock())
     }
 }

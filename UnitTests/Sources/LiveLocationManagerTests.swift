@@ -6,208 +6,203 @@
 //
 
 @testable import Arcana
+import Combine
 import CoreLocation
 import Foundation
 import Testing
 
 @MainActor
 final class LiveLocationManagerTests {
-    private var clientProxy: ClientProxyMock!
+    private var appSettings: AppSettings!
     private var locationManagerMock: CLLocationManagerMock!
     private var manager: LiveLocationManager!
-    private var appSettings: AppSettings!
     
-    init() {
-        AppSettings.resetAllSettings()
-    }
-    
-    deinit {
-        AppSettings.resetAllSettings()
-    }
-    
-    // MARK: - startLiveLocation
+    // MARK: - Location updates
     
     @Test
-    func startLiveLocationWithNoExistingLocalSession() async throws {
+    func locationUpdatesRunWhileAnyAccountShares() {
         setUp()
-        let roomProxy = makeRoomProxy(roomID: "!room:matrix.org")
-        clientProxy.roomForIdentifierClosure = { _ in .joined(roomProxy) }
+        let aliceSharing = CurrentValueSubject<Bool, Never>(false)
+        let bobSharing = CurrentValueSubject<Bool, Never>(false)
+        manager.add(makeService(userID: "@alice:matrix.org", isSharing: aliceSharing))
+        manager.add(makeService(userID: "@bob:matrix.org", isSharing: bobSharing))
+        #expect(!locationManagerMock.startUpdatingLocationCalled)
         
-        var callOrder: [String] = []
-        roomProxy.stopLiveLocationShareClosure = {
-            callOrder.append("stop")
-            return .success(())
-        }
-        roomProxy.startLiveLocationShareDurationClosure = { _ in
-            callOrder.append("start")
-            return .success(())
-        }
+        aliceSharing.send(true)
+        bobSharing.send(true)
+        #expect(locationManagerMock.startUpdatingLocationCallsCount == 1)
         
-        let result = await manager.startLiveLocation(roomID: "!room:matrix.org", duration: .seconds(300))
+        aliceSharing.send(false)
+        #expect(!locationManagerMock.stopUpdatingLocationCalled)
         
-        try result.get()
-        #expect(callOrder == ["stop", "start"])
-        #expect(appSettings.liveLocationSharingTimeoutDatesByRoomID["!room:matrix.org"] != nil)
-        #expect(locationManagerMock.startUpdatingLocationCalled)
+        bobSharing.send(false)
+        #expect(locationManagerMock.stopUpdatingLocationCallsCount == 1)
     }
     
     @Test
-    func startLiveLocationWithExistingSessionStopsItFirst() async throws {
+    func locationsReachOnlyTheSharingAccounts() {
         setUp()
-        let roomProxy = makeRoomProxy(roomID: "!room:matrix.org")
-        clientProxy.roomForIdentifierClosure = { _ in .joined(roomProxy) }
-        appSettings.liveLocationSharingTimeoutDatesByRoomID["!room:matrix.org"] = Date().addingTimeInterval(300)
+        let alice = makeService(userID: "@alice:matrix.org", isSharing: .init(true))
+        let bob = makeService(userID: "@bob:matrix.org")
+        manager.add(alice)
+        manager.add(bob)
         
-        var callOrder: [String] = []
-        roomProxy.stopLiveLocationShareClosure = {
-            callOrder.append("stop")
-            return .success(())
-        }
-        roomProxy.startLiveLocationShareDurationClosure = { _ in
-            callOrder.append("start")
-            return .success(())
-        }
+        manager.locationManager(CLLocationManager(), didUpdateLocations: [CLLocation(latitude: 51.5, longitude: -0.1)])
         
-        let result = await manager.startLiveLocation(roomID: "!room:matrix.org", duration: .seconds(600))
-        
-        try result.get()
-        #expect(callOrder == ["stop", "start"])
-        #expect(appSettings.liveLocationSharingTimeoutDatesByRoomID["!room:matrix.org"] != nil)
+        #expect(alice.locationUpdatedCallsCount == 1)
+        #expect(alice.locationUpdatedReceivedCoordinate?.latitude == 51.5)
+        #expect(!bob.locationUpdatedCalled)
     }
     
     @Test
-    func startLiveLocationDoesNotStopSessionForOtherRoom() async {
+    func anAccountThatStartsSharingGetsTheLatestLocation() {
         setUp()
-        let roomProxy = makeRoomProxy(roomID: "!room1:matrix.org")
-        clientProxy.roomForIdentifierClosure = { _ in .joined(roomProxy) }
+        let bobSharing = CurrentValueSubject<Bool, Never>(false)
+        let bob = makeService(userID: "@bob:matrix.org", isSharing: bobSharing)
+        manager.add(makeService(userID: "@alice:matrix.org", isSharing: .init(true)))
+        manager.add(bob)
+        manager.locationManager(CLLocationManager(), didUpdateLocations: [CLLocation(latitude: 51.5, longitude: -0.1)])
         
-        appSettings.liveLocationSharingTimeoutDatesByRoomID["!room2:matrix.org"] = Date().addingTimeInterval(300)
+        bobSharing.send(true)
         
-        _ = await manager.startLiveLocation(roomID: "!room1:matrix.org", duration: .seconds(300))
-        
-        #expect(roomProxy.stopLiveLocationShareCalled)
-        #expect(appSettings.liveLocationSharingTimeoutDatesByRoomID["!room2:matrix.org"] != nil)
+        #expect(bob.locationUpdatedCallsCount == 1)
+        #expect(bob.locationUpdatedReceivedCoordinate?.latitude == 51.5)
     }
     
     @Test
-    func startLiveLocationWhenRoomNotJoined() async {
+    func removingAnAccountOnlyStopsUpdatesWhenNoOtherAccountShares() {
         setUp()
-        clientProxy.roomForIdentifierClosure = { _ in nil }
+        manager.add(makeService(userID: "@alice:matrix.org", isSharing: .init(true)))
+        manager.add(makeService(userID: "@bob:matrix.org", isSharing: .init(true)))
         
-        let result = await manager.startLiveLocation(roomID: "!room:matrix.org", duration: .seconds(300))
+        manager.remove(userID: "@alice:matrix.org")
+        #expect(!locationManagerMock.stopUpdatingLocationCalled)
         
-        #expect(throws: LiveLocationManagerError.roomNotJoined) { try result.get() }
-        #expect(appSettings.liveLocationSharingTimeoutDatesByRoomID["!room:matrix.org"] == nil)
-    }
-    
-    @Test
-    func startLiveLocationWhenStartShareFails() async {
-        setUp()
-        let roomProxy = makeRoomProxy(roomID: "!room:matrix.org")
-        roomProxy.startLiveLocationShareDurationReturnValue = .failure(.sdkError(RoomProxyMockError.generic))
-        clientProxy.roomForIdentifierClosure = { _ in .joined(roomProxy) }
-        
-        let result = await manager.startLiveLocation(roomID: "!room:matrix.org", duration: .seconds(300))
-        
-        #expect(throws: LiveLocationManagerError.startFailed) { try result.get() }
-        #expect(appSettings.liveLocationSharingTimeoutDatesByRoomID["!room:matrix.org"] == nil)
-    }
-    
-    @Test
-    func startLiveLocationStoresTimeoutDate() async throws {
-        setUp()
-        let roomProxy = makeRoomProxy(roomID: "!room:matrix.org")
-        clientProxy.roomForIdentifierClosure = { _ in .joined(roomProxy) }
-        
-        let duration = Duration.seconds(300)
-        let beforeStart = Date()
-        _ = await manager.startLiveLocation(roomID: "!room:matrix.org", duration: duration)
-        let afterStart = Date()
-        
-        let storedTimeout = appSettings.liveLocationSharingTimeoutDatesByRoomID["!room:matrix.org"]
-        let expectedMinTimeout = beforeStart.addingTimeInterval(TimeInterval(duration.seconds))
-        let expectedMaxTimeout = afterStart.addingTimeInterval(TimeInterval(duration.seconds))
-        
-        try #expect((expectedMinTimeout...expectedMaxTimeout).contains(#require(storedTimeout)))
-    }
-    
-    // MARK: - stopLiveLocation
-    
-    @Test
-    func stopLiveLocationWhenSessionExists() async {
-        setUp()
-        let roomProxy = makeRoomProxy(roomID: "!room:matrix.org")
-        clientProxy.roomForIdentifierClosure = { _ in .joined(roomProxy) }
-        appSettings.liveLocationSharingTimeoutDatesByRoomID["!room:matrix.org"] = Date().addingTimeInterval(300)
-        
-        await manager.stopLiveLocation(roomID: "!room:matrix.org")
-        
-        #expect(roomProxy.stopLiveLocationShareCalled)
-        #expect(appSettings.liveLocationSharingTimeoutDatesByRoomID["!room:matrix.org"] == nil)
-        // Setting the timeout date above starts tracking; removing it stops tracking.
-        #expect(locationManagerMock.startUpdatingLocationCalled)
+        manager.remove(userID: "@bob:matrix.org")
         #expect(locationManagerMock.stopUpdatingLocationCalled)
     }
     
     @Test
-    func stopLiveLocationWhenNoSession() async {
+    func addingAnAccountAgainReplacesItsService() {
         setUp()
-        let roomProxy = makeRoomProxy(roomID: "!room:matrix.org")
-        clientProxy.roomForIdentifierClosure = { _ in .joined(roomProxy) }
+        // E.g. after clearing the cache, the new session's service replaces the old one.
+        let oldAlice = makeService(userID: "@alice:matrix.org", isSharing: .init(true))
+        let newAlice = makeService(userID: "@alice:matrix.org", isSharing: .init(true))
+        manager.add(oldAlice)
+        manager.add(newAlice)
         
-        await manager.stopLiveLocation(roomID: "!room:matrix.org")
+        manager.locationManager(CLLocationManager(), didUpdateLocations: [CLLocation(latitude: 51.5, longitude: -0.1)])
         
-        #expect(roomProxy.stopLiveLocationShareCalled)
+        #expect(!oldAlice.locationUpdatedCalled)
+        #expect(newAlice.locationUpdatedCallsCount == 1)
+        #expect(!locationManagerMock.stopUpdatingLocationCalled)
     }
     
     @Test
-    func stopLiveLocationDoesNotRemoveOtherSessions() async {
-        setUp()
-        let roomProxy = makeRoomProxy(roomID: "!room1:matrix.org")
-        clientProxy.roomForIdentifierClosure = { _ in .joined(roomProxy) }
-        appSettings.liveLocationSharingTimeoutDatesByRoomID["!room1:matrix.org"] = Date().addingTimeInterval(300)
-        appSettings.liveLocationSharingTimeoutDatesByRoomID["!room2:matrix.org"] = Date().addingTimeInterval(300)
-        
-        await manager.stopLiveLocation(roomID: "!room1:matrix.org")
-        
-        #expect(appSettings.liveLocationSharingTimeoutDatesByRoomID["!room1:matrix.org"] == nil)
-        #expect(appSettings.liveLocationSharingTimeoutDatesByRoomID["!room2:matrix.org"] != nil)
-    }
-    
-    // MARK: - Reduced accuracy
-    
-    @Test
-    func startLiveLocationInReducedAccuracyMode() async throws {
+    func reducedAccuracyAuthorizationUsesReducedAccuracy() {
         setUp(accuracyAuthorization: .reducedAccuracy)
-        let roomProxy = makeRoomProxy(roomID: "!room:matrix.org")
-        clientProxy.roomForIdentifierClosure = { _ in .joined(roomProxy) }
         
-        let result = await manager.startLiveLocation(roomID: "!room:matrix.org", duration: .seconds(300))
-        try result.get()
-        
-        #expect(locationManagerMock.startUpdatingLocationCalled)
         #expect(locationManagerMock.desiredAccuracy == kCLLocationAccuracyReduced)
+    }
+    
+    // MARK: - Authorization
+    
+    @Test
+    func addingAnAccountSharesTheAuthorizationStatus() {
+        setUp(authorizationStatus: .authorizedAlways)
+        let alice = makeService(userID: "@alice:matrix.org")
         
-        await manager.stopLiveLocation(roomID: "!room:matrix.org")
+        manager.add(alice)
         
-        #expect(locationManagerMock.stopUpdatingLocationCalled)
+        #expect(alice.authorizationStatusChangedToReceivedStatus == .authorizedAlways)
+    }
+    
+    @Test
+    func addingAnAccountWithoutAlwaysAuthorizationStopsItsShares() async {
+        setUp(authorizationStatus: .authorizedWhenInUse)
+        let alice = makeService(userID: "@alice:matrix.org", isSharing: .init(true))
+        
+        await waitForConfirmation("Wait for the shares to stop") { confirm in
+            alice.stopAllLiveLocationsClosure = { confirm() }
+            manager.add(alice)
+        }
+    }
+    
+    @Test
+    func losingAlwaysAuthorizationStopsEveryAccountsShares() async {
+        setUp(authorizationStatus: .authorizedAlways)
+        let alice = makeService(userID: "@alice:matrix.org", isSharing: .init(true))
+        let bob = makeService(userID: "@bob:matrix.org", isSharing: .init(true))
+        manager.add(alice)
+        manager.add(bob)
+        
+        locationManagerMock.authorizationStatus = .denied
+        await waitForConfirmation("Wait for the shares to stop", expectedCount: 2) { confirm in
+            alice.stopAllLiveLocationsClosure = { confirm() }
+            bob.stopAllLiveLocationsClosure = { confirm() }
+            manager.locationManagerDidChangeAuthorization(CLLocationManager())
+        }
+        
+        #expect(alice.authorizationStatusChangedToReceivedStatus == .denied)
+        #expect(bob.authorizationStatusChangedToReceivedStatus == .denied)
+    }
+    
+    @Test
+    func requestingAlwaysAuthorizationAsksTheLocationManager() {
+        setUp()
+        let actions = PassthroughSubject<LiveLocationServiceAction, Never>()
+        manager.add(makeService(userID: "@alice:matrix.org", actions: actions))
+        
+        actions.send(.requestAlwaysAuthorization)
+        
+        #expect(locationManagerMock.requestAlwaysAuthorizationCalled)
+        #expect(appSettings.hasRequestedLocationAlwaysLocationAuthorization)
+    }
+    
+    // MARK: - Errors
+    
+    @Test
+    func notFindingTheLocationYetKeepsTheShares() async {
+        setUp()
+        let alice = makeService(userID: "@alice:matrix.org", isSharing: .init(true))
+        manager.add(alice)
+        
+        await waitForConfirmation("The shares keep running", expectedCount: 0, timeout: .milliseconds(500)) { confirm in
+            alice.stopAllLiveLocationsClosure = { confirm() }
+            manager.locationManager(CLLocationManager(), didFailWithError: CLError(.locationUnknown))
+        }
+    }
+    
+    @Test
+    func otherLocationErrorsStopEveryAccountsShares() async {
+        setUp()
+        let alice = makeService(userID: "@alice:matrix.org", isSharing: .init(true))
+        let bob = makeService(userID: "@bob:matrix.org", isSharing: .init(true))
+        manager.add(alice)
+        manager.add(bob)
+        
+        await waitForConfirmation("Wait for the shares to stop", expectedCount: 2) { confirm in
+            alice.stopAllLiveLocationsClosure = { confirm() }
+            bob.stopAllLiveLocationsClosure = { confirm() }
+            manager.locationManager(CLLocationManager(), didFailWithError: CLError(.denied))
+        }
     }
     
     // MARK: - Private
     
-    private func makeRoomProxy(roomID: String) -> JoinedRoomProxyMock {
-        let roomProxy = JoinedRoomProxyMock(.init(id: roomID))
-        roomProxy.startLiveLocationShareDurationReturnValue = .success(())
-        roomProxy.stopLiveLocationShareReturnValue = .success(())
-        return roomProxy
+    private func setUp(authorizationStatus: CLAuthorizationStatus = .authorizedAlways,
+                       accuracyAuthorization: CLAccuracyAuthorization = .fullAccuracy) {
+        locationManagerMock = CLLocationManagerMock(.init(authorizationStatus: authorizationStatus, accuracyAuthorization: accuracyAuthorization))
+        appSettings = AppSettings.volatile()
+        manager = LiveLocationManager(appSettings: appSettings, locationManager: locationManagerMock)
     }
     
-    private func setUp(accuracyAuthorization: CLAccuracyAuthorization = .fullAccuracy) {
-        appSettings = AppSettings()
-        // AppSettings forces this off for App Store builds; re-enable for manager unit tests.
-        appSettings.liveLocationSharingEnabled = true
-        clientProxy = ClientProxyMock(.init())
-        locationManagerMock = CLLocationManagerMock(.init(accuracyAuthorization: accuracyAuthorization))
-        manager = LiveLocationManager(clientProxy: clientProxy, appSettings: appSettings, locationManager: locationManagerMock)
+    private func makeService(userID: String,
+                             isSharing: CurrentValueSubject<Bool, Never> = .init(false),
+                             actions: PassthroughSubject<LiveLocationServiceAction, Never> = .init()) -> LiveLocationServiceMock {
+        let service = LiveLocationServiceMock(.init(userID: userID))
+        service.isSharingPublisher = isSharing.asCurrentValuePublisher()
+        service.actionsPublisher = actions.eraseToAnyPublisher()
+        return service
     }
 }

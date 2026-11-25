@@ -10,15 +10,15 @@ import Combine
 import SwiftUI
 
 struct AnalyticsSettingsScreenCoordinatorParameters {
-    let appSettings: AppSettings
-    let analytics: AnalyticsService
+    let userSettings: UserSettings
+    let analytics: AnalyticsServiceProtocol
 }
 
 final class AnalyticsSettingsScreenCoordinator: CoordinatorProtocol {
     private let viewModel: AnalyticsSettingsScreenViewModel
     
     init(parameters: AnalyticsSettingsScreenCoordinatorParameters) {
-        viewModel = AnalyticsSettingsScreenViewModel(appSettings: parameters.appSettings,
+        viewModel = AnalyticsSettingsScreenViewModel(userSettings: parameters.userSettings,
                                                      analytics: parameters.analytics)
     }
     

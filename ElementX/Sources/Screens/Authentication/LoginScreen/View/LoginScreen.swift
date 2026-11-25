@@ -16,25 +16,22 @@ struct LoginScreen: View {
     @FocusState private var isPasswordFocused: Bool
     /// The focus state of the verification code text field.
     @FocusState private var isVerificationCodeFocused: Bool
-
+    
     @Bindable var context: LoginScreenViewModel.Context
-
+    
     var body: some View {
         VStack(spacing: 0) {
             header
                 .padding(.top, UIConstants.titleTopPaddingToNavigationBar)
                 .padding(.bottom, 32)
-
+            
             switch context.viewState.loginMode {
             case .password:
                 loginContent
-            case .oidc:
-                // This should never be shown.
+            case .oAuth, .unknown:
+                // OAuth is not offered: Arcana always configures password mode for native email login.
                 ProgressView()
-            case .unknown:
-                ProgressView()
-            default:
-                // This should never be shown either.
+            case .unsupported:
                 loginUnavailableText
             }
         }
@@ -61,7 +58,7 @@ struct LoginScreen: View {
         }
         .alert(item: $context.alertInfo)
     }
-
+    
     /// The header containing the title and icon.
     var header: some View {
         VStack(spacing: 8) {
@@ -73,7 +70,7 @@ struct LoginScreen: View {
                 .font(.compound.headingMDBold)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.compound.textPrimary)
-
+            
             Text(subtitle)
                 .font(.compound.bodyMD)
                 .multilineTextAlignment(.center)
@@ -81,7 +78,7 @@ struct LoginScreen: View {
         }
         .padding(.horizontal, 16)
     }
-
+    
     var title: String {
         switch context.viewState.step {
         case .credentials:
@@ -103,7 +100,7 @@ struct LoginScreen: View {
             ArcanaLocalization.loginDeviceSecuritySubtitle
         }
     }
-
+    
     /// The form with text fields for the current step, along with a submit button.
     var loginContent: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -113,7 +110,7 @@ struct LoginScreen: View {
                     Text(ArcanaLocalization.loginEmailLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isEmailFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.emailUsername))
+                .textFieldStyle(.compound(accessibilityIdentifier: A11yIdentifiers.loginScreen.emailUsername))
                 .disableAutocorrection(true)
                 .textContentType(.username)
                 .autocapitalization(.none)
@@ -121,17 +118,17 @@ struct LoginScreen: View {
                 .submitLabel(.next)
                 .onSubmit { isPasswordFocused = true }
                 .padding(.bottom, 20)
-
+                
                 SecureField(text: $context.password) {
                     Text(ArcanaLocalization.passwordLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isPasswordFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
+                .textFieldStyle(.compound(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
                 .textContentType(.password)
                 .submitLabel(.done)
                 .onSubmit(submit)
                 .padding(.bottom, 20)
-
+                
                 Button {
                     context.send(viewAction: .forgotPassword)
                 } label: {
@@ -139,22 +136,22 @@ struct LoginScreen: View {
                 }
                 .buttonStyle(.compound(.textLink))
                 .accessibilityIdentifier(A11yIdentifiers.loginScreen.forgotPassword)
-
+                
                 Spacer().frame(height: 24)
-
+                
                 Button(action: submit) {
                     Text(ArcanaLocalization.continueAction)
                 }
                 .buttonStyle(.compound(.primary))
                 .disabled(!context.viewState.canSubmit)
                 .accessibilityIdentifier(A11yIdentifiers.loginScreen.continue)
-
+                
             case .verificationCode:
                 TextField(text: $context.verificationCode) {
                     Text(ArcanaLocalization.loginVerificationCodeLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isVerificationCodeFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
+                .textFieldStyle(.compound(accessibilityIdentifier: A11yIdentifiers.loginScreen.password))
                 .textContentType(.oneTimeCode)
                 .keyboardType(.numberPad)
                 .submitLabel(.done)
@@ -166,22 +163,22 @@ struct LoginScreen: View {
                     }
                 }
                 .padding(.bottom, 20)
-
+                
                 Button(action: { context.send(viewAction: .resendVerificationCode) }, label: {
                     Text(ArcanaLocalization.resendCode)
                 })
                 .buttonStyle(.compound(.textLink))
                 .disabled(!context.viewState.canResendVerificationCode)
-
+                
                 Spacer().frame(height: 24)
-
+                
                 Button(action: submit) {
                     Text(ArcanaLocalization.confirmAction)
                 }
                 .buttonStyle(.compound(.primary))
                 .disabled(!context.viewState.canSubmit)
                 .accessibilityIdentifier(A11yIdentifiers.loginScreen.continue)
-
+                
             case .securingDevice:
                 HStack(spacing: 0) {
                     Spacer()
@@ -190,7 +187,7 @@ struct LoginScreen: View {
                     Spacer()
                 }
                 .padding(.vertical, 32)
-
+                
                 Text(ArcanaLocalization.loginDeviceSecurityBody)
                     .font(.compound.bodyMD)
                     .multilineTextAlignment(.center)
@@ -200,7 +197,7 @@ struct LoginScreen: View {
         }
     }
     
-    /// Text shown if neither password or OIDC login is supported.
+    /// Text shown if neither password or OAuth login is supported.
     var loginUnavailableText: some View {
         Text(ArcanaLocalization.unsupportedAuthentication)
             .font(.body)
@@ -222,10 +219,11 @@ struct LoginScreen: View {
 
 // MARK: - Previews
 
+@available(iOS 26.0, *)
 struct LoginScreen_Previews: PreviewProvider, TestablePreview {
     static let viewModel = makeViewModel()
     static let credentialsViewModel = makeViewModel(withCredentials: true)
-    static let unconfiguredViewModel = makeViewModel(homeserverAddress: "somethingtofailconfiguration")
+    static let unconfiguredViewModel = makeViewModel(serverNameOrBaseURL: "somethingtofailconfiguration")
     
     static var previews: some View {
         ElementNavigationStack {
@@ -246,10 +244,10 @@ struct LoginScreen_Previews: PreviewProvider, TestablePreview {
         .previewDisplayName("Unsupported")
     }
     
-    static func makeViewModel(homeserverAddress: String = "example.com", withCredentials: Bool = false) -> LoginScreenViewModel {
+    static func makeViewModel(serverNameOrBaseURL: String = "example.com", withCredentials: Bool = false) -> LoginScreenViewModel {
         let authenticationService = AuthenticationService.mock
         
-        Task { await authenticationService.configure(for: homeserverAddress, flow: .login) }
+        Task { await authenticationService.configure(for: serverNameOrBaseURL, flow: .login) }
         
         let viewModel = LoginScreenViewModel(authenticationService: authenticationService,
                                              loginHint: nil,
