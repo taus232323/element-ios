@@ -3494,6 +3494,16 @@
 			path = DevelopmentAssets;
 			sourceTree = "<group>";
 		};
+		C0A0A11B72D140D3102EA110 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				106F63CCCC42AA17BCBEC171 /* DevelopmentAssets */,
+				717255D5F7A416F0B1BCD22D /* SDKMocks */,
+				7D8C5195D4FEF4780E2B038F /* Secrets */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
 		10C3F991584C69585D2E8E3B /* Navigation */ = {
 			isa = PBXGroup;
 			children = (
@@ -3915,9 +3925,7 @@
 				17A01860A487D50B48564C57 /* UITests */,
 				0786E2853EA7C9B085380BCE /* AccessibilityTests */,
 				296E9FABBDDF8028F3C88A74 /* IntegrationTests */,
-				106F63CCCC42AA17BCBEC171 /* DevelopmentAssets */,
-				717255D5F7A416F0B1BCD22D /* SDKMocks */,
-				7D8C5195D4FEF4780E2B038F /* Secrets */,
+				C0A0A11B72D140D3102EA110 /* Components */,
 				1F383AA4BB4E39597A03EAC8 /* Tools */,
 				21EAB9518989F7C671917D7B /* arcana */,
 				223511E4D7C412E2DA15B0AB /* Packages */,
@@ -9915,7 +9923,7 @@
 				CODE_SIGN_ENTITLEMENTS = ElementX/SupportingFiles/ElementX.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
-				DEVELOPMENT_ASSET_PATHS = DevelopmentAssets/Media;
+				DEVELOPMENT_ASSET_PATHS = Components/DevelopmentAssets/Media;
 				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
 				INFOPLIST_FILE = ElementX/SupportingFiles/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -10032,7 +10040,7 @@
 				CODE_SIGN_ENTITLEMENTS = ElementX/SupportingFiles/ElementX.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
-				DEVELOPMENT_ASSET_PATHS = DevelopmentAssets/Media;
+				DEVELOPMENT_ASSET_PATHS = Components/DevelopmentAssets/Media;
 				DEVELOPMENT_TEAM = "$(DEVELOPMENT_TEAM)";
 				INFOPLIST_FILE = ElementX/SupportingFiles/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
