@@ -17,6 +17,9 @@ jobs:
       contents: read
       actions: write
 
+    # Xcode jobs stay on the upstream repo. This fork tests locally.
+    if: github.repository == 'element-hq/element-x-ios'
+
     concurrency:
       # Only allow a single run of this workflow on each branch, automatically cancelling older runs.
       group: ${{ format('accessibility-tests-{0}', github.ref) }}
