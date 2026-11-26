@@ -9,6 +9,7 @@
 @testable import Arcana
 import Combine
 import Foundation
+import SwiftUI
 import Testing
 
 @MainActor

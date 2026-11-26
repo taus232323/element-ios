@@ -386,7 +386,7 @@ class AppCoordinator: AppCoordinatorProtocol, NotificationManagerDelegate, Secur
         handleArcanaInvite(token: pendingArcanaInvite.token, webURL: pendingArcanaInvite.webURL, userSession: userSession)
     }
     
-    private func presentInviteScreen(token: String, webURL: URL?) {
+    func presentInviteScreen(token: String, webURL: URL?) {
         guard let webURL = resolveInviteWebURL(token: token, webURL: webURL) else {
             MXLog.error("Failed resolving invite web URL")
             return

@@ -17,6 +17,7 @@ enum A11yIdentifiers {
     static let appLockSetupSettingsScreen = AppLockSetupSettingsScreen()
     static let bugReportScreen = BugReportScreen()
     static let changeServerScreen = ChangeServer()
+    static let serverConfirmationScreen = ServerConfirmationScreen()
     static let encryptionResetScreen = EncryptionResetScreen()
     static let encryptionResetPasswordScreen = EncryptionResetPasswordScreen()
     static let homeScreen = HomeScreen()
@@ -98,6 +99,10 @@ enum A11yIdentifiers {
         let server = "change_server-server"
         let `continue` = "change_server-continue"
         let dismiss = "change_server-dismiss"
+    }
+    
+    struct ServerConfirmationScreen {
+        let serverPicker = "server_confirmation-server_picker"
     }
     
     struct EncryptionResetScreen {

@@ -7,6 +7,7 @@
 //
 
 @testable import Arcana
+import Combine
 import Foundation
 import Macros
 import Testing

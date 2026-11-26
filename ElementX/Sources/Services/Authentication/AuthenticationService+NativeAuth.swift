@@ -428,8 +428,8 @@ private extension AuthenticationService {
                               userId: response.userID,
                               deviceId: response.deviceID,
                               homeserverUrl: homeserverURL,
-                              oidcData: nil,
-                              slidingSyncVersion: .native)
+                              oauthData: nil,
+                              slidingSyncVersion: .unstable)
         try await client.restoreSession(session: session)
     }
     
@@ -438,7 +438,7 @@ private extension AuthenticationService {
     func completeNativeSession(client: ClientProtocol, identityBootstrapPassword: String) async -> Result<UserSessionProtocol, AuthenticationServiceError> {
         let sessionResult = await userSession(for: client)
         if case .success(let userSession) = sessionResult {
-            userSession.clientProxy.startSync()
+            await userSession.clientProxy.resumeServices()
             // Password is used by the caller for the dedicated encryption bootstrap step.
             _ = identityBootstrapPassword
         }
@@ -524,7 +524,7 @@ private extension AuthenticationService {
         do {
             let listener = SDKListener<EnableRecoveryProgress> { _ in }
             _ = try await encryption.enableRecovery(waitForBackupsToUpload: false,
-                                                    passphrase: password,
+                                                    key: .newFromPassphrase(passphrase: password),
                                                     progressListener: listener)
             MXLog.info("Password recovery enabled")
             return true
@@ -563,13 +563,15 @@ private extension AuthenticationService {
                 return true
             }
             switch handle.authType() {
-            case .uiaa:
+            case .uiaa(let info):
                 let userID = try client.userId()
-                try await handle.reset(auth: .password(passwordDetails: .init(identifier: userID, password: password)))
+                try await handle.reset(auth: .password(passwordDetails: .init(identifier: userID,
+                                                                               password: password,
+                                                                               session: info.session)))
                 MXLog.info("Identity bootstrap with password succeeded")
                 return true
-            case .oidc:
-                MXLog.warning("Identity reset requires OIDC — cannot auto-bootstrap for Arcana email login")
+            case .oAuth:
+                MXLog.warning("Identity reset requires OAuth — cannot auto-bootstrap for Arcana email login")
                 await handle.cancel()
                 return false
             }

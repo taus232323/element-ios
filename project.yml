@@ -56,6 +56,8 @@ settings:
   CURRENT_PROJECT_VERSION: 1
   SUPPORTS_MACCATALYST: false
   ARCHS: arm64
+  # Xcode 27 explicit modules drop types from the generated MatrixRustSDK interface.
+  SWIFT_ENABLE_EXPLICIT_MODULES: false
 
 include:
 - path: app.yml

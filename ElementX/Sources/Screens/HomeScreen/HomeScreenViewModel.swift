@@ -52,119 +52,8 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
                                            bindings: .init(filtersState: .init(userSettings: userSession.userSettings))),
                    mediaProvider: userSession.mediaProvider)
         
-        // Home search stays available so Arcana people lookup still works alongside the search tab.
-        
-        userSession.clientProxy.userProfilePublisher
-            .receive(on: DispatchQueue.main)
-            .weakAssign(to: \.state.userProfile, on: self)
-            .store(in: &cancellables)
-        
-        userSession.sessionSecurityStatePublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                
-                // Arcana uses email-based verification, so we do not prompt for a recovery key setup banner.
-                state.securityBannerMode = .none
-            }
-            .store(in: &cancellables)
-        
-        userSession.sessionSecurityStatePublisher
-            .receive(on: DispatchQueue.main)
-            .filter { state in
-                state.verificationState != .unknown
-                    && state.recoveryState != .settingUp
-                    && state.recoveryState != .unknown
-            }
-            .sink { [weak self] state in
-                guard let self else { return }
-                
-                self.analyticsService.updateUserProperties(AnalyticsEvent.newVerificationStateUserProperty(verificationState: state.verificationState, recoveryState: state.recoveryState))
-                self.analyticsService.trackSessionSecurityState(state)
-            }
-            .store(in: &cancellables)
-        
-        userSession.clientProxy.spaceService.spaceFilterPublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] filters in
-                guard let self else { return }
-                
-                state.shouldShowSpaceFilters = !filters.isEmpty
-                
-                if let selectedSpaceFilter = spaceFilterSubject.value,
-                   !filters.contains(selectedSpaceFilter) {
-                    // Clear the spaces filter if the space has been left.
-                    spaceFilterSubject.send(nil)
-                }
-            }
-            .store(in: &cancellables)
-        
-        selectedRoomPublisher
-            .weakAssign(to: \.state.selectedRoomID, on: self)
-            .store(in: &cancellables)
-        
-        userSettings.account.showAllRoomListActivityPublisher
-            .removeDuplicates()
-            .sink { [weak self] _ in
-                self?.updateRooms()
-            }
-            .store(in: &cancellables)
-        
-        userSettings.account.seenInvitesPublisher
-            .removeDuplicates()
-            .sink { [weak self] _ in
-                self?.updateRooms()
-            }
-            .store(in: &cancellables)
-        
-        setupInvitesSubscription()
-        
-        userSettings.app.hasSeenNewSoundBannerPublisher
-            .sink { [weak self] hasSeenNewSoundBanner in
-                self?.state.shouldShowNewSoundBanner = !hasSeenNewSoundBanner
-            }
-            .store(in: &cancellables)
-        
-        userSession.clientProxy.hideInviteAvatarsPublisher
-            .removeDuplicates()
-            .receive(on: DispatchQueue.main)
-            .weakAssign(to: \.state.hideInviteAvatars, on: self)
-            .store(in: &cancellables)
-        
-        spaceFilterSubject
-            .receive(on: DispatchQueue.main)
-            .weakAssign(to: \.state.selectedSpaceFilter, on: self)
-            .store(in: &cancellables)
-        
-        bugReportService.lastCrashEventIDSubject
-            .compactMap { $0 }
-            .first()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.presentCrashedLastRunAlert()
-            }
-            .store(in: &cancellables)
-        
-        Task {
-            state.reportRoomEnabled = await userSession.clientProxy.isReportRoomSupported
-        }
-        
-        let isSearchFieldFocused = context.$viewState.map(\.bindings.isSearchFieldFocused)
-        let searchQuery = context.$viewState.map(\.bindings.searchQuery)
-        let activeFilters = context.$viewState.map(\.bindings.filtersState.activeFilters)
-        isSearchFieldFocused
-            .combineLatest(searchQuery, activeFilters, spaceFilterSubject)
-            .removeDuplicates { $0 == $1 }
-            .sink { [weak self] isSearchFieldFocused, _, _, _ in
-                guard let self else { return }
-                // isSearchFieldFocused` is sometimes turning to true after cancelling the search. So to be extra sure we are updating the values correctly we read them directly in the next run loop, and we add a small delay if the value has changed
-                let delay = isSearchFieldFocused == self.context.viewState.bindings.isSearchFieldFocused ? 0.0 : 0.05
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    self.updateFilter()
-                }
-            }
-            .store(in: &cancellables)
-        
+        setupHomeSubscriptions(userSession: userSession, selectedRoomPublisher: selectedRoomPublisher)
+        setupSearchFilterSubscription()
         setupRoomListSubscriptions()
         setupPeopleSearch()
         
@@ -314,6 +203,122 @@ class HomeScreenViewModel: HomeScreenViewModelType, HomeScreenViewModelProtocol 
     // periphery:ignore - auto cancels when reassigned
     @CancellableTask
     private var fetchUsersTask: Task<Void, Never>?
+    
+    private func setupHomeSubscriptions(userSession: UserSessionProtocol,
+                                        selectedRoomPublisher: CurrentValuePublisher<String?, Never>) {
+        userSession.clientProxy.userProfilePublisher
+            .receive(on: DispatchQueue.main)
+            .weakAssign(to: \.state.userProfile, on: self)
+            .store(in: &cancellables)
+        
+        userSession.sessionSecurityStatePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                
+                // Arcana uses email-based verification, so we do not prompt for a recovery key setup banner.
+                state.securityBannerMode = .none
+            }
+            .store(in: &cancellables)
+        
+        userSession.sessionSecurityStatePublisher
+            .receive(on: DispatchQueue.main)
+            .filter { state in
+                state.verificationState != .unknown
+                    && state.recoveryState != .settingUp
+                    && state.recoveryState != .unknown
+            }
+            .sink { [weak self] state in
+                guard let self else { return }
+                
+                self.analyticsService.updateUserProperties(AnalyticsEvent.newVerificationStateUserProperty(verificationState: state.verificationState, recoveryState: state.recoveryState))
+                self.analyticsService.trackSessionSecurityState(state)
+            }
+            .store(in: &cancellables)
+        
+        userSession.clientProxy.spaceService.spaceFilterPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] filters in
+                guard let self else { return }
+                
+                state.shouldShowSpaceFilters = !filters.isEmpty
+                
+                if let selectedSpaceFilter = spaceFilterSubject.value,
+                   !filters.contains(selectedSpaceFilter) {
+                    // Clear the spaces filter if the space has been left.
+                    spaceFilterSubject.send(nil)
+                }
+            }
+            .store(in: &cancellables)
+        
+        selectedRoomPublisher
+            .weakAssign(to: \.state.selectedRoomID, on: self)
+            .store(in: &cancellables)
+        
+        userSettings.account.showAllRoomListActivityPublisher
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                self?.updateRooms()
+            }
+            .store(in: &cancellables)
+        
+        userSettings.account.seenInvitesPublisher
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                self?.updateRooms()
+            }
+            .store(in: &cancellables)
+        
+        setupInvitesSubscription()
+        
+        userSettings.app.hasSeenNewSoundBannerPublisher
+            .sink { [weak self] hasSeenNewSoundBanner in
+                self?.state.shouldShowNewSoundBanner = !hasSeenNewSoundBanner
+            }
+            .store(in: &cancellables)
+        
+        userSession.clientProxy.hideInviteAvatarsPublisher
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .weakAssign(to: \.state.hideInviteAvatars, on: self)
+            .store(in: &cancellables)
+        
+        spaceFilterSubject
+            .receive(on: DispatchQueue.main)
+            .weakAssign(to: \.state.selectedSpaceFilter, on: self)
+            .store(in: &cancellables)
+        
+        bugReportService.lastCrashEventIDSubject
+            .compactMap { $0 }
+            .first()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.presentCrashedLastRunAlert()
+            }
+            .store(in: &cancellables)
+        
+        Task {
+            state.reportRoomEnabled = await userSession.clientProxy.isReportRoomSupported
+        }
+    }
+    
+    private func setupSearchFilterSubscription() {
+        let isSearchFieldFocused = context.$viewState.map(\.bindings.isSearchFieldFocused)
+        let searchQuery = context.$viewState.map(\.bindings.searchQuery)
+        let activeFilters = context.$viewState.map(\.bindings.filtersState.activeFilters)
+        isSearchFieldFocused
+            .combineLatest(searchQuery, activeFilters, spaceFilterSubject)
+            .removeDuplicates { $0 == $1 }
+            .sink { [weak self] isSearchFieldFocused, _, _, _ in
+                guard let self else { return }
+                // isSearchFieldFocused` is sometimes turning to true after cancelling the search. So to be extra sure we are updating the values correctly we read them directly in the next run loop, and we add a small delay if the value has changed
+                let delay = isSearchFieldFocused == self.context.viewState.bindings.isSearchFieldFocused ? 0.0 : 0.05
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    self.updateFilter()
+                }
+            }
+            .store(in: &cancellables)
+    }
     
     private func setupPeopleSearch() {
         context.$viewState

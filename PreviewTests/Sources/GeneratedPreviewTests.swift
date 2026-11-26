@@ -1,4 +1,4 @@
-// Generated using Sourcery 2.4.1 — https://github.com/krzysztofzablocki/Sourcery
+// Generated using Sourcery 2.3.0 — https://github.com/krzysztofzablocki/Sourcery
 // DO NOT EDIT
 
 // swiftlint:disable all
@@ -405,7 +405,6 @@ extension PreviewTests {
 
     @Test
     func inviteScreen() async throws {
-        AppSettings.resetAllSettings() // Ensure this test's previews start with fresh settings.
         for (index, preview) in InviteScreen_Previews._allPreviews.enumerated() {
             try await assertSnapshots(matching: preview, step: index)
         }
@@ -756,7 +755,6 @@ extension PreviewTests {
 
     @Test
     func passwordResetScreen() async throws {
-        AppSettings.resetAllSettings() // Ensure this test's previews start with fresh settings.
         for (index, preview) in PasswordResetScreen_Previews._allPreviews.enumerated() {
             try await assertSnapshots(matching: preview, step: index)
         }

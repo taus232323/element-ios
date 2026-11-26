@@ -6,7 +6,7 @@
 //
 
 import ElementCall
-@testable import ElementX
+@testable import Arcana
 import Foundation
 import MatrixRustSDK
 import Testing

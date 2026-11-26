@@ -25,7 +25,7 @@ final class PasswordResetScreenViewModel: PasswordResetScreenViewModelType, Pass
         self.authenticationService = authenticationService
         self.userIndicatorController = userIndicatorController
         
-        let viewState = PasswordResetScreenViewState(homeserverAddress: authenticationService.homeserver.value.address,
+        let viewState = PasswordResetScreenViewState(homeserverAddress: authenticationService.homeserver.value.accountProvider.serverNameOrBaseURL,
                                                      bindings: PasswordResetScreenBindings(email: initialEmail))
         super.init(initialViewState: viewState)
     }

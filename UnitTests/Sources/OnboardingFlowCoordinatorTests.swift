@@ -6,7 +6,7 @@
 //
 
 import Combine
-@testable import ElementX
+@testable import Arcana
 import Testing
 
 // TODO: Rebuild as a UI test, unit tests can't interact with the presented screens.

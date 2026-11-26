@@ -8,7 +8,7 @@
 import AVFoundation
 import CallKit
 import Combine
-@testable import ElementX
+@testable import Arcana
 import PushKit
 import Testing
 

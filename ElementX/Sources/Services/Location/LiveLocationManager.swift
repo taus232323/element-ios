@@ -45,11 +45,6 @@ final class LiveLocationManager: NSObject, LiveLocationManagerProtocol, CLLocati
         
         setupMinimumDistanceUpdatesAndAccuracy(minimumDistance: appSettings.liveLocationMinimumDistanceUpdate)
         setupSubscriptions()
-        
-        // Ensure any previously enabled sessions are cleared.
-        if !appSettings.liveLocationSharingEnabled {
-            appSettings.liveLocationSharingTimeoutDatesByRoomID.removeAll()
-        }
     }
     
     // MARK: - LiveLocationManagerProtocol

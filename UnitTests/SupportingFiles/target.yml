@@ -57,8 +57,6 @@ targets:
     - path: ../Sources
     - path: ../SupportingFiles
     - path: ../../Components/DevelopmentAssets/Media
-    - path: ../../Components/DevelopmentAssets/ClassicAppFixtures
-      buildPhase: resources # Necessary to add binary files to the target.
     - path: ../../ElementX/Sources/Other/Extensions/Publisher.swift
     - path: ../../ElementX/Sources/Other/InfoPlistReader.swift
     - path: ../../Tools/Scripts/Templates/SimpleScreenExample/Tests/Unit

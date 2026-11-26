@@ -7,7 +7,7 @@
 
 import Combine
 import ElementCall
-@testable import ElementX
+@testable import Arcana
 import Testing
 
 @MainActor

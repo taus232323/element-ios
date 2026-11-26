@@ -7,7 +7,7 @@
 
 import Combine
 import CoreLocation
-@testable import ElementX
+@testable import Arcana
 import Foundation
 import Testing
 

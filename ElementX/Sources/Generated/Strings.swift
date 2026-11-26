@@ -630,7 +630,7 @@ internal nonisolated enum L10n {
   internal static func commonInReplyTo(_ p1: Any) -> String {
     return L10n.tr("Localizable", "common_in_reply_to", String(describing: p1))
   }
-  /// This Arcana username can't be found, so the invite might not be received.
+  /// This Matrix ID can't be found, so the invite might not be received.
   internal static var commonInviteUnknownProfile: String { return L10n.tr("Localizable", "common_invite_unknown_profile") }
   /// Leaving room
   internal static var commonLeavingRoom: String { return L10n.tr("Localizable", "common_leaving_room") }
@@ -1238,7 +1238,7 @@ internal nonisolated enum L10n {
   }
   /// 📞 Incoming call
   internal static var notificationIncomingAudioCall: String { return L10n.tr("Localizable", "notification_incoming_audio_call") }
-  /// Incoming call
+  /// 📹 Incoming call
   internal static var notificationIncomingCall: String { return L10n.tr("Localizable", "notification_incoming_call") }
   /// ** Failed to send - please open room
   internal static var notificationInlineReplyFailed: String { return L10n.tr("Localizable", "notification_inline_reply_failed") }

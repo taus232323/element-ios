@@ -66,8 +66,12 @@ class UserSessionStore: UserSessionStoreProtocol {
             let restoredHomeserverURL = credentials.restorationToken.session.homeserverUrl
             MXLog.warning("Resetting simulator session for user \(credentials.userID) with stale homeserver: \(restoredHomeserverURL)")
             keychainController.removeRestorationTokenForUsername(credentials.userID)
-            credentials.restorationToken.sessionDirectories.delete()
-            return .failure(.missingCredentials)
+            do {
+                try credentials.restorationToken.sessionDirectories.delete()
+            } catch {
+                fatalError("Failed deleting session directories with error \(error)")
+            }
+            return .failure(.failedRestoringLogin)
         }
         #endif
         
@@ -99,7 +103,8 @@ class UserSessionStore: UserSessionStoreProtocol {
         }
         
         return appSettings.accountProviders.contains { provider in
-            restoredHomeserverHost == provider || restoredHomeserverHost.hasSuffix(".\(provider)")
+            let serverName = provider.serverNameOrBaseURL
+            return restoredHomeserverHost == serverName || restoredHomeserverHost.hasSuffix(".\(serverName)")
         }
     }
     

@@ -59,6 +59,11 @@ final class LiveLocationService: LiveLocationServiceProtocol {
         self.clientProxy = clientProxy
         self.userSettings = userSettings
         self.timeProvider = timeProvider ?? TimeProvider(clock: ContinuousClock(), now: Date.init)
+        // Live location is forced off. Sessions now live on the account, so drop them here
+        // before anything treats a stored share as still running.
+        if !userSettings.app.liveLocationSharingEnabled {
+            userSettings.account.liveLocationSharingSessionsByRoomID = [:]
+        }
         isSharingSubject = .init(!userSettings.account.liveLocationSharingSessionsByRoomID.isEmpty)
         
         // Before subscribing, so shares that expired while the app wasn't running never count as sharing.

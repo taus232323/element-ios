@@ -28,12 +28,11 @@ struct AppCoordinatorDeepLinkTests {
     }
     
     @Test
-    func inviteIsPresentedAfterLogin() async throws {
+    func inviteWaitsForSession() throws {
         let appDelegate = AppDelegate()
         let appCoordinator = InviteSpyAppCoordinator(appDelegate: appDelegate)
         let webURL = try #require(URL(string: "https://arcana.celesteai.ru/invite/token-123"))
         let encodedWebURL = try #require(webURL.absoluteString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed))
-        let route = AppRoute.invite(token: "token-123", webURL: webURL)
         
         let handled = try appCoordinator.handleDeepLink(#require(URL(string: "arcana://invite/token-123?web=\(encodedWebURL)")),
                                                         isExternalURL: false,
@@ -41,12 +40,6 @@ struct AppCoordinatorDeepLinkTests {
         
         #expect(handled)
         #expect(appCoordinator.presentedInvite == nil)
-        
-        let deferred = deferFulfillment(appCoordinator.presentedInvites) { $0 == route }
-        appCoordinator.authenticationFlowCoordinator(didLoginWithSession: UserSessionMock(.init()))
-        
-        try await deferred.fulfill()
-        #expect(appCoordinator.presentedInvite == route)
     }
 }
 

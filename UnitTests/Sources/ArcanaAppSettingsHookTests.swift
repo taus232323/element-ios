@@ -7,17 +7,20 @@
 //
 
 @testable import Arcana
+import Foundation
 import Testing
 
 final class ArcanaAppSettingsHookTests {
     @Test
-    func configureSetsArcanaAuthenticationDefaults() {
-        let appSettings = ArcanaAppSettingsHook().configure(AppSettings())
+    func configureSetsArcanaAuthenticationDefaults() throws {
+        let baseURL = try #require(URL(string: "https://arcana.celesteai.ru"))
+        let appSettings = ArcanaAppSettingsHook().configure(AppSettings.volatile())
         
-        #expect(appSettings.accountProviders == [InfoPlistReader.main.arcanaAccountProvider])
+        #expect(appSettings.accountProviders == [.managed(serverName: InfoPlistReader.main.arcanaAccountProvider,
+                                                          baseURL: baseURL)])
         #expect(!appSettings.allowOtherAccountProviders)
-        #expect(appSettings.pushGatewayBaseURL == URL(string: "https://arcana.celesteai.ru"))
-        #expect(appSettings.websiteURL == URL(string: "https://arcana.celesteai.ru"))
+        #expect(appSettings.pushGatewayBaseURL == baseURL)
+        #expect(appSettings.websiteURL == baseURL)
         #expect(appSettings.privacyURL == URL(string: "https://arcana.celesteai.ru/privacy"))
         #expect(appSettings.bugReportApplicationID == "arcana-ios")
         #expect(appSettings.elementWebHosts == ["arcana.celesteai.ru"])

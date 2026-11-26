@@ -101,7 +101,7 @@ struct NativeRegistrationScreen: View {
                     Text(ArcanaLocalization.nativeRegistrationEmailLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isEmailFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: "nativeRegistrationEmail"))
+                .textFieldStyle(.compound(accessibilityIdentifier: "nativeRegistrationEmail"))
                 .disableAutocorrection(true)
                 .textContentType(.emailAddress)
                 .autocapitalization(.none)
@@ -113,7 +113,7 @@ struct NativeRegistrationScreen: View {
                     Text(ArcanaLocalization.loginVerificationCodeLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isVerificationCodeFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: "nativeRegistrationCode"))
+                .textFieldStyle(.compound(accessibilityIdentifier: "nativeRegistrationCode"))
                 .textContentType(.oneTimeCode)
                 .keyboardType(.numberPad)
                 .submitLabel(.done)
@@ -136,7 +136,7 @@ struct NativeRegistrationScreen: View {
                     Text(ArcanaLocalization.nativeRegistrationUsernameLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isUsernameFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: "nativeRegistrationUsername"))
+                .textFieldStyle(.compound(accessibilityIdentifier: "nativeRegistrationUsername"))
                 .textContentType(.username)
                 .autocapitalization(.none)
                 .submitLabel(.next)
@@ -147,7 +147,7 @@ struct NativeRegistrationScreen: View {
                     Text(ArcanaLocalization.passwordLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isPasswordFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: "nativeRegistrationPassword"))
+                .textFieldStyle(.compound(accessibilityIdentifier: "nativeRegistrationPassword"))
                 .textContentType(.newPassword)
                 .submitLabel(.done)
                 .onSubmit(submit)

@@ -100,7 +100,7 @@ struct PasswordResetScreen: View {
                     Text(ArcanaLocalization.loginEmailLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isEmailFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: "passwordResetEmail"))
+                .textFieldStyle(.compound(accessibilityIdentifier: "passwordResetEmail"))
                 .disableAutocorrection(true)
                 .textContentType(.username)
                 .autocapitalization(.none)
@@ -117,7 +117,7 @@ struct PasswordResetScreen: View {
                     Text(ArcanaLocalization.loginVerificationCodeLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isVerificationCodeFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: "passwordResetCode"))
+                .textFieldStyle(.compound(accessibilityIdentifier: "passwordResetCode"))
                 .textContentType(.oneTimeCode)
                 .keyboardType(.numberPad)
                 .submitLabel(.done)
@@ -150,7 +150,7 @@ struct PasswordResetScreen: View {
                     Text(ArcanaLocalization.passwordResetNewPasswordLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isPasswordFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: "passwordResetPassword"))
+                .textFieldStyle(.compound(accessibilityIdentifier: "passwordResetPassword"))
                 .textContentType(.newPassword)
                 .submitLabel(.next)
                 .onSubmit { isConfirmPasswordFocused = true }
@@ -160,7 +160,7 @@ struct PasswordResetScreen: View {
                     Text(ArcanaLocalization.passwordResetConfirmPasswordLabel).foregroundColor(.compound.textSecondary)
                 }
                 .focused($isConfirmPasswordFocused)
-                .textFieldStyle(.element(accessibilityIdentifier: "passwordResetConfirmPassword"))
+                .textFieldStyle(.compound(accessibilityIdentifier: "passwordResetConfirmPassword"))
                 .textContentType(.newPassword)
                 .submitLabel(.done)
                 .onSubmit(submit)
