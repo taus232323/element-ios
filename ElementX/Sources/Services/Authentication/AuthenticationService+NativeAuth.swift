@@ -566,8 +566,8 @@ private extension AuthenticationService {
             case .uiaa(let info):
                 let userID = try client.userId()
                 try await handle.reset(auth: .password(passwordDetails: .init(identifier: userID,
-                                                                               password: password,
-                                                                               session: info.session)))
+                                                                              password: password,
+                                                                              session: info.session)))
                 MXLog.info("Identity bootstrap with password succeeded")
                 return true
             case .oAuth:

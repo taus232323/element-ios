@@ -5,9 +5,9 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+@testable import Arcana
 import Combine
 import ElementCall
-@testable import Arcana
 import Testing
 
 struct NativeCallSystemTests {

@@ -5,10 +5,10 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
+@testable import Arcana
 import AVFoundation
 import CallKit
 import Combine
-@testable import Arcana
 import PushKit
 import Testing
 

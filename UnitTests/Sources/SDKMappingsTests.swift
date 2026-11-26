@@ -5,8 +5,8 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-import ElementCall
 @testable import Arcana
+import ElementCall
 import Foundation
 import MatrixRustSDK
 import Testing

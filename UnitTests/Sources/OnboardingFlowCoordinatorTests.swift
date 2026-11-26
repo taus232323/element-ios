@@ -5,8 +5,8 @@
 // Please see LICENSE files in the repository root for full details.
 //
 
-import Combine
 @testable import Arcana
+import Combine
 import Testing
 
 // TODO: Rebuild as a UI test, unit tests can't interact with the presented screens.
